@@ -36,6 +36,11 @@ if not logger.handlers:  # Only configure if not already configured
 class PlaybackController:
     """Controls audio playback with crossfading"""
     
+    # Crossfade constants
+    CROSSFADE_VOLUME_STEPS = 100  # Number of volume adjustment steps during crossfade
+    CROSSFADE_LOG_FREQUENCY = 20  # Log every Nth step (100/20 = 5 log entries)
+    FADEOUT_BUFFER_SECONDS = 0.5  # Buffer time to ensure fadeout and queue transition complete
+    
     def __init__(self, crossfade_config=None):
         # Initialize pygame mixer
         self.audio_available = False
@@ -566,6 +571,29 @@ class PlaybackController:
             logger.info(f"Starting crossfade: {fade_duration_ms}ms overlap between tracks")
             logger.info(f"Loading next track into memory for overlap playback")
             
+            # Helper function to update state after fallback fade completes
+            def create_fallback_update(delay_seconds):
+                """Creates a function to update state after fallback fadeout completes
+                
+                Args:
+                    delay_seconds: Time to wait before updating state (fade duration + buffer)
+                """
+                def update_state_after_fade():
+                    time.sleep(delay_seconds)
+                    if self.is_playing:
+                        self.current_track_index = next_track_index
+                        self.track_start_time = time.time()
+                        self.pause_time = None
+                        self.total_pause_duration = 0
+                        
+                        next_track_obj = self.current_playlist[self.current_track_index]
+                        self.track_custom_start = next_track_obj.get('start_time')
+                        self.track_custom_end = next_track_obj.get('end_time')
+                        
+                        pygame.mixer.music.set_volume(self.volume)
+                    self._reset_crossfade_state()
+                return update_state_after_fade
+            
             # Start a thread to handle the crossfade
             def execute_crossfade():
                 try:
@@ -584,23 +612,8 @@ class PlaybackController:
                             pygame.mixer.music.fadeout(fade_duration_ms)
                             
                             # Schedule state update when fadeout completes
-                            def update_state_after_fade():
-                                # Wait for fade to complete without blocking the crossfade thread
-                                time.sleep(fade_duration_seconds)
-                                if self.is_playing:
-                                    self.current_track_index = next_track_index
-                                    self.track_start_time = time.time()
-                                    self.pause_time = None
-                                    self.total_pause_duration = 0
-                                    
-                                    next_track_obj = self.current_playlist[self.current_track_index]
-                                    self.track_custom_start = next_track_obj.get('start_time')
-                                    self.track_custom_end = next_track_obj.get('end_time')
-                                    
-                                    pygame.mixer.music.set_volume(self.volume)
-                                self._reset_crossfade_state()
-                            
-                            Thread(target=update_state_after_fade, daemon=True).start()
+                            update_func = create_fallback_update(fade_duration_seconds)
+                            Thread(target=update_func, daemon=True).start()
                             return
                         
                         logger.info(f"Successfully loaded next track as Sound object (size: {next_sound.get_length():.2f}s)")
@@ -613,29 +626,15 @@ class PlaybackController:
                         pygame.mixer.music.fadeout(fade_duration_ms)
                         
                         # Schedule state update after fade completes
-                        # Add 0.5s buffer to ensure fadeout and queue transition complete
-                        def update_state_after_fade():
-                            time.sleep(fade_duration_seconds + 0.5)
-                            if self.is_playing:
-                                self.current_track_index = next_track_index
-                                self.track_start_time = time.time()
-                                self.pause_time = None
-                                self.total_pause_duration = 0
-                                
-                                next_track_obj = self.current_playlist[self.current_track_index]
-                                self.track_custom_start = next_track_obj.get('start_time')
-                                self.track_custom_end = next_track_obj.get('end_time')
-                                
-                                pygame.mixer.music.set_volume(self.volume)
-                            self._reset_crossfade_state()
-                        
-                        Thread(target=update_state_after_fade, daemon=True).start()
+                        # Buffer ensures fadeout and queue transition complete
+                        update_func = create_fallback_update(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
+                        Thread(target=update_func, daemon=True).start()
                         return
                     
                     # Now we have both: current track playing via mixer.music and next track loaded as Sound
                     # Perform simultaneous fade out/in
                     start_time = time.time()
-                    steps = 100  # Fine-grained volume control
+                    steps = self.CROSSFADE_VOLUME_STEPS
                     step_duration = fade_duration_seconds / steps
                     
                     # Start playing next track at volume 0
@@ -662,7 +661,8 @@ class PlaybackController:
                         next_vol = self.volume * progress
                         next_sound.set_volume(next_vol)
                         
-                        if i % 20 == 0:  # Log every 20% progress
+                        # Log periodically to avoid too many log entries
+                        if i % self.CROSSFADE_LOG_FREQUENCY == 0:
                             logger.debug(f"Crossfade {progress*100:.0f}%: current={current_vol:.2f}, next={next_vol:.2f}")
                         
                         time.sleep(step_duration)
