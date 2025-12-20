@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from threading import Thread, Event
 import time
+from mutagen import File as MutagenFile
 
 
 class PlaybackController:
@@ -56,6 +57,46 @@ class PlaybackController:
         self.monitor_thread = None
         self.stop_monitoring = Event()
     
+    def _read_id3_times(self, file_path):
+        """Read start and end times from ID3 tags
+        
+        Returns tuple (start_time_seconds, end_time_seconds) or (None, None)
+        Times in ID3 are stored in milliseconds, converted to seconds here
+        """
+        try:
+            audio = MutagenFile(file_path)
+            if audio is None:
+                return None, None
+            
+            start_time = None
+            end_time = None
+            
+            # Check for custom ID3 fields: LAO:MUSIC_START and LAO:MUSIC_END
+            # These are stored in TXXX frames in ID3v2
+            if hasattr(audio, 'tags') and audio.tags:
+                # Try to get TXXX frames (user-defined text information)
+                txxx_frames = audio.tags.getall('TXXX')
+                for frame in txxx_frames:
+                    desc = str(frame.desc) if hasattr(frame, 'desc') else ''
+                    if desc == 'LAO:MUSIC_START':
+                        try:
+                            # Value is in milliseconds, convert to seconds
+                            start_time = float(frame.text[0]) / 1000.0
+                        except (ValueError, IndexError, TypeError):
+                            pass
+                    elif desc == 'LAO:MUSIC_END':
+                        try:
+                            # Value is in milliseconds, convert to seconds
+                            end_time = float(frame.text[0]) / 1000.0
+                        except (ValueError, IndexError, TypeError):
+                            pass
+            
+            return start_time, end_time
+            
+        except Exception as e:
+            print(f"Error reading ID3 tags from {file_path}: {e}")
+            return None, None
+    
     def load_playlist(self, playlist_path):
         """Load a playlist from M3U file"""
         try:
@@ -77,18 +118,22 @@ class PlaybackController:
                         current_track['title'] = parts[1]
                 
                 elif line.startswith('#EXTVLCOPT:'):
-                    # Parse VLC-style options for start/stop times
+                    # Parse VLC-style options for start/stop times (fallback if ID3 tags not present)
                     # Format: #EXTVLCOPT:start-time=10.5
                     # Format: #EXTVLCOPT:stop-time=120.5
                     option = line[11:].strip()
                     if option.startswith('start-time='):
                         try:
-                            current_track['start_time'] = float(option.split('=')[1])
+                            # Only set if not already set from previous source
+                            if 'start_time' not in current_track:
+                                current_track['start_time'] = float(option.split('=')[1])
                         except (ValueError, IndexError):
                             pass
                     elif option.startswith('stop-time='):
                         try:
-                            current_track['end_time'] = float(option.split('=')[1])
+                            # Only set if not already set from previous source
+                            if 'end_time' not in current_track:
+                                current_track['end_time'] = float(option.split('=')[1])
                         except (ValueError, IndexError):
                             pass
                 
@@ -101,6 +146,14 @@ class PlaybackController:
                     current_track['path'] = line
                     if 'title' not in current_track:
                         current_track['title'] = Path(line).stem
+                    
+                    # Read ID3 tags for start/end times (takes precedence over M3U directives)
+                    if os.path.exists(line):
+                        id3_start, id3_end = self._read_id3_times(line)
+                        if id3_start is not None:
+                            current_track['start_time'] = id3_start
+                        if id3_end is not None:
+                            current_track['end_time'] = id3_end
                     
                     tracks.append(current_track)
                     current_track = {}

@@ -22,9 +22,16 @@ This is useful for:
 
 #### PlaybackController (`backend/playback_controller.py`)
 
-**Playlist Parsing:**
-- Recognizes VLC-style `#EXTVLCOPT` directives in M3U files
-- Extracts `start-time=X.X` and `stop-time=X.X` values
+**ID3 Tag Support (Primary Method):**
+- Reads custom ID3 tags from audio files: `LAO:MUSIC_START` and `LAO:MUSIC_END`
+- Times are stored in milliseconds in the ID3 tags, converted to seconds internally
+- Uses mutagen library to read TXXX (user-defined text) frames
+- ID3 tags take precedence over M3U directives
+
+**M3U Playlist Parsing (Fallback Method):**
+- Recognizes VLC-style `#EXTVLCOPT` directives in M3U files as fallback
+- Extracts `start-time=X.X` and `stop-time=X.X` values (in seconds)
+- Used when ID3 tags are not present or file cannot be read
 - Stores as `start_time` and `end_time` in track dictionary
 
 **Playback Control:**
@@ -34,6 +41,7 @@ This is useful for:
 - Pause/resume: Properly tracks time spent paused to maintain accurate position
 
 **New Methods:**
+- `_read_id3_times(file_path)` - Read start/end times from ID3 tags
 - `set_track_times(track_index, start_time, end_time)` - Set custom times for a track
 - `get_playlist_tracks()` - Get all tracks with their custom times
 
@@ -110,10 +118,33 @@ track = {
     'title': 'Song Title',
     'path': '/path/to/file.mp3',
     'duration': '180',  # seconds
-    'start_time': 10.0,  # optional, in seconds
-    'end_time': 120.0    # optional, in seconds
+    'start_time': 10.0,  # optional, in seconds (converted from ID3 milliseconds or M3U seconds)
+    'end_time': 120.0    # optional, in seconds (converted from ID3 milliseconds or M3U seconds)
 }
 ```
+
+### ID3 Tag Format
+
+Custom start and end times are stored in ID3v2 TXXX (user-defined text) frames:
+
+```python
+# ID3 tags (using mutagen)
+from mutagen.id3 import TXXX
+
+# Start time in milliseconds
+audio.tags.add(TXXX(encoding=3, desc='LAO:MUSIC_START', text='10000'))  # 10 seconds
+
+# End time in milliseconds  
+audio.tags.add(TXXX(encoding=3, desc='LAO:MUSIC_END', text='120000'))  # 120 seconds
+```
+
+**Field Names:**
+- `LAO:MUSIC_START` - Start time in milliseconds
+- `LAO:MUSIC_END` - End time in milliseconds (also referred to as `LAO:MUSIC_END`)
+
+**Priority:**
+1. ID3 tags (if present and file exists)
+2. M3U `#EXTVLCOPT` directives (fallback)
 
 ### M3U Format
 
@@ -131,6 +162,8 @@ track = {
 - Playlist parsing with custom times ✅
 - Track times API methods ✅
 - Status API with custom times ✅
+- ID3 tag reading ✅
+- M3U fallback when ID3 not present ✅
 
 ### API Tests
 - GET /api/playback/tracks ✅
@@ -142,13 +175,31 @@ track = {
 - Time format parsing (MM:SS, seconds) ✅
 - Visual display in Player and Track Times tabs ✅
 - Frontend build and TypeScript compilation ✅
+- ID3 tag reading from real MP3 files ✅
 
 ### Security
 - CodeQL scan: 0 vulnerabilities ✅
 
 ## Usage Examples
 
-### Via M3U Playlist
+### Via ID3 Tags (Recommended)
+
+Use the provided `id3_tag_manager.py` tool to add custom times to your MP3 files:
+
+```bash
+# Add ID3 tags to an existing MP3 file
+python3 examples/id3_tag_manager.py add my_track.mp3 --start 10000 --end 120000
+
+# Read ID3 tags from a file
+python3 examples/id3_tag_manager.py read my_track.mp3
+
+# Create a test MP3 with ID3 tags
+python3 examples/id3_tag_manager.py create test.mp3 --start 5000 --end 60000
+```
+
+**Note:** Times are in milliseconds for ID3 tags.
+
+### Via M3U Playlist (Fallback)
 
 ```m3u
 #EXTM3U
