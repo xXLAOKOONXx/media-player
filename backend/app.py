@@ -32,7 +32,6 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 # Initialize managers
 storage_manager = StorageManager()
 library_manager = LibraryManager()
-playback_controller = PlaybackController()
 
 # Configuration
 CONFIG_FILE = 'config.json'
@@ -42,7 +41,15 @@ def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
             return json.load(f)
-    return {'network_storages': [], 'libraries': []}
+    return {
+        'network_storages': [],
+        'libraries': [],
+        'crossfade': {
+            'enabled': True,
+            'duration_ms': 3000,
+            'fade_out_start_before_end_ms': 5000
+        }
+    }
 
 def save_config(config):
     """Save configuration to file"""
@@ -50,6 +57,15 @@ def save_config(config):
     # or using environment variables and secure credential storage
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=2)
+
+# Load configuration and initialize playback controller with crossfade settings
+config = load_config()
+crossfade_config = config.get('crossfade', {
+    'enabled': True,
+    'duration_ms': 3000,
+    'fade_out_start_before_end_ms': 5000
+})
+playback_controller = PlaybackController(crossfade_config=crossfade_config)
 
 # Network Storage Management APIs
 @app.route('/api/storage', methods=['GET'])
@@ -196,6 +212,45 @@ def get_status():
     """Get current playback status"""
     status = playback_controller.get_status()
     return jsonify(status)
+
+# Crossfade Configuration APIs
+@app.route('/api/crossfade/config', methods=['GET'])
+def get_crossfade_config():
+    """Get current crossfade configuration"""
+    return jsonify(playback_controller.get_crossfade_config())
+
+@app.route('/api/crossfade/config', methods=['PUT'])
+def update_crossfade_config():
+    """Update crossfade configuration"""
+    try:
+        data = request.json
+        
+        # Validate input
+        if 'enabled' in data and not isinstance(data['enabled'], bool):
+            return jsonify({'error': 'enabled must be a boolean'}), 400
+        
+        if 'duration_ms' in data:
+            if not isinstance(data['duration_ms'], (int, float)) or data['duration_ms'] < 0:
+                return jsonify({'error': 'duration_ms must be a positive number'}), 400
+        
+        if 'fade_out_start_before_end_ms' in data:
+            if not isinstance(data['fade_out_start_before_end_ms'], (int, float)) or data['fade_out_start_before_end_ms'] < 0:
+                return jsonify({'error': 'fade_out_start_before_end_ms must be a positive number'}), 400
+        
+        # Update playback controller config
+        playback_controller.update_crossfade_config(data)
+        
+        # Update and save config file
+        config = load_config()
+        if 'crossfade' not in config:
+            config['crossfade'] = {}
+        config['crossfade'].update(data)
+        save_config(config)
+        
+        return jsonify(playback_controller.get_crossfade_config())
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Browse filesystem
 @app.route('/api/browse', methods=['POST'])

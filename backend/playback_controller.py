@@ -1,6 +1,6 @@
 """
 Playback Controller
-Handles audio playback using pygame
+Handles audio playback using pygame with crossfading support
 """
 
 import pygame
@@ -11,9 +11,9 @@ import time
 
 
 class PlaybackController:
-    """Controls audio playback"""
+    """Controls audio playback with crossfading"""
     
-    def __init__(self):
+    def __init__(self, crossfade_config=None):
         # Initialize pygame mixer
         try:
             pygame.mixer.init()
@@ -28,6 +28,18 @@ class PlaybackController:
         self.is_playing = False
         self.is_paused = False
         self.volume = 0.5
+        
+        # Crossfade configuration
+        self.crossfade_config = crossfade_config or {
+            'enabled': True,
+            'duration_ms': 3000,  # 3 seconds default
+            'fade_out_start_before_end_ms': 5000  # Start fading 5 seconds before track ends
+        }
+        
+        # Crossfade state
+        self.is_crossfading = False
+        self.crossfade_start_time = None
+        self.next_track_queued = False
         
         # Set initial volume if audio is available
         if self.audio_available:
@@ -106,6 +118,8 @@ class PlaybackController:
             
             self.is_playing = True
             self.is_paused = False
+            self.is_crossfading = False
+            self.next_track_queued = False
             
             # Start monitoring thread
             if self.monitor_thread is None or not self.monitor_thread.is_alive():
@@ -147,12 +161,16 @@ class PlaybackController:
         """Skip to next track"""
         if self.current_playlist:
             self.current_track_index = (self.current_track_index + 1) % len(self.current_playlist)
+            self.is_crossfading = False
+            self.next_track_queued = False
             self.play()
     
     def previous(self):
         """Go to previous track"""
         if self.current_playlist:
             self.current_track_index = (self.current_track_index - 1) % len(self.current_playlist)
+            self.is_crossfading = False
+            self.next_track_queued = False
             self.play()
     
     def set_volume(self, volume):
@@ -183,16 +201,106 @@ class PlaybackController:
         return status
     
     def _monitor_playback(self):
-        """Monitor playback and auto-advance to next track"""
+        """Monitor playback and handle crossfading to next track"""
         while not self.stop_monitoring.is_set():
             if self.is_playing and not self.is_paused:
                 if self.audio_available:
                     if not pygame.mixer.music.get_busy():
                         # Track finished, play next
                         self.next()
+                    elif self.crossfade_config.get('enabled', False):
+                        # Check if we should start crossfading
+                        self._handle_crossfade()
                 # In no-audio mode, don't auto-advance
             elif not self.is_playing:
                 # Stop monitoring if playback is stopped
                 break
             
-            time.sleep(0.5)
+            time.sleep(0.1)  # Check more frequently for smooth crossfading
+    
+    def _handle_crossfade(self):
+        """Handle crossfade logic during playback"""
+        if not self.audio_available or self.is_crossfading:
+            return
+        
+        try:
+            # Get current position in milliseconds
+            pos_ms = pygame.mixer.music.get_pos()
+            
+            # Get track duration (if available)
+            if self.current_playlist and self.current_track_index < len(self.current_playlist):
+                track = self.current_playlist[self.current_track_index]
+                duration_str = track.get('duration', '0')
+                
+                try:
+                    duration_sec = float(duration_str)
+                    duration_ms = duration_sec * 1000
+                    
+                    # Calculate when to start crossfade
+                    fade_start_before_end = self.crossfade_config.get('fade_out_start_before_end_ms', 5000)
+                    crossfade_duration = self.crossfade_config.get('duration_ms', 3000)
+                    
+                    # Time remaining in track
+                    time_remaining_ms = duration_ms - pos_ms
+                    
+                    # Start crossfade if we're close enough to the end
+                    if time_remaining_ms <= fade_start_before_end and not self.next_track_queued:
+                        self._start_crossfade(crossfade_duration)
+                        
+                except (ValueError, TypeError):
+                    # If duration is unknown, let track finish naturally
+                    pass
+                    
+        except Exception as e:
+            print(f"Error in crossfade handling: {e}")
+    
+    def _start_crossfade(self, fade_duration_ms):
+        """Start crossfading to the next track"""
+        if not self.audio_available or not self.current_playlist:
+            return
+        
+        try:
+            # Calculate next track index
+            next_track_index = (self.current_track_index + 1) % len(self.current_playlist)
+            if next_track_index >= len(self.current_playlist):
+                return
+            
+            next_track = self.current_playlist[next_track_index]
+            next_track_path = next_track['path']
+            
+            # Check if next file exists
+            if not os.path.exists(next_track_path):
+                print(f"Next track not found: {next_track_path}")
+                return
+            
+            # Queue the next track with fadeout
+            self.is_crossfading = True
+            self.next_track_queued = True
+            
+            # Fade out current track and automatically play next
+            # pygame.mixer.music.fadeout() stops the current music after fading
+            # We'll use queue() to preload the next track
+            pygame.mixer.music.queue(next_track_path)
+            pygame.mixer.music.set_endevent(pygame.USEREVENT)
+            
+            # Start fade out of current track
+            pygame.mixer.music.fadeout(fade_duration_ms)
+            
+            # Update current track index when fade completes
+            # The monitoring loop will detect when music stops and update
+            print(f"Crossfading: {fade_duration_ms}ms fade to next track")
+            
+        except Exception as e:
+            print(f"Error starting crossfade: {e}")
+            self.is_crossfading = False
+            self.next_track_queued = False
+    
+    def update_crossfade_config(self, config):
+        """Update crossfade configuration"""
+        if config:
+            self.crossfade_config.update(config)
+            print(f"Crossfade config updated: {self.crossfade_config}")
+    
+    def get_crossfade_config(self):
+        """Get current crossfade configuration"""
+        return self.crossfade_config.copy()

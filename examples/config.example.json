@@ -36,5 +36,10 @@
       "path": "/mnt/media_2/jazz",
       "storage_id": 2
     }
-  ]
+  ],
+  "crossfade": {
+    "enabled": true,
+    "duration_ms": 3000,
+    "fade_out_start_before_end_ms": 5000
+  }
 }

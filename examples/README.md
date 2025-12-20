@@ -5,7 +5,69 @@ This directory contains example files to help you get started with the media pla
 ## Files
 
 - `example_playlist.m3u` - Sample M3U playlist format
-- `config.example.json` - Example configuration file
+- `config.example.json` - Example configuration file with all settings
+
+## Configuration Sections
+
+### Network Storages
+
+Configure your network-attached storage (NAS) devices:
+
+```json
+{
+  "network_storages": [
+    {
+      "id": 1,
+      "name": "NAS Music Library",
+      "type": "smb",
+      "host": "192.168.1.10",
+      "share": "music",
+      "username": "mediauser",
+      "password": "your_password_here",
+      "mount_point": "/mnt/media_1"
+    }
+  ]
+}
+```
+
+### Libraries
+
+Define music libraries pointing to playlist folders:
+
+```json
+{
+  "libraries": [
+    {
+      "id": 1,
+      "name": "Main Playlists",
+      "type": "playlist",
+      "path": "/mnt/media_1/playlists",
+      "storage_id": 1
+    }
+  ]
+}
+```
+
+### Crossfading
+
+Configure automatic crossfading between tracks:
+
+```json
+{
+  "crossfade": {
+    "enabled": true,
+    "duration_ms": 3000,
+    "fade_out_start_before_end_ms": 5000
+  }
+}
+```
+
+**Parameters:**
+- `enabled` (boolean): Enable/disable crossfading
+- `duration_ms` (number): Fade duration in milliseconds (default: 3000)
+- `fade_out_start_before_end_ms` (number): When to start fading before track ends (default: 5000)
+
+See [docs/CROSSFADING.md](../docs/CROSSFADING.md) for detailed information.
 
 ## Usage
 

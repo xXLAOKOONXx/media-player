@@ -316,6 +316,69 @@ Content-Type: application/json
 }
 ```
 
+### Crossfade Configuration
+
+#### Get Crossfade Configuration
+
+```http
+GET /crossfade/config
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "duration_ms": 3000,
+  "fade_out_start_before_end_ms": 5000
+}
+```
+
+**Response Fields:**
+- `enabled` (boolean) - Whether crossfading is enabled
+- `duration_ms` (number) - Fade duration in milliseconds
+- `fade_out_start_before_end_ms` (number) - When to start fading before track ends
+
+#### Update Crossfade Configuration
+
+```http
+PUT /crossfade/config
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "duration_ms": 4000,
+  "fade_out_start_before_end_ms": 6000
+}
+```
+
+**Request Body:**
+- `enabled` (boolean, optional) - Enable/disable crossfading
+- `duration_ms` (number, optional) - Fade duration in milliseconds (must be >= 0)
+- `fade_out_start_before_end_ms` (number, optional) - When to start fading (must be >= 0)
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "duration_ms": 4000,
+  "fade_out_start_before_end_ms": 6000
+}
+```
+
+**Example - Enable crossfading:**
+```bash
+curl -X PUT http://localhost:5000/api/crossfade/config \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+```
+
+**Example - Adjust fade duration:**
+```bash
+curl -X PUT http://localhost:5000/api/crossfade/config \
+  -H "Content-Type: application/json" \
+  -d '{"duration_ms": 5000, "fade_out_start_before_end_ms": 8000}'
+```
+
 ## Error Responses
 
 All endpoints may return error responses in the following format:
