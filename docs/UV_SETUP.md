@@ -133,8 +133,8 @@ flake8 .
 # Add to pyproject.toml [project.dependencies]
 uv pip install package-name
 
-# Or update requirements.txt and sync
-uv pip compile pyproject.toml -o requirements.txt
+# Update requirements.txt to keep it in sync
+uv pip freeze > requirements.txt
 ```
 
 ### Upgrading all dependencies:
