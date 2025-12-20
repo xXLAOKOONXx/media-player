@@ -1,0 +1,47 @@
+.storage-manager {
+  max-width: 900px;
+}
+
+.description {
+  color: #aaa;
+  margin: 1rem 0;
+}
+
+.storage-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.storage-info {
+  flex: 1;
+}
+
+.storage-name {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.storage-type {
+  background-color: rgba(102, 126, 234, 0.3);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.storage-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.storage-details span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
