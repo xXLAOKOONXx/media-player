@@ -90,11 +90,22 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 0.25rem;
+  flex-wrap: wrap;
 }
 
 .btn-small {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  color: white;
+}
+
+.btn-accent:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(167, 139, 250, 0.4);
 }
 
 .error-message {
@@ -112,5 +123,13 @@
   
   .input-group {
     min-width: 100%;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  .btn-small {
+    width: 100%;
   }
 }

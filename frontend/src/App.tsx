@@ -40,7 +40,7 @@ function App() {
             className={activeTab === 'tracks' ? 'active' : ''} 
             onClick={() => setActiveTab('tracks')}
           >
-            Track Times
+            Track Editor
           </button>
           <button 
             className={activeTab === 'library' ? 'active' : ''} 

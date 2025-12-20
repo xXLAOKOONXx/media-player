@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './TrackTimesEditor.css';
+import MetadataEditor from './MetadataEditor';
 
 const API_BASE_URL = '';
 
@@ -18,6 +19,7 @@ const TrackTimesEditor = () => {
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [editingMetadata, setEditingMetadata] = useState<string | null>(null);
 
   const loadTracks = async () => {
     try {
@@ -166,11 +168,21 @@ const TrackTimesEditor = () => {
 
   return (
     <div className="track-times-editor card">
-      <h2>Track Times</h2>
+      <h2>Track Times & Metadata</h2>
       <p className="info-text">
-        Set custom start and end times for each track. Leave empty to use the full track.
+        Set custom start and end times for each track, or edit track metadata and custom tags.
         Format: MM:SS or seconds
       </p>
+      
+      {editingMetadata && (
+        <MetadataEditor
+          trackPath={editingMetadata}
+          onClose={() => {
+            setEditingMetadata(null);
+            loadTracks(); // Reload tracks to refresh metadata
+          }}
+        />
+      )}
       
       <div className="tracks-list">
         {tracks.map((track) => (
@@ -229,11 +241,14 @@ const TrackTimesEditor = () => {
                 </div>
                 <div className="button-group">
                   <button className="btn btn-small" onClick={() => handleEdit(track)}>
-                    Edit
+                    Edit Times
+                  </button>
+                  <button className="btn btn-small btn-accent" onClick={() => setEditingMetadata(track.path)}>
+                    Edit Metadata
                   </button>
                   {(track.start_time != null || track.end_time != null) && (
                     <button className="btn btn-small btn-secondary" onClick={() => handleClear(track.index)}>
-                      Clear
+                      Clear Times
                     </button>
                   )}
                 </div>

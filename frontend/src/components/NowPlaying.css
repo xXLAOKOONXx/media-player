@@ -26,6 +26,29 @@
   50% { opacity: 0.6; }
 }
 
+.track-metadata {
+  background-color: rgba(102, 126, 234, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.metadata-field {
+  margin: 0.5rem 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.metadata-label {
+  font-weight: 600;
+  color: #667eea;
+  min-width: 80px;
+}
+
+.metadata-value {
+  color: #fff;
+}
+
 .track-details {
   color: #aaa;
   margin-bottom: 1rem;
@@ -40,6 +63,50 @@
 .track-duration {
   font-size: 0.9rem;
   margin: 0.5rem 0;
+}
+
+.track-custom-times {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  color: #ffa500;
+}
+
+.custom-tags {
+  background-color: rgba(102, 126, 234, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.custom-tags h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.8rem;
+  color: #667eea;
+}
+
+.tags-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tag-item {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.tag-key {
+  font-weight: 600;
+  color: #a78bfa;
+  word-break: break-word;
+}
+
+.tag-value {
+  color: #fff;
+  word-break: break-word;
 }
 
 .playlist-info {
