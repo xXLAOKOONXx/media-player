@@ -12,7 +12,7 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
       <div className="now-playing card">
         <h2>Now Playing</h2>
         <div className="empty-state">
-          <p><span className="material-icons" style={{ verticalAlign: 'middle' }}>music_note</span> No track playing</p>
+          <p><span className="material-icons">music_note</span> No track playing</p>
           <p>Select a playlist from the Playlists tab to start playback</p>
         </div>
       </div>
@@ -76,10 +76,10 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
         </div>
         <div className="track-details">
           {current_track.artist && (
-            <p className="track-artist"><span className="material-icons" style={{ fontSize: '1.1rem', verticalAlign: 'middle' }}>person</span> {current_track.artist}</p>
+            <p className="track-artist"><span className="material-icons">person</span> {current_track.artist}</p>
           )}
           {current_track.album && (
-            <p className="track-album"><span className="material-icons" style={{ fontSize: '0.95rem', verticalAlign: 'middle' }}>album</span> {current_track.album}</p>
+            <p className="track-album"><span className="material-icons">album</span> {current_track.album}</p>
           )}
           {(current_track.start_time != null || current_track.end_time != null) && (
             <p className="track-custom-times">
@@ -143,12 +143,12 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
           <div className="up-next">
             <h3>Up Next</h3>
             <div className="next-track-info">
-              <p className="next-track-title"><span className="material-icons" style={{ fontSize: '1.1rem', verticalAlign: 'middle' }}>music_note</span> {next_track.title}</p>
+              <p className="next-track-title"><span className="material-icons">music_note</span> {next_track.title}</p>
               {next_track.artist && (
-                <p className="next-track-artist"><span className="material-icons" style={{ fontSize: '0.95rem', verticalAlign: 'middle' }}>person</span> {next_track.artist}</p>
+                <p className="next-track-artist"><span className="material-icons">person</span> {next_track.artist}</p>
               )}
               {next_track.album && (
-                <p className="next-track-album"><span className="material-icons" style={{ fontSize: '0.85rem', verticalAlign: 'middle' }}>album</span> {next_track.album}</p>
+                <p className="next-track-album"><span className="material-icons">album</span> {next_track.album}</p>
               )}
             </div>
           </div>
