@@ -37,3 +37,7 @@ echo ""
 echo "Or run the backend (which serves the built frontend):"
 echo "  cd backend && uv run python app.py"
 echo ""
+
+cd backend
+echo "🌐 Starting backend server..."
+uv run python app.py
