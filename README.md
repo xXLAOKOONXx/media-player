@@ -1,6 +1,6 @@
 # Media Player
 
-A comprehensive media player system designed for Raspberry Pi with network storage support, web-based control interface, and playlist management.
+A comprehensive media player system designed for Raspberry Pi with network storage support, web-based control interface, playlist management, and ID3 metadata editing.
 
 ## 🎯 Features
 
@@ -10,6 +10,9 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 - **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Playback Controls**: Play, pause, stop, skip tracks, and adjust volume
 - **Real-Time Status**: See what's currently playing in real-time
+- **Metadata Display**: View track metadata (title, artist, album, year, etc.)
+- **Custom Tags**: Add and edit custom ID3 tags using the LAO:* pattern
+- **Track Editor**: Set custom start/end times and edit metadata for each track
 - **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
 
 ## 📋 Table of Contents
@@ -242,7 +245,28 @@ In the **Player** tab, you can:
 - **Stop**: Stop playback completely
 - **Previous/Next**: Navigate between tracks
 - **Volume**: Adjust the playback volume
-- **Now Playing**: See the current track information
+- **Now Playing**: See the current track information, including metadata and custom tags
+
+### 5. Edit Track Metadata
+
+1. Load a playlist and navigate to the **Track Editor** tab
+2. Click **Edit Metadata** on any track to open the metadata editor
+3. Edit standard fields:
+   - Title, Artist, Album, Year, Track Number
+4. Add custom tags using the LAO:* pattern:
+   - Example: `LAO:GENRE` → `Electronic`
+   - Example: `LAO:MOOD` → `Energetic`
+   - Example: `LAO:MUSIC_START` → `5000` (milliseconds)
+5. Click **Save Changes** to write metadata to the MP3 file
+6. View metadata and custom tags in the **Now Playing** section
+
+### 6. Set Custom Track Times
+
+1. In the **Track Editor** tab, click **Edit Times** on any track
+2. Set custom start time (e.g., `0:30` to skip intro)
+3. Set custom end time (e.g., `3:45` to skip outro)
+4. Click **Save** to apply custom times
+5. These times are used during playback to play only the desired portion
 
 ## 🍓 Raspberry Pi Setup
 
@@ -358,6 +382,7 @@ media-player/
 │   ├── storage_manager.py  # Network storage handling
 │   ├── library_manager.py  # Playlist and library management
 │   ├── playback_controller.py # Audio playback control
+│   ├── metadata_manager.py # ID3 metadata reading/writing
 │   └── requirements.txt    # Python dependencies
 ├── frontend/               # React frontend
 │   ├── src/
@@ -365,7 +390,9 @@ media-player/
 │   │   │   ├── StorageManager.tsx
 │   │   │   ├── LibraryManager.tsx
 │   │   │   ├── PlaybackControls.tsx
-│   │   │   └── NowPlaying.tsx
+│   │   │   ├── NowPlaying.tsx
+│   │   │   ├── TrackTimesEditor.tsx
+│   │   │   └── MetadataEditor.tsx
 │   │   ├── App.tsx        # Main App component
 │   │   └── index.tsx      # Entry point
 │   └── package.json       # npm dependencies
@@ -391,7 +418,14 @@ media-player/
 - `POST /api/playback/next` - Next track
 - `POST /api/playback/previous` - Previous track
 - `POST /api/playback/volume` - Set volume
-- `GET /api/playback/status` - Get playback status
+- `GET /api/playback/status` - Get playback status (includes metadata)
+- `GET /api/playback/tracks` - Get all tracks in current playlist
+- `PUT /api/playback/tracks/:id/times` - Set custom start/end times
+
+#### Metadata Management
+- `POST /api/metadata` - Read track metadata
+- `PUT /api/metadata` - Write track metadata
+- `DELETE /api/metadata/custom-tag` - Delete a custom tag
 
 #### File System
 - `POST /api/browse` - Browse filesystem path
