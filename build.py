@@ -128,10 +128,11 @@ def bundle_with_pyinstaller(backend_dir):
         print_warning("PyInstaller bundling is designed for Windows. Skipping on Unix systems.")
         return True
     
-    # Check if PyInstaller is installed
-    try:
-        import PyInstaller
-    except ImportError:
+    # Check if PyInstaller is installed using importlib for robustness
+    import importlib.util
+    pyinstaller_spec = importlib.util.find_spec('PyInstaller')
+    
+    if pyinstaller_spec is None:
         print_warning("PyInstaller is not installed.")
         print("Installing PyInstaller...")
         success, output = run_command([sys.executable, '-m', 'pip', 'install', 'pyinstaller>=6.0.0'])
@@ -204,7 +205,8 @@ def create_unix_distribution(project_root, backend_dir):
         backend_dist,
         ignore=shutil.ignore_patterns(
             '__pycache__', '*.pyc', '*.pyo', '.venv', 'venv',
-            'dist', 'build', '*.spec', '.pytest_cache'
+            'dist', 'build', '*.spec', '.pytest_cache',
+            'test_*.py', 'tests', '*_test.py'
         )
     )
     
