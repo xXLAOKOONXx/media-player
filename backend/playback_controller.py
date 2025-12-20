@@ -372,18 +372,24 @@ class PlaybackController:
         if not self.current_playlist or track_index < 0 or track_index >= len(self.current_playlist):
             return False
         
+        # Validate input
+        if start_time is not None and start_time < 0:
+            return False
+        
+        if end_time is not None and end_time < 0:
+            return False
+        
+        if start_time is not None and end_time is not None and start_time >= end_time:
+            return False
+        
         track = self.current_playlist[track_index]
         
         if start_time is not None:
-            if start_time < 0:
-                return False
             track['start_time'] = start_time
         else:
             track.pop('start_time', None)
         
         if end_time is not None:
-            if end_time < 0:
-                return False
             track['end_time'] = end_time
         else:
             track.pop('end_time', None)

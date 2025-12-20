@@ -31,8 +31,12 @@ const TrackTimesEditor = () => {
 
   useEffect(() => {
     loadTracks();
-    // Refresh tracks periodically
-    const interval = setInterval(loadTracks, 5000);
+    // Refresh tracks every 10 seconds when tab is visible
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        loadTracks();
+      }
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -92,7 +96,7 @@ const TrackTimesEditor = () => {
         return;
       }
       
-      await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
+      const response = await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,6 +104,12 @@ const TrackTimesEditor = () => {
           end_time: parsedEndTime
         })
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to save track times' }));
+        setError(errorData.error || 'Failed to save track times');
+        return;
+      }
       
       setEditingTrack(null);
       setStartTime('');
@@ -120,7 +130,7 @@ const TrackTimesEditor = () => {
 
   const handleClear = async (trackIndex: number) => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
+      const response = await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,9 +138,17 @@ const TrackTimesEditor = () => {
           end_time: null
         })
       });
+      
+      if (!response.ok) {
+        console.error('Failed to clear track times');
+        alert('Failed to clear track times');
+        return;
+      }
+      
       loadTracks();
     } catch (err) {
       console.error('Error clearing track times:', err);
+      alert('Error clearing track times');
     }
   };
 
