@@ -286,7 +286,7 @@ const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
                 </button>
               </div>
               <p className="hint">
-                Tip: Use "LAO:" prefix for custom tags (e.g., LAO:MUSIC_START, LAO:GENRE)
+                Tip: Use "LAO:" prefix for custom tags. Common examples: LAO:TAGS (for labels/genres), LAO:MUSIC_START, LAO:MUSIC_END, LAO:playcount, LAO:USERRATING, LAO:lastplayed
               </p>
             </div>
           </section>
