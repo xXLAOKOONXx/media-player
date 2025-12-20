@@ -5,6 +5,7 @@ Main Flask application for media player control
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 import os
 import json
 from pathlib import Path
@@ -15,8 +16,14 @@ from library_manager import LibraryManager
 from playback_controller import PlaybackController
 
 # Configure Flask to serve static files from the static folder
-static_folder = os.path.join(os.path.dirname(__file__), 'static')
+# Use absolute path for security
+static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=static_folder, static_url_path='')
+
+# Validate static folder exists
+if not os.path.exists(static_folder):
+    print(f"Warning: Static folder not found at {static_folder}")
+    print("Run 'cd ../frontend && npm run build' to build the frontend")
 
 # Enable CORS for development (when frontend runs on different port)
 # In production, frontend is served from Flask, so CORS not needed
@@ -226,12 +233,31 @@ def serve_frontend(path):
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
     
-    # Check if it's a file in static folder
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
+    # Sanitize path to prevent directory traversal
+    if path:
+        # Remove any directory traversal attempts
+        path = path.replace('..', '')
+        # Normalize the path
+        safe_path = os.path.normpath(path).lstrip('/')
+        full_path = os.path.join(app.static_folder, safe_path)
+        
+        # Ensure the file is within static folder (prevent directory traversal)
+        if os.path.commonpath([app.static_folder, full_path]) != app.static_folder:
+            return jsonify({'error': 'Invalid path'}), 400
+        
+        # Check if file exists and serve it
+        if os.path.isfile(full_path):
+            return send_from_directory(app.static_folder, safe_path)
     
     # Otherwise, serve index.html (for React Router)
-    return send_from_directory(app.static_folder, 'index.html')
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(app.static_folder, 'index.html')
+    else:
+        return jsonify({
+            'error': 'Frontend not built',
+            'message': 'Run "cd frontend && npm run build" to build the frontend'
+        }), 404
 
 if __name__ == '__main__':
     # Development server configuration
