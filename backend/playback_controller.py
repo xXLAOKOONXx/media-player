@@ -50,6 +50,9 @@ class PlaybackController:
         self.pause_time = None  # System time when paused
         self.total_pause_duration = 0  # Total time spent paused
         
+        # Metadata cache
+        self.current_track_metadata = None  # Cache metadata for current track
+        
         # Set initial volume if audio is available
         if self.audio_available:
             pygame.mixer.music.set_volume(self.volume)
@@ -196,6 +199,9 @@ class PlaybackController:
             self.track_custom_start = track.get('start_time')
             self.track_custom_end = track.get('end_time')
             
+            # Cache metadata for the current track to avoid repeated disk reads
+            self.current_track_metadata = MetadataManager.read_metadata(track_path)
+            
             if self.audio_available:
                 pygame.mixer.music.load(track_path)
                 
@@ -294,8 +300,10 @@ class PlaybackController:
             track = self.current_playlist[self.current_track_index]
             track_path = track.get('path', '')
             
-            # Read full metadata from file
-            metadata = MetadataManager.read_metadata(track_path) if track_path else None
+            # Use cached metadata if available, otherwise read from file
+            metadata = self.current_track_metadata
+            if metadata is None and track_path:
+                metadata = MetadataManager.read_metadata(track_path)
             
             status['current_track'] = {
                 'title': track.get('title', 'Unknown'),
