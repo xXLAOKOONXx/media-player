@@ -31,10 +31,17 @@
   margin-bottom: 1rem;
 }
 
-.track-path {
-  font-size: 0.9rem;
-  word-break: break-all;
+.track-artist {
+  font-size: 1.1rem;
   margin: 0.5rem 0;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.track-album {
+  font-size: 0.95rem;
+  margin: 0.5rem 0;
+  color: #999;
 }
 
 .track-custom-times {
@@ -141,4 +148,43 @@
   display: inline-block;
   margin-top: 1rem;
   font-weight: 500;
+}
+
+.up-next {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.up-next h3 {
+  font-size: 1.2rem;
+  color: #667eea;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.next-track-info {
+  background: rgba(102, 126, 234, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.next-track-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.3rem 0;
+  color: #ddd;
+}
+
+.next-track-artist {
+  font-size: 0.95rem;
+  margin: 0.3rem 0;
+  color: #667eea;
+}
+
+.next-track-album {
+  font-size: 0.85rem;
+  margin: 0.3rem 0;
+  color: #999;
 }

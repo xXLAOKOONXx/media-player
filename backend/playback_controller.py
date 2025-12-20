@@ -79,48 +79,93 @@ class PlaybackController:
         self.monitor_thread = None
         self.stop_monitoring = Event()
     
-    def _read_id3_times(self, file_path):
-        """Read start and end times from ID3 tags
+    def _read_id3_metadata(self, file_path):
+        """Read metadata from ID3 tags
         
-        Returns tuple (start_time_seconds, end_time_seconds) or (None, None)
-        Times in ID3 are stored in milliseconds, converted to seconds here
+        Returns dict with artist, album, and timing information
         """
         if not MUTAGEN_AVAILABLE:
-            return None, None
+            return {}
             
         try:
             audio = MutagenFile(file_path)
             if audio is None:
-                return None, None
+                return {}
             
-            start_time = None
-            end_time = None
+            metadata = {}
             
-            # Check for custom ID3 fields: LAO:MUSIC_START and LAO:MUSIC_END
-            # These are stored in TXXX frames in ID3v2
+            # Extract artist and album information
             if hasattr(audio, 'tags') and audio.tags:
-                # Try to get TXXX frames (user-defined text information)
+                # Try different artist tag formats (TPE1 for ID3v2, artist for other formats)
+                artist = None
+                album = None
+                
+                # ID3v2 tags
+                if hasattr(audio.tags, 'get'):
+                    # TPE1 is the standard ID3v2 artist field
+                    artist_tag = audio.tags.get('TPE1')
+                    if artist_tag:
+                        artist = str(artist_tag)
+                    
+                    # TALB is the standard ID3v2 album field
+                    album_tag = audio.tags.get('TALB')
+                    if album_tag:
+                        album = str(album_tag)
+                
+                # Try generic artist/album fields for other formats (Vorbis, etc.)
+                if not artist and hasattr(audio.tags, 'get'):
+                    try:
+                        artist_list = audio.tags.get('artist', [])
+                        if artist_list:
+                            artist = str(artist_list[0]) if isinstance(artist_list, list) else str(artist_list)
+                    except:
+                        pass
+                
+                if not album and hasattr(audio.tags, 'get'):
+                    try:
+                        album_list = audio.tags.get('album', [])
+                        if album_list:
+                            album = str(album_list[0]) if isinstance(album_list, list) else str(album_list)
+                    except:
+                        pass
+                
+                if artist:
+                    metadata['artist'] = artist
+                if album:
+                    metadata['album'] = album
+                
+                # Check for custom ID3 fields: LAO:MUSIC_START and LAO:MUSIC_END
+                # These are stored in TXXX frames in ID3v2
                 txxx_frames = audio.tags.getall('TXXX')
                 for frame in txxx_frames:
                     desc = str(frame.desc) if hasattr(frame, 'desc') else ''
                     if desc == 'LAO:MUSIC_START':
                         try:
                             # Value is in milliseconds, convert to seconds
-                            start_time = float(frame.text[0]) / 1000.0
+                            metadata['start_time'] = float(frame.text[0]) / 1000.0
                         except (ValueError, IndexError, TypeError):
                             pass
                     elif desc == 'LAO:MUSIC_END':
                         try:
                             # Value is in milliseconds, convert to seconds
-                            end_time = float(frame.text[0]) / 1000.0
+                            metadata['end_time'] = float(frame.text[0]) / 1000.0
                         except (ValueError, IndexError, TypeError):
                             pass
             
-            return start_time, end_time
+            return metadata
             
         except Exception as e:
             print(f"Error reading ID3 tags from {file_path}: {e}")
-            return None, None
+            return {}
+    
+    def _read_id3_times(self, file_path):
+        """Read start and end times from ID3 tags
+        
+        Returns tuple (start_time_seconds, end_time_seconds) or (None, None)
+        Times in ID3 are stored in milliseconds, converted to seconds here
+        """
+        metadata = self._read_id3_metadata(file_path)
+        return metadata.get('start_time'), metadata.get('end_time')
     
     def load_playlist(self, playlist_path):
         """Load a playlist from M3U file"""
@@ -172,13 +217,19 @@ class PlaybackController:
                     if 'title' not in current_track:
                         current_track['title'] = Path(line).stem
                     
-                    # Read ID3 tags for start/end times (takes precedence over M3U directives)
+                    # Read ID3 tags for metadata (takes precedence over M3U directives)
                     if os.path.exists(line):
-                        id3_start, id3_end = self._read_id3_times(line)
-                        if id3_start is not None:
-                            current_track['start_time'] = id3_start
-                        if id3_end is not None:
-                            current_track['end_time'] = id3_end
+                        metadata = self._read_id3_metadata(line)
+                        # Artist and album
+                        if 'artist' in metadata:
+                            current_track['artist'] = metadata['artist']
+                        if 'album' in metadata:
+                            current_track['album'] = metadata['album']
+                        # Start/end times (takes precedence)
+                        if 'start_time' in metadata:
+                            current_track['start_time'] = metadata['start_time']
+                        if 'end_time' in metadata:
+                            current_track['end_time'] = metadata['end_time']
                     
                     tracks.append(current_track)
                     current_track = {}
@@ -335,6 +386,7 @@ class PlaybackController:
             'playlist_length': len(self.current_playlist),
             'current_track_index': self.current_track_index if self.current_playlist else None,
             'current_track': None,
+            'next_track': None,
             'shuffle': self.shuffle_enabled,
             'repeat_mode': self.repeat_mode,
             'current_position': self.get_current_position()
@@ -347,8 +399,28 @@ class PlaybackController:
                 'path': track.get('path', ''),
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
-                'end_time': track.get('end_time')
+                'end_time': track.get('end_time'),
+                'artist': track.get('artist'),
+                'album': track.get('album')
             }
+            
+            # Get next track information
+            next_track_index = self.current_track_index + 1
+            if next_track_index < len(self.current_playlist):
+                next_track = self.current_playlist[next_track_index]
+                status['next_track'] = {
+                    'title': next_track.get('title', 'Unknown'),
+                    'artist': next_track.get('artist'),
+                    'album': next_track.get('album')
+                }
+            elif self.repeat_mode == 'all' and len(self.current_playlist) > 0:
+                # If repeat all is on, next track is the first track
+                next_track = self.current_playlist[0]
+                status['next_track'] = {
+                    'title': next_track.get('title', 'Unknown'),
+                    'artist': next_track.get('artist'),
+                    'album': next_track.get('album')
+                }
         
         return status
     
@@ -514,7 +586,9 @@ class PlaybackController:
                 'path': track.get('path', ''),
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
-                'end_time': track.get('end_time')
+                'end_time': track.get('end_time'),
+                'artist': track.get('artist'),
+                'album': track.get('album')
             }
             for i, track in enumerate(self.current_playlist)
         ]
