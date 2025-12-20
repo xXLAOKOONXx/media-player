@@ -22,9 +22,9 @@ if os.path.exists(static_folder):
     for root, dirs, files in os.walk(static_folder):
         for file in files:
             file_path = os.path.join(root, file)
-            # Calculate relative path from static folder
-            rel_path = os.path.relpath(root, spec_root)
-            static_files.append((file_path, rel_path))
+            # Calculate relative destination path from spec_root
+            dest_dir = os.path.relpath(root, spec_root)
+            static_files.append((file_path, dest_dir))
 
 a = Analysis(
     ['app.py'],
