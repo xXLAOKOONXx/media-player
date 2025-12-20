@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import StorageManager from './components/StorageManager';
-import LibraryManager from './components/LibraryManager';
+import PlaylistManager from './components/PlaylistManager';
 import PlaybackControls from './components/PlaybackControls';
 import NowPlaying from './components/NowPlaying';
 import TrackTimesEditor from './components/TrackTimesEditor';
@@ -10,7 +10,7 @@ import TrackTimesEditor from './components/TrackTimesEditor';
 const API_BASE_URL = '';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'storage' | 'library' | 'player' | 'tracks'>('player');
+  const [activeTab, setActiveTab] = useState<'storage' | 'playlists' | 'player' | 'tracks'>('player');
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -43,10 +43,10 @@ function App() {
             Track Times
           </button>
           <button 
-            className={activeTab === 'library' ? 'active' : ''} 
-            onClick={() => setActiveTab('library')}
+            className={activeTab === 'playlists' ? 'active' : ''} 
+            onClick={() => setActiveTab('playlists')}
           >
-            Library
+            Playlists
           </button>
           <button 
             className={activeTab === 'storage' ? 'active' : ''} 
@@ -69,8 +69,8 @@ function App() {
           <TrackTimesEditor />
         )}
         
-        {activeTab === 'library' && (
-          <LibraryManager />
+        {activeTab === 'playlists' && (
+          <PlaylistManager />
         )}
         
         {activeTab === 'storage' && (

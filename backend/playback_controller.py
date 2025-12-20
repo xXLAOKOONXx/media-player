@@ -25,10 +25,15 @@ class PlaybackController:
             self.audio_available = False
         
         self.current_playlist = []
+        self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
         self.is_playing = False
         self.is_paused = False
         self.volume = 0.5
+        
+        # Shuffle and repeat modes
+        self.shuffle_enabled = False
+        self.repeat_mode = 'none'  # 'none', 'all', 'one'
         
         # Crossfade configuration
         self.crossfade_config = crossfade_config or {
@@ -159,7 +164,13 @@ class PlaybackController:
                     current_track = {}
             
             self.current_playlist = tracks
+            self.original_playlist = tracks.copy()  # Store original order
             self.current_track_index = 0
+            
+            # Apply shuffle if enabled
+            if self.shuffle_enabled:
+                self._apply_shuffle()
+            
             return True
             
         except Exception as e:
@@ -261,9 +272,26 @@ class PlaybackController:
     def next(self):
         """Skip to next track"""
         if self.current_playlist:
-            self.current_track_index = (self.current_track_index + 1) % len(self.current_playlist)
-            self._reset_crossfade_state()
-            self.play()
+            if self.repeat_mode == 'one':
+                # Repeat current track
+                self._reset_crossfade_state()
+                self.play()
+            else:
+                # Move to next track
+                self.current_track_index = self.current_track_index + 1
+                
+                if self.current_track_index >= len(self.current_playlist):
+                    if self.repeat_mode == 'all':
+                        # Loop back to start
+                        self.current_track_index = 0
+                    else:
+                        # Stop at end (repeat mode 'none')
+                        self.current_track_index = 0
+                        self.stop()
+                        return
+                
+                self._reset_crossfade_state()
+                self.play()
     
     def previous(self):
         """Go to previous track"""
@@ -286,7 +314,10 @@ class PlaybackController:
             'volume': int(self.volume * 100),
             'playlist_length': len(self.current_playlist),
             'current_track_index': self.current_track_index if self.current_playlist else None,
-            'current_track': None
+            'current_track': None,
+            'shuffle': self.shuffle_enabled,
+            'repeat_mode': self.repeat_mode,
+            'current_position': self.get_current_position()
         }
         
         if self.current_playlist and self.current_track_index < len(self.current_playlist):
@@ -467,3 +498,126 @@ class PlaybackController:
             }
             for i, track in enumerate(self.current_playlist)
         ]
+    
+    def set_shuffle(self, enabled):
+        """Enable or disable shuffle mode"""
+        self.shuffle_enabled = enabled
+        
+        if enabled:
+            self._apply_shuffle()
+        else:
+            # Restore original order
+            if self.original_playlist:
+                # Find current track in original playlist
+                current_track = None
+                if self.current_playlist and self.current_track_index < len(self.current_playlist):
+                    current_track = self.current_playlist[self.current_track_index]
+                
+                self.current_playlist = self.original_playlist.copy()
+                
+                # Update current track index to match in original order
+                if current_track:
+                    for i, track in enumerate(self.current_playlist):
+                        if track.get('path') == current_track.get('path'):
+                            self.current_track_index = i
+                            break
+        
+        return True
+    
+    def _apply_shuffle(self):
+        """Apply shuffle to current playlist"""
+        if not self.current_playlist:
+            return
+        
+        import random
+        
+        # Save current track
+        current_track = None
+        if self.current_track_index < len(self.current_playlist):
+            current_track = self.current_playlist[self.current_track_index]
+        
+        # Shuffle the playlist
+        shuffled = self.current_playlist.copy()
+        random.shuffle(shuffled)
+        
+        # If there's a current track, move it to position 0
+        if current_track:
+            # Remove current track from shuffled list
+            shuffled = [t for t in shuffled if t.get('path') != current_track.get('path')]
+            # Insert at beginning
+            shuffled.insert(0, current_track)
+            self.current_track_index = 0
+        
+        self.current_playlist = shuffled
+    
+    def set_repeat_mode(self, mode):
+        """Set repeat mode: 'none', 'all', or 'one'"""
+        if mode not in ['none', 'all', 'one']:
+            return False
+        
+        self.repeat_mode = mode
+        return True
+    
+    def get_shuffle(self):
+        """Get current shuffle state"""
+        return self.shuffle_enabled
+    
+    def get_repeat_mode(self):
+        """Get current repeat mode"""
+        return self.repeat_mode
+    
+    def get_current_position(self):
+        """Get current playback position in seconds"""
+        if not self.is_playing or not self.track_start_time:
+            return None
+        
+        # Calculate elapsed time
+        if self.is_paused and self.pause_time:
+            elapsed = self.pause_time - self.track_start_time - self.total_pause_duration
+        else:
+            elapsed = time.time() - self.track_start_time - self.total_pause_duration
+        
+        # Add custom start time if present
+        position = (self.track_custom_start or 0) + elapsed
+        
+        return position
+    
+    def seek(self, position):
+        """Seek to a specific position in the current track (in seconds)"""
+        if not self.is_playing or not self.current_playlist:
+            return False
+        
+        if self.current_track_index >= len(self.current_playlist):
+            return False
+        
+        # Get current track
+        track = self.current_playlist[self.current_track_index]
+        track_path = track['path']
+        
+        # Check if file exists
+        if not os.path.exists(track_path):
+            return False
+        
+        try:
+            if self.audio_available:
+                # Stop current playback
+                pygame.mixer.music.stop()
+                
+                # Reload and play from new position
+                pygame.mixer.music.load(track_path)
+                pygame.mixer.music.play(start=position)
+                
+                # Update state
+                self.track_start_time = time.time()
+                self.track_custom_start = position
+                self.total_pause_duration = 0
+                self.is_paused = False
+                
+                return True
+            else:
+                print(f"Simulating seek to {position}s")
+                return True
+                
+        except Exception as e:
+            print(f"Error seeking: {e}")
+            return False

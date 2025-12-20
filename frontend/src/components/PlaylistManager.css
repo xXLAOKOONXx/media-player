@@ -1,4 +1,4 @@
-.library-manager {
+.playlist-manager {
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -52,8 +52,14 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.libraries-list {
+.folders-list {
   margin-top: 1rem;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .list-item.selected {
@@ -61,7 +67,7 @@
   border-left: 4px solid #667eea;
 }
 
-.library-path, .playlist-path {
+.folder-path, .playlist-path {
   font-size: 0.85rem;
   color: #888;
   margin-top: 0.25rem;
@@ -77,4 +83,39 @@
 
 .playlist-item button {
   margin-left: auto;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.edit-mode {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.edit-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #667eea;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
 }

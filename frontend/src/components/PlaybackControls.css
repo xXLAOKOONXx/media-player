@@ -2,6 +2,30 @@
   background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
 }
 
+.mode-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.mode-controls .control-btn {
+  width: 50px;
+  height: 50px;
+  font-size: 1.5rem;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.mode-controls .control-btn.active {
+  opacity: 1;
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.mode-controls .control-btn:hover {
+  opacity: 1;
+}
+
 .transport-controls {
   display: flex;
   justify-content: center;

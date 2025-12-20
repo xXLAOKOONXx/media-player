@@ -81,11 +81,80 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
     }
   };
 
+  const handleShuffle = async () => {
+    const newShuffleState = !status?.shuffle;
+    try {
+      await fetch(`${API_BASE_URL}/api/playback/shuffle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newShuffleState })
+      });
+      onUpdate();
+    } catch (err) {
+      console.error('Error toggling shuffle:', err);
+    }
+  };
+
+  const handleRepeatMode = async () => {
+    const modes = ['none', 'all', 'one'];
+    const currentMode = status?.repeat_mode || 'none';
+    const currentIndex = modes.indexOf(currentMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    
+    try {
+      await fetch(`${API_BASE_URL}/api/playback/repeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: nextMode })
+      });
+      onUpdate();
+    } catch (err) {
+      console.error('Error changing repeat mode:', err);
+    }
+  };
+
+  const getRepeatIcon = () => {
+    const mode = status?.repeat_mode || 'none';
+    switch (mode) {
+      case 'all': return '🔁';
+      case 'one': return '🔂';
+      default: return '↻';
+    }
+  };
+
+  const getRepeatTitle = () => {
+    const mode = status?.repeat_mode || 'none';
+    switch (mode) {
+      case 'all': return 'Repeat: All';
+      case 'one': return 'Repeat: One';
+      default: return 'Repeat: Off';
+    }
+  };
+
   const isPlaying = status?.is_playing && !status?.is_paused;
+  const shuffleEnabled = status?.shuffle || false;
 
   return (
     <div className="playback-controls card">
       <h2>Controls</h2>
+      
+      <div className="mode-controls">
+        <button 
+          className={`control-btn ${shuffleEnabled ? 'active' : ''}`} 
+          onClick={handleShuffle} 
+          title={shuffleEnabled ? 'Shuffle: On' : 'Shuffle: Off'}
+        >
+          🔀
+        </button>
+        
+        <button 
+          className={`control-btn ${status?.repeat_mode !== 'none' ? 'active' : ''}`}
+          onClick={handleRepeatMode}
+          title={getRepeatTitle()}
+        >
+          {getRepeatIcon()}
+        </button>
+      </div>
       
       <div className="transport-controls">
         <button className="control-btn" onClick={handlePrevious} title="Previous">
