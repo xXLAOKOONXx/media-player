@@ -181,7 +181,7 @@ class PlaybackController:
                 line = line.strip()
                 
                 # Skip M3U header and empty lines
-                if line == '#EXTM3U' or not line:
+                if line.upper() == '#EXTM3U' or not line:
                     continue
                 
                 if line.startswith('#EXTINF:'):
