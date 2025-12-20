@@ -22,25 +22,28 @@ class StorageManager:
         Path(mount_point).mkdir(parents=True, exist_ok=True)
         
         # Build mount command
-        # Note: In production, use more secure methods for password handling
+        # SECURITY NOTE: In production, use credential files instead of command-line passwords
+        # Passwords in command-line arguments are visible in process lists
+        # Create a credentials file with restricted permissions (600)
         host = storage['host']
         share = storage['share']
         username = storage.get('username', 'guest')
-        password = storage.get('password', '')
         
-        # This is a simplified version
-        # In production, you'd want to use proper credential management
-        mount_cmd = [
-            'mount',
-            '-t', 'cifs',
-            f'//{host}/{share}',
-            mount_point,
-            '-o', f'username={username},password={password}'
-        ]
+        # This is a simplified version for demonstration
+        # In production, you should:
+        # 1. Create a credentials file: /home/user/.smbcredentials
+        #    username=user
+        #    password=pass
+        # 2. Set permissions: chmod 600 /home/user/.smbcredentials
+        # 3. Use: mount -t cifs ... -o credentials=/home/user/.smbcredentials
+        # 4. Or better yet, configure in /etc/fstab or use autofs
         
         try:
             # Note: This requires sudo privileges
-            # On Raspberry Pi, you'd configure this in /etc/fstab or use autofs
+            # On Raspberry Pi, configure this in /etc/fstab or use autofs
+            # Example fstab entry:
+            # //host/share /mnt/point cifs credentials=/home/pi/.smbcreds,uid=1000,gid=1000 0 0
+            
             # subprocess.run(mount_cmd, check=True)
             self.mounted_storages[storage['id']] = mount_point
             return True

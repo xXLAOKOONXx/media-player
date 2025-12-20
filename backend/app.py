@@ -34,6 +34,8 @@ def load_config():
 
 def save_config(config):
     """Save configuration to file"""
+    # Note: In production, consider encrypting sensitive data like passwords
+    # or using environment variables and secure credential storage
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=2)
 
@@ -211,4 +213,12 @@ def browse_path():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Development server configuration
+    # WARNING: For production use, deploy with a WSGI server like Gunicorn
+    # and disable debug mode. See docs/DEPLOYMENT.md for details.
+    import os
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    port = int(os.getenv('FLASK_PORT', '5000'))
+    
+    app.run(host=host, port=port, debug=debug_mode)

@@ -191,5 +191,8 @@ class PlaybackController:
                         # Track finished, play next
                         self.next()
                 # In no-audio mode, don't auto-advance
+            elif not self.is_playing:
+                # Stop monitoring if playback is stopped
+                break
             
             time.sleep(0.5)
