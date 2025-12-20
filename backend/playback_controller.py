@@ -26,11 +26,11 @@ except ImportError:
     print("Warning: mutagen not available, ID3 tag reading disabled")
 
 # Configure logging for performance monitoring
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Note: This is a module-level logger. Applications can configure the root logger
+# to control this logger's behavior without being overridden.
 logger = logging.getLogger('PlaybackController')
+if not logger.handlers:  # Only configure if not already configured
+    logger.setLevel(logging.INFO)  # Default level, can be changed by application
 
 
 class PlaybackController:
@@ -579,22 +579,28 @@ class PlaybackController:
                         
                         if next_channel is None:
                             logger.warning("No available channel for crossfade, using queue method instead")
-                            # Fallback to queue method
+                            # Fallback to queue method - let the monitoring thread handle the transition
                             pygame.mixer.music.queue(next_track_path)
-                            pygame.mixer.music.set_volume(self.volume)
+                            pygame.mixer.music.fadeout(fade_duration_ms)
                             
-                            # Update state
-                            time.sleep(fade_duration_seconds)
-                            self.current_track_index = next_track_index
-                            self.track_start_time = time.time()
-                            self.pause_time = None
-                            self.total_pause_duration = 0
+                            # Schedule state update when fadeout completes
+                            def update_state_after_fade():
+                                # Wait for fade to complete without blocking the crossfade thread
+                                time.sleep(fade_duration_seconds)
+                                if self.is_playing:
+                                    self.current_track_index = next_track_index
+                                    self.track_start_time = time.time()
+                                    self.pause_time = None
+                                    self.total_pause_duration = 0
+                                    
+                                    next_track_obj = self.current_playlist[self.current_track_index]
+                                    self.track_custom_start = next_track_obj.get('start_time')
+                                    self.track_custom_end = next_track_obj.get('end_time')
+                                    
+                                    pygame.mixer.music.set_volume(self.volume)
+                                self._reset_crossfade_state()
                             
-                            next_track_obj = self.current_playlist[self.current_track_index]
-                            self.track_custom_start = next_track_obj.get('start_time')
-                            self.track_custom_end = next_track_obj.get('end_time')
-                            
-                            self._reset_crossfade_state()
+                            Thread(target=update_state_after_fade, daemon=True).start()
                             return
                         
                         logger.info(f"Successfully loaded next track as Sound object (size: {next_sound.get_length():.2f}s)")
@@ -602,24 +608,28 @@ class PlaybackController:
                     except pygame.error as e:
                         logger.warning(f"Cannot load track as Sound (possibly too large): {e}")
                         logger.info("Falling back to simple queue-based crossfade")
-                        # Fallback: use simple queue
+                        # Fallback: use simple queue with fadeout
                         pygame.mixer.music.queue(next_track_path)
                         pygame.mixer.music.fadeout(fade_duration_ms)
                         
-                        time.sleep(fade_duration_seconds + 0.5)
+                        # Schedule state update after fade completes
+                        # Add 0.5s buffer to ensure fadeout and queue transition complete
+                        def update_state_after_fade():
+                            time.sleep(fade_duration_seconds + 0.5)
+                            if self.is_playing:
+                                self.current_track_index = next_track_index
+                                self.track_start_time = time.time()
+                                self.pause_time = None
+                                self.total_pause_duration = 0
+                                
+                                next_track_obj = self.current_playlist[self.current_track_index]
+                                self.track_custom_start = next_track_obj.get('start_time')
+                                self.track_custom_end = next_track_obj.get('end_time')
+                                
+                                pygame.mixer.music.set_volume(self.volume)
+                            self._reset_crossfade_state()
                         
-                        # Update state
-                        self.current_track_index = next_track_index
-                        self.track_start_time = time.time()
-                        self.pause_time = None
-                        self.total_pause_duration = 0
-                        
-                        next_track_obj = self.current_playlist[self.current_track_index]
-                        self.track_custom_start = next_track_obj.get('start_time')
-                        self.track_custom_end = next_track_obj.get('end_time')
-                        
-                        pygame.mixer.music.set_volume(self.volume)
-                        self._reset_crossfade_state()
+                        Thread(target=update_state_after_fade, daemon=True).start()
                         return
                     
                     # Now we have both: current track playing via mixer.music and next track loaded as Sound

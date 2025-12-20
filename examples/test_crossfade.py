@@ -5,6 +5,7 @@ Test script for crossfade functionality and duration extraction
 import sys
 import os
 import time
+import tempfile
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -80,8 +81,8 @@ def test_playlist_with_duration():
     
     controller = PlaybackController()
     
-    # Create a test playlist
-    test_playlist_path = '/tmp/test_duration_playlist.m3u'
+    # Create a test playlist using cross-platform temp directory
+    test_playlist_path = os.path.join(tempfile.gettempdir(), 'test_duration_playlist.m3u')
     test_track = os.path.join(os.path.dirname(__file__), 'test_track.mp3')
     
     with open(test_playlist_path, 'w') as f:

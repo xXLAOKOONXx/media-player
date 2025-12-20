@@ -8,14 +8,15 @@ crossfade performance in real-world scenarios.
 import sys
 import os
 import logging
+import tempfile
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from playback_controller import PlaybackController
 
-# Configure logging to file for analysis
-log_file = '/tmp/media_player_performance.log'
+# Configure logging to file for analysis using cross-platform temp directory
+log_file = os.path.join(tempfile.gettempdir(), 'media_player_performance.log')
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -43,8 +44,8 @@ def monitor_playback():
     
     logger.info("Created PlaybackController with 2s crossfade")
     
-    # Load a test playlist
-    test_playlist_path = '/tmp/performance_test.m3u'
+    # Load a test playlist using cross-platform temp directory
+    test_playlist_path = os.path.join(tempfile.gettempdir(), 'performance_test.m3u')
     test_track = os.path.join(os.path.dirname(__file__), 'test_track.mp3')
     
     # Create a playlist with multiple copies of the test track
