@@ -19,7 +19,7 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
     );
   }
 
-  const { current_track, is_playing, is_paused, current_track_index, playlist_length, current_position } = status;
+  const { current_track, next_track, is_playing, is_paused, current_track_index, playlist_length, current_position } = status;
 
   const formatTime = (seconds: number | null | undefined) => {
     if (seconds == null) return '0:00';
@@ -75,7 +75,12 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
           <span className="title">{current_track.title}</span>
         </div>
         <div className="track-details">
-          <p className="track-path">{current_track.path}</p>
+          {current_track.artist && (
+            <p className="track-artist">🎤 {current_track.artist}</p>
+          )}
+          {current_track.album && (
+            <p className="track-album">💿 {current_track.album}</p>
+          )}
           {(current_track.start_time != null || current_track.end_time != null) && (
             <p className="track-custom-times">
               Custom Range: {formatTime(current_track.start_time) || '0:00'} - {formatTime(current_track.end_time) || 'end'}
@@ -132,6 +137,22 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
         <div className="playlist-info">
           Track {current_track_index + 1} of {playlist_length}
         </div>
+
+        {/* Up Next section */}
+        {next_track && (
+          <div className="up-next">
+            <h3>Up Next</h3>
+            <div className="next-track-info">
+              <p className="next-track-title">🎵 {next_track.title}</p>
+              {next_track.artist && (
+                <p className="next-track-artist">🎤 {next_track.artist}</p>
+              )}
+              {next_track.album && (
+                <p className="next-track-album">💿 {next_track.album}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
