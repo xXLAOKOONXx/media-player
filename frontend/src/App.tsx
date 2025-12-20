@@ -28,7 +28,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🎵 Media Player</h1>
+        <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '0.5rem' }}>music_note</span>Media Player</h1>
         <nav className="tabs">
           <button 
             className={activeTab === 'player' ? 'active' : ''} 

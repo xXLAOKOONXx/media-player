@@ -59,7 +59,7 @@
 .track-custom-times {
   font-size: 0.85rem;
   margin: 0.5rem 0;
-  color: #734457;
+  color: #5a6c7d;
 }
 
 .progress-section {
@@ -111,7 +111,7 @@
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(to right, #9d9d9d 0%, #734457 100%);
+  background-color: #5a6c7d;
   transition: width 0.3s ease;
   border-radius: 4px;
 }
@@ -122,8 +122,8 @@
   transform: translateY(-50%);
   height: 8px;
   background: linear-gradient(to right, 
-    rgba(115, 68, 87, 0.3) 0%, 
-    rgba(115, 68, 87, 0.6) 100%
+    rgba(74, 85, 104, 0.3) 0%, 
+    rgba(74, 85, 104, 0.6) 100%
   );
   border-radius: 4px;
   pointer-events: none;

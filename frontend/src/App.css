@@ -34,7 +34,7 @@
 }
 
 .tabs button:hover {
-  background-color: #734457;
+  background-color: #4a5568;
 }
 
 .tabs button.active {
@@ -146,13 +146,14 @@ button:disabled {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #9d9d9d 0%, #734457 100%);
+  background-color: #4a5568;
   color: #dfdfdf;
 }
 
 .btn-primary:hover:not(:disabled) {
+  background-color: #5a6c7d;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(115, 68, 87, 0.5);
+  box-shadow: 0 4px 8px rgba(74, 85, 104, 0.5);
 }
 
 .btn-secondary {
@@ -161,7 +162,7 @@ button:disabled {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #734457;
+  background-color: #4a5568;
 }
 
 .btn-danger {
@@ -193,7 +194,7 @@ button:disabled {
 }
 
 .list-item:hover {
-  background-color: #734457;
+  background-color: #4a5568;
 }
 
 .empty-state {

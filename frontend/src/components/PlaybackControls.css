@@ -13,22 +13,28 @@
 .mode-controls .control-btn {
   width: 50px;
   height: 50px;
-  font-size: 1.5rem;
   opacity: 0.5;
   transition: all 0.3s ease;
+}
+
+.mode-controls .control-btn .material-icons {
+  font-size: 1.5rem;
 }
 
 @media (max-width: 768px) {
   .mode-controls .control-btn {
     width: 60px;
     height: 60px;
+  }
+  
+  .mode-controls .control-btn .material-icons {
     font-size: 1.7rem;
   }
 }
 
 .mode-controls .control-btn.active {
   opacity: 1;
-  background: linear-gradient(135deg, #9d9d9d 0%, #734457 100%);
+  background-color: #4a5568;
 }
 
 .mode-controls .control-btn:hover {
@@ -44,10 +50,9 @@
 }
 
 .control-btn {
-  background: linear-gradient(135deg, #9d9d9d 0%, #734457 100%);
+  background-color: #4a5568;
   border: none;
   color: #dfdfdf;
-  font-size: 2rem;
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -60,19 +65,27 @@
   min-width: 44px;
 }
 
+.control-btn .material-icons {
+  font-size: 2rem;
+}
+
 @media (max-width: 768px) {
   .control-btn {
     width: 70px;
     height: 70px;
-    font-size: 2.2rem;
     min-height: 48px;
     min-width: 48px;
+  }
+  
+  .control-btn .material-icons {
+    font-size: 2.2rem;
   }
 }
 
 .control-btn:hover {
+  background-color: #5a6c7d;
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(115, 68, 87, 0.6);
+  box-shadow: 0 4px 12px rgba(74, 85, 104, 0.6);
 }
 
 .control-btn:active {
@@ -82,6 +95,9 @@
 .play-btn, .pause-btn {
   width: 80px;
   height: 80px;
+}
+
+.play-btn .material-icons, .pause-btn .material-icons {
   font-size: 2.5rem;
 }
 
@@ -89,6 +105,9 @@
   .play-btn, .pause-btn {
     width: 90px;
     height: 90px;
+  }
+  
+  .play-btn .material-icons, .pause-btn .material-icons {
     font-size: 2.7rem;
   }
 }
@@ -111,7 +130,7 @@
   flex: 1;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(to right, #9d9d9d 0%, #734457 100%);
+  background-color: #4a5568;
   outline: none;
   -webkit-appearance: none;
 }

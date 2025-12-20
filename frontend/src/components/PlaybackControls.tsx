@@ -116,9 +116,9 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
   const getRepeatIcon = () => {
     const mode = status?.repeat_mode || 'none';
     switch (mode) {
-      case 'all': return '🔁';
-      case 'one': return '🔂';
-      default: return '↻';
+      case 'all': return 'repeat';
+      case 'one': return 'repeat_one';
+      default: return 'repeat';
     }
   };
 
@@ -144,7 +144,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
           onClick={handleShuffle} 
           title={shuffleEnabled ? 'Shuffle: On' : 'Shuffle: Off'}
         >
-          🔀
+          <span className="material-icons">shuffle</span>
         </button>
         
         <button 
@@ -152,36 +152,36 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
           onClick={handleRepeatMode}
           title={getRepeatTitle()}
         >
-          {getRepeatIcon()}
+          <span className="material-icons">{getRepeatIcon()}</span>
         </button>
       </div>
       
       <div className="transport-controls">
         <button className="control-btn" onClick={handlePrevious} title="Previous">
-          ⏮
+          <span className="material-icons">skip_previous</span>
         </button>
         
         {!isPlaying ? (
           <button className="control-btn play-btn" onClick={handlePlay} title="Play">
-            ▶
+            <span className="material-icons">play_arrow</span>
           </button>
         ) : (
           <button className="control-btn pause-btn" onClick={handlePause} title="Pause">
-            ⏸
+            <span className="material-icons">pause</span>
           </button>
         )}
         
         <button className="control-btn" onClick={handleStop} title="Stop">
-          ⏹
+          <span className="material-icons">stop</span>
         </button>
         
         <button className="control-btn" onClick={handleNext} title="Next">
-          ⏭
+          <span className="material-icons">skip_next</span>
         </button>
       </div>
 
       <div className="volume-control">
-        <span className="volume-icon">🔊</span>
+        <span className="material-icons volume-icon">volume_up</span>
         <input
           type="range"
           min="0"
