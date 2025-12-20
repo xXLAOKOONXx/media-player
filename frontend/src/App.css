@@ -13,6 +13,13 @@
 .App-header h1 {
   margin: 0 0 1rem 0;
   font-size: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+.App-header h1 .material-icons {
+  vertical-align: middle;
+  margin-right: 0.5rem;
 }
 
 .tabs {
@@ -201,6 +208,10 @@ button:disabled {
   text-align: center;
   padding: 3rem;
   color: #9d9d9d;
+}
+
+.empty-state .material-icons {
+  vertical-align: middle;
 }
 
 .empty-state p {
