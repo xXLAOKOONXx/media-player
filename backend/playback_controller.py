@@ -173,70 +173,76 @@ class PlaybackController:
             tracks = []
             playlist_dir = Path(playlist_path).parent
             
-            with open(playlist_path, 'r', encoding='utf-8') as f:
+            # Use utf-8-sig encoding to automatically strip BOM if present
+            with open(playlist_path, 'r', encoding='utf-8-sig') as f:
                 lines = f.readlines()
             
             current_track = {}
             for line in lines:
+                # Strip whitespace (BOM is already handled by encoding)
                 line = line.strip()
                 
-                # Skip M3U header and empty lines
-                if line.upper() == '#EXTM3U' or not line:
+                # Skip empty lines
+                if not line:
                     continue
                 
-                if line.startswith('#EXTINF:'):
-                    # Parse track info
-                    parts = line[8:].split(',', 1)
-                    if len(parts) == 2:
-                        current_track['duration'] = parts[0]
-                        current_track['title'] = parts[1]
+                # Process comment/directive lines starting with #
+                if line.startswith('#'):
+                    if line.startswith('#EXTINF:'):
+                        # Parse track info
+                        parts = line[8:].split(',', 1)
+                        if len(parts) == 2:
+                            current_track['duration'] = parts[0]
+                            current_track['title'] = parts[1]
+                    
+                    elif line.startswith('#EXTVLCOPT:'):
+                        # Parse VLC-style options for start/stop times (fallback if ID3 tags not present)
+                        # Format: #EXTVLCOPT:start-time=10.5
+                        # Format: #EXTVLCOPT:stop-time=120.5
+                        option = line[11:].strip()
+                        if option.startswith('start-time='):
+                            try:
+                                # Only set if not already set from previous source
+                                if 'start_time' not in current_track:
+                                    current_track['start_time'] = float(option.split('=')[1])
+                            except (ValueError, IndexError):
+                                pass
+                        elif option.startswith('stop-time='):
+                            try:
+                                # Only set if not already set from previous source
+                                if 'end_time' not in current_track:
+                                    current_track['end_time'] = float(option.split('=')[1])
+                            except (ValueError, IndexError):
+                                pass
+                    
+                    # Skip all other comment/directive lines (including #EXTM3U and unknown directives)
+                    continue
                 
-                elif line.startswith('#EXTVLCOPT:'):
-                    # Parse VLC-style options for start/stop times (fallback if ID3 tags not present)
-                    # Format: #EXTVLCOPT:start-time=10.5
-                    # Format: #EXTVLCOPT:stop-time=120.5
-                    option = line[11:].strip()
-                    if option.startswith('start-time='):
-                        try:
-                            # Only set if not already set from previous source
-                            if 'start_time' not in current_track:
-                                current_track['start_time'] = float(option.split('=')[1])
-                        except (ValueError, IndexError):
-                            pass
-                    elif option.startswith('stop-time='):
-                        try:
-                            # Only set if not already set from previous source
-                            if 'end_time' not in current_track:
-                                current_track['end_time'] = float(option.split('=')[1])
-                        except (ValueError, IndexError):
-                            pass
+                # This is a file path (non-comment line)
+                # Handle relative paths
+                if not os.path.isabs(line):
+                    line = str(playlist_dir / line)
                 
-                elif not line.startswith('#'):
-                    # This is a file path
-                    # Handle relative paths
-                    if not os.path.isabs(line):
-                        line = str(playlist_dir / line)
-                    
-                    current_track['path'] = line
-                    if 'title' not in current_track:
-                        current_track['title'] = Path(line).stem
-                    
-                    # Read ID3 tags for metadata (takes precedence over M3U directives)
-                    if os.path.exists(line):
-                        metadata = self._read_id3_metadata(line)
-                        # Artist and album
-                        if 'artist' in metadata:
-                            current_track['artist'] = metadata['artist']
-                        if 'album' in metadata:
-                            current_track['album'] = metadata['album']
-                        # Start/end times (takes precedence)
-                        if 'start_time' in metadata:
-                            current_track['start_time'] = metadata['start_time']
-                        if 'end_time' in metadata:
-                            current_track['end_time'] = metadata['end_time']
-                    
-                    tracks.append(current_track)
-                    current_track = {}
+                current_track['path'] = line
+                if 'title' not in current_track:
+                    current_track['title'] = Path(line).stem
+                
+                # Read ID3 tags for metadata (takes precedence over M3U directives)
+                if os.path.exists(line):
+                    metadata = self._read_id3_metadata(line)
+                    # Artist and album
+                    if 'artist' in metadata:
+                        current_track['artist'] = metadata['artist']
+                    if 'album' in metadata:
+                        current_track['album'] = metadata['album']
+                    # Start/end times (takes precedence)
+                    if 'start_time' in metadata:
+                        current_track['start_time'] = metadata['start_time']
+                    if 'end_time' in metadata:
+                        current_track['end_time'] = metadata['end_time']
+                
+                tracks.append(current_track)
+                current_track = {}
             
             self.current_playlist = tracks
             self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation

@@ -1,5 +1,5 @@
 .now-playing {
-  background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+  background: linear-gradient(135deg, #606060 0%, #414141 100%);
 }
 
 .track-info {
@@ -15,8 +15,14 @@
   gap: 1rem;
 }
 
+@media (max-width: 768px) {
+  .track-title {
+    font-size: 1.3rem;
+  }
+}
+
 .playing-icon, .paused-icon {
-  color: #667eea;
+  color: #9d9d9d;
   font-size: 1.5rem;
   animation: pulse 2s ease-in-out infinite;
 }
@@ -27,27 +33,33 @@
 }
 
 .track-details {
-  color: #aaa;
+  color: #9d9d9d;
   margin-bottom: 1rem;
 }
 
 .track-artist {
   font-size: 1.1rem;
   margin: 0.5rem 0;
-  color: #667eea;
+  color: #dfdfdf;
   font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .track-artist {
+    font-size: 1rem;
+  }
 }
 
 .track-album {
   font-size: 0.95rem;
   margin: 0.5rem 0;
-  color: #999;
+  color: #9d9d9d;
 }
 
 .track-custom-times {
   font-size: 0.85rem;
   margin: 0.5rem 0;
-  color: #43e97b;
+  color: #734457;
 }
 
 .progress-section {
@@ -64,12 +76,12 @@
 }
 
 .current-time {
-  color: #667eea;
+  color: #dfdfdf;
   font-weight: bold;
 }
 
 .total-time {
-  color: #888;
+  color: #9d9d9d;
 }
 
 .progress-bar-container {
@@ -99,7 +111,7 @@
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(to right, #9d9d9d 0%, #734457 100%);
   transition: width 0.3s ease;
   border-radius: 4px;
 }
@@ -110,8 +122,8 @@
   transform: translateY(-50%);
   height: 8px;
   background: linear-gradient(to right, 
-    rgba(67, 233, 123, 0.2) 0%, 
-    rgba(67, 233, 123, 0.4) 100%
+    rgba(115, 68, 87, 0.3) 0%, 
+    rgba(115, 68, 87, 0.6) 100%
   );
   border-radius: 4px;
   pointer-events: none;
@@ -129,6 +141,12 @@
   z-index: 2;
 }
 
+@media (max-width: 768px) {
+  .progress-bar-input {
+    height: 40px;
+  }
+}
+
 .progress-bar-input:disabled {
   cursor: not-allowed;
 }
@@ -142,7 +160,7 @@
 }
 
 .playlist-info {
-  background-color: rgba(102, 126, 234, 0.2);
+  background-color: rgba(157, 157, 157, 0.3);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   display: inline-block;
@@ -153,38 +171,38 @@
 .up-next {
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 2px solid rgba(102, 126, 234, 0.3);
+  border-top: 2px solid rgba(157, 157, 157, 0.3);
 }
 
 .up-next h3 {
   font-size: 1.2rem;
-  color: #667eea;
+  color: #dfdfdf;
   margin-bottom: 1rem;
   font-weight: 600;
 }
 
 .next-track-info {
-  background: rgba(102, 126, 234, 0.1);
+  background: rgba(157, 157, 157, 0.2);
   padding: 1rem;
   border-radius: 8px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid #9d9d9d;
 }
 
 .next-track-title {
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0.3rem 0;
-  color: #ddd;
+  color: #dfdfdf;
 }
 
 .next-track-artist {
   font-size: 0.95rem;
   margin: 0.3rem 0;
-  color: #667eea;
+  color: #9d9d9d;
 }
 
 .next-track-album {
   font-size: 0.85rem;
   margin: 0.3rem 0;
-  color: #999;
+  color: #9d9d9d;
 }

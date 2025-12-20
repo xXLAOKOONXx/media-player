@@ -50,30 +50,30 @@ class LibraryManager:
         tracks = []
         
         try:
-            with open(playlist_path, 'r', encoding='utf-8') as f:
+            with open(playlist_path, 'r', encoding='utf-8-sig') as f:
                 lines = f.readlines()
             
             current_track = {}
             for line in lines:
+                # Strip whitespace and BOM if present
                 line = line.strip()
                 
-                # Skip M3U header and empty lines
-                if line.upper() == '#EXTM3U' or not line:
+                # Skip empty lines or any lines starting with # (comments/directives)
+                # This includes #EXTM3U, #EXTINF:, #EXTVLCOPT:, and any other comments
+                if not line or line.startswith('#'):
+                    # Parse #EXTINF: directives for track metadata
+                    if line.startswith('#EXTINF:'):
+                        # Format: #EXTINF:duration,Artist - Title
+                        parts = line[8:].split(',', 1)
+                        if len(parts) == 2:
+                            current_track['duration'] = parts[0]
+                            current_track['title'] = parts[1]
                     continue
                 
-                if line.startswith('#EXTINF:'):
-                    # Parse track info
-                    # Format: #EXTINF:duration,Artist - Title
-                    parts = line[8:].split(',', 1)
-                    if len(parts) == 2:
-                        current_track['duration'] = parts[0]
-                        current_track['title'] = parts[1]
-                
-                elif not line.startswith('#'):
-                    # This is a file path
-                    current_track['path'] = line
-                    tracks.append(current_track)
-                    current_track = {}
+                # This is a file path (non-comment line)
+                current_track['path'] = line
+                tracks.append(current_track)
+                current_track = {}
             
         except Exception as e:
             print(f"Error parsing playlist: {e}")
