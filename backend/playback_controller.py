@@ -16,6 +16,7 @@ from threading import Thread, Event
 import time
 import random
 import copy
+import logging
 
 try:
     from mutagen import File as MutagenFile
@@ -23,6 +24,13 @@ try:
 except ImportError:
     MUTAGEN_AVAILABLE = False
     print("Warning: mutagen not available, ID3 tag reading disabled")
+
+# Configure logging for performance monitoring
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('PlaybackController')
 
 
 class PlaybackController:
@@ -33,13 +41,16 @@ class PlaybackController:
         self.audio_available = False
         if PYGAME_AVAILABLE:
             try:
-                pygame.mixer.init()
+                # Initialize with more channels for crossfade support
+                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
+                pygame.mixer.set_num_channels(8)  # Allow multiple simultaneous sounds
                 self.audio_available = True
+                logger.info("Pygame mixer initialized successfully")
             except Exception as e:
-                print(f"Warning: Audio initialization failed: {e}")
+                logger.warning(f"Audio initialization failed: {e}")
                 print("Running in no-audio mode. Playback will be simulated.")
         else:
-            print("Warning: pygame not installed, running in no-audio mode")
+            logger.warning("pygame not installed, running in no-audio mode")
         
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
@@ -59,10 +70,11 @@ class PlaybackController:
             'fade_out_start_before_end_ms': 5000  # Start fading 5 seconds before track ends
         }
         
-        # Crossfade state
+        # Crossfade state for overlapping playback
         self.is_crossfading = False
         self.crossfade_start_time = None
         self.next_track_queued = False
+        self.crossfade_thread = None
         
         # Track timing state
         self.track_start_time = None  # System time when track started
@@ -82,7 +94,7 @@ class PlaybackController:
     def _read_id3_metadata(self, file_path):
         """Read metadata from ID3 tags
         
-        Returns dict with artist, album, and timing information
+        Returns dict with artist, album, duration, and timing information
         """
         if not MUTAGEN_AVAILABLE:
             return {}
@@ -93,6 +105,11 @@ class PlaybackController:
                 return {}
             
             metadata = {}
+            
+            # Extract duration from audio file (in seconds)
+            if hasattr(audio.info, 'length'):
+                metadata['duration'] = audio.info.length
+                logger.debug(f"Extracted duration {audio.info.length}s from {file_path}")
             
             # Extract artist and album information
             if hasattr(audio, 'tags') and audio.tags:
@@ -155,7 +172,7 @@ class PlaybackController:
             return metadata
             
         except Exception as e:
-            print(f"Error reading ID3 tags from {file_path}: {e}")
+            logger.error(f"Error reading ID3 tags from {file_path}: {e}")
             return {}
     
     def _read_id3_times(self, file_path):
@@ -230,6 +247,10 @@ class PlaybackController:
                 # Read ID3 tags for metadata (takes precedence over M3U directives)
                 if os.path.exists(line):
                     metadata = self._read_id3_metadata(line)
+                    # Duration from audio file (takes precedence over M3U duration)
+                    if 'duration' in metadata:
+                        current_track['duration'] = str(metadata['duration'])
+                        logger.debug(f"Using actual duration from audio file: {metadata['duration']}s")
                     # Artist and album
                     if 'artist' in metadata:
                         current_track['artist'] = metadata['artist']
@@ -255,7 +276,7 @@ class PlaybackController:
             return True
             
         except Exception as e:
-            print(f"Error loading playlist: {e}")
+            logger.error(f"Error loading playlist: {e}")
             return False
     
     def _reset_crossfade_state(self):
@@ -280,7 +301,7 @@ class PlaybackController:
         try:
             # Check if file exists
             if not os.path.exists(track_path):
-                print(f"Track not found: {track_path}")
+                logger.warning(f"Track not found: {track_path}")
                 return False
             
             # Get custom start and end times if specified
@@ -296,11 +317,11 @@ class PlaybackController:
                 else:
                     pygame.mixer.music.play()
             else:
-                print(f"Simulating playback of: {track_path}")
+                logger.info(f"Simulating playback of: {track_path}")
                 if self.track_custom_start is not None:
-                    print(f"  Starting at: {self.track_custom_start}s")
+                    logger.info(f"  Starting at: {self.track_custom_start}s")
                 if self.track_custom_end is not None:
-                    print(f"  Ending at: {self.track_custom_end}s")
+                    logger.info(f"  Ending at: {self.track_custom_end}s")
             
             self.is_playing = True
             self.is_paused = False
@@ -319,7 +340,7 @@ class PlaybackController:
             return True
             
         except Exception as e:
-            print(f"Error playing track: {e}")
+            logger.error(f"Error playing track: {e}")
             return False
     
     def pause(self):
@@ -446,7 +467,7 @@ class PlaybackController:
                         
                         # If we've reached the custom end time, stop and move to next
                         if effective_position >= self.track_custom_end:
-                            print(f"Reached custom end time: {self.track_custom_end}s")
+                            logger.info(f"Reached custom end time: {self.track_custom_end}s")
                             self.next()
                             continue
                     
@@ -469,85 +490,221 @@ class PlaybackController:
             return
         
         try:
-            # Note: pygame.mixer.music.get_pos() returns milliseconds since music started
-            # This works for continuous playback but may be inaccurate after pause/resume
-            # For more accurate tracking, would need to track pause duration separately
-            pos_ms = pygame.mixer.music.get_pos()
-            
-            # Skip if track just started (position might be incorrect)
-            if pos_ms < 1000:
+            # Calculate elapsed time since track start
+            if self.track_start_time is None:
                 return
+            
+            elapsed = time.time() - self.track_start_time - self.total_pause_duration
+            current_position = (self.track_custom_start or 0) + elapsed
             
             # Get track duration (if available)
             if self.current_playlist and self.current_track_index < len(self.current_playlist):
                 track = self.current_playlist[self.current_track_index]
                 duration_str = track.get('duration', '0')
                 
-                try:
-                    duration_sec = float(duration_str)
-                    duration_ms = duration_sec * 1000
-                    
-                    # Calculate when to start crossfade
-                    fade_start_before_end = self.crossfade_config.get('fade_out_start_before_end_ms', 5000)
-                    crossfade_duration = self.crossfade_config.get('duration_ms', 3000)
-                    
-                    # Time remaining in track (estimate)
-                    time_remaining_ms = duration_ms - pos_ms
-                    
-                    # Start crossfade if we're close enough to the end
-                    # Only if duration is available and seems reasonable
-                    if duration_ms > fade_start_before_end and time_remaining_ms <= fade_start_before_end and not self.next_track_queued:
-                        self._start_crossfade(crossfade_duration)
-                        
-                except (ValueError, TypeError):
-                    # If duration is unknown or invalid, let track finish naturally
-                    pass
+                # Determine effective end time
+                if self.track_custom_end is not None:
+                    effective_end_time = self.track_custom_end
+                else:
+                    try:
+                        effective_end_time = float(duration_str)
+                    except (ValueError, TypeError):
+                        return  # Can't determine duration
+                
+                # Calculate when to start crossfade
+                fade_start_before_end_ms = self.crossfade_config.get('fade_out_start_before_end_ms', 5000)
+                fade_start_time = effective_end_time - (fade_start_before_end_ms / 1000.0)
+                
+                # Start crossfade if we've reached the fade start time
+                if current_position >= fade_start_time and not self.next_track_queued:
+                    crossfade_duration_ms = self.crossfade_config.get('duration_ms', 3000)
+                    logger.info(f"Starting crossfade at {current_position:.2f}s (track ends at {effective_end_time:.2f}s)")
+                    self._start_crossfade(crossfade_duration_ms)
                     
         except Exception as e:
-            print(f"Error in crossfade handling: {e}")
+            logger.error(f"Error in crossfade handling: {e}")
     
     def _start_crossfade(self, fade_duration_ms):
-        """Start crossfading to the next track"""
+        """Start crossfading to the next track with real overlap using Sound channels
+        
+        Note: This approach loads audio into memory for the crossfade period.
+        For very large files, this may cause memory issues, but it's the only way
+        to achieve true simultaneous playback overlap with pygame.
+        """
         if not self.audio_available or not self.current_playlist:
             return
         
         try:
-            # Calculate next track index
-            next_track_index = (self.current_track_index + 1) % len(self.current_playlist)
-            if next_track_index >= len(self.current_playlist):
+            # Determine next track index based on repeat mode
+            if self.repeat_mode == 'one':
+                # Don't crossfade in repeat one mode, just let it replay
                 return
+            
+            next_track_index = self.current_track_index + 1
+            
+            if next_track_index >= len(self.current_playlist):
+                if self.repeat_mode == 'all':
+                    next_track_index = 0
+                else:
+                    # No next track and no repeat, let current track finish
+                    return
             
             next_track = self.current_playlist[next_track_index]
             next_track_path = next_track['path']
             
             # Check if next file exists
             if not os.path.exists(next_track_path):
-                print(f"Next track not found: {next_track_path}")
+                logger.warning(f"Next track not found: {next_track_path}")
                 return
             
-            # Queue the next track with fadeout
             self.is_crossfading = True
             self.next_track_queued = True
+            self.crossfade_start_time = time.time()
             
-            # Queue next track to play after current one fades
-            pygame.mixer.music.queue(next_track_path)
+            fade_duration_seconds = fade_duration_ms / 1000.0
             
-            # Start fade out of current track
-            pygame.mixer.music.fadeout(fade_duration_ms)
+            logger.info(f"Starting crossfade: {fade_duration_ms}ms overlap between tracks")
+            logger.info(f"Loading next track into memory for overlap playback")
             
-            # Update current track index when fade completes
-            # The monitoring loop will detect when music stops and update
-            print(f"Crossfading: {fade_duration_ms}ms fade to next track")
+            # Start a thread to handle the crossfade
+            def execute_crossfade():
+                try:
+                    # Get current volume for fade calculations
+                    current_volume = pygame.mixer.music.get_volume()
+                    
+                    # Load next track as Sound object for simultaneous playback
+                    try:
+                        next_sound = pygame.mixer.Sound(next_track_path)
+                        next_channel = pygame.mixer.find_channel()
+                        
+                        if next_channel is None:
+                            logger.warning("No available channel for crossfade, using queue method instead")
+                            # Fallback to queue method
+                            pygame.mixer.music.queue(next_track_path)
+                            pygame.mixer.music.set_volume(self.volume)
+                            
+                            # Update state
+                            time.sleep(fade_duration_seconds)
+                            self.current_track_index = next_track_index
+                            self.track_start_time = time.time()
+                            self.pause_time = None
+                            self.total_pause_duration = 0
+                            
+                            next_track_obj = self.current_playlist[self.current_track_index]
+                            self.track_custom_start = next_track_obj.get('start_time')
+                            self.track_custom_end = next_track_obj.get('end_time')
+                            
+                            self._reset_crossfade_state()
+                            return
+                        
+                        logger.info(f"Successfully loaded next track as Sound object (size: {next_sound.get_length():.2f}s)")
+                        
+                    except pygame.error as e:
+                        logger.warning(f"Cannot load track as Sound (possibly too large): {e}")
+                        logger.info("Falling back to simple queue-based crossfade")
+                        # Fallback: use simple queue
+                        pygame.mixer.music.queue(next_track_path)
+                        pygame.mixer.music.fadeout(fade_duration_ms)
+                        
+                        time.sleep(fade_duration_seconds + 0.5)
+                        
+                        # Update state
+                        self.current_track_index = next_track_index
+                        self.track_start_time = time.time()
+                        self.pause_time = None
+                        self.total_pause_duration = 0
+                        
+                        next_track_obj = self.current_playlist[self.current_track_index]
+                        self.track_custom_start = next_track_obj.get('start_time')
+                        self.track_custom_end = next_track_obj.get('end_time')
+                        
+                        pygame.mixer.music.set_volume(self.volume)
+                        self._reset_crossfade_state()
+                        return
+                    
+                    # Now we have both: current track playing via mixer.music and next track loaded as Sound
+                    # Perform simultaneous fade out/in
+                    start_time = time.time()
+                    steps = 100  # Fine-grained volume control
+                    step_duration = fade_duration_seconds / steps
+                    
+                    # Start playing next track at volume 0
+                    next_sound.set_volume(0.0)
+                    next_channel.play(next_sound)
+                    next_start_time = time.time()
+                    
+                    logger.info("Both tracks now playing - performing simultaneous fade")
+                    
+                    # Gradually fade out current track and fade in next track
+                    for i in range(steps):
+                        if not self.is_crossfading:
+                            next_channel.stop()
+                            break
+                        
+                        elapsed = time.time() - start_time
+                        progress = min(elapsed / fade_duration_seconds, 1.0)
+                        
+                        # Fade out current track (music)
+                        current_vol = current_volume * (1.0 - progress)
+                        pygame.mixer.music.set_volume(current_vol)
+                        
+                        # Fade in next track (sound channel)
+                        next_vol = self.volume * progress
+                        next_sound.set_volume(next_vol)
+                        
+                        if i % 20 == 0:  # Log every 20% progress
+                            logger.debug(f"Crossfade {progress*100:.0f}%: current={current_vol:.2f}, next={next_vol:.2f}")
+                        
+                        time.sleep(step_duration)
+                    
+                    # Crossfade complete - stop old track and switch to music player for new track
+                    pygame.mixer.music.stop()
+                    next_channel.stop()
+                    
+                    # Now play the next track normally via mixer.music
+                    self.current_track_index = next_track_index
+                    next_track_obj = self.current_playlist[self.current_track_index]
+                    self.track_custom_start = next_track_obj.get('start_time')
+                    self.track_custom_end = next_track_obj.get('end_time')
+                    
+                    # Calculate how much of the next track we already played
+                    played_duration = time.time() - next_start_time
+                    
+                    # Load and play from current position
+                    pygame.mixer.music.load(next_track_path)
+                    start_pos = (self.track_custom_start or 0) + played_duration
+                    pygame.mixer.music.play(start=start_pos)
+                    pygame.mixer.music.set_volume(self.volume)
+                    
+                    # Update timing
+                    self.track_start_time = time.time() - played_duration
+                    self.pause_time = None
+                    self.total_pause_duration = 0
+                    
+                    logger.info(f"Crossfade complete - now playing: {next_track_obj.get('title', 'Unknown')}")
+                    
+                    self._reset_crossfade_state()
+                    
+                except Exception as e:
+                    logger.error(f"Error in crossfade execution: {e}", exc_info=True)
+                    self._reset_crossfade_state()
+                    # Restore volume in case of error
+                    if self.audio_available:
+                        pygame.mixer.music.set_volume(self.volume)
+            
+            self.crossfade_thread = Thread(target=execute_crossfade)
+            self.crossfade_thread.daemon = True
+            self.crossfade_thread.start()
             
         except Exception as e:
-            print(f"Error starting crossfade: {e}")
+            logger.error(f"Error starting crossfade: {e}")
             self._reset_crossfade_state()
     
     def update_crossfade_config(self, config):
         """Update crossfade configuration"""
         if config:
             self.crossfade_config.update(config)
-            print(f"Crossfade config updated: {self.crossfade_config}")
+            logger.info(f"Crossfade config updated: {self.crossfade_config}")
     
     def get_crossfade_config(self):
         """Get current crossfade configuration"""
@@ -719,9 +876,9 @@ class PlaybackController:
                 
                 return True
             else:
-                print(f"Simulating seek to {position}s")
+                logger.info(f"Simulating seek to {position}s")
                 return True
                 
         except Exception as e:
-            print(f"Error seeking: {e}")
+            logger.error(f"Error seeking: {e}")
             return False
