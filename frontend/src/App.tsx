@@ -4,12 +4,13 @@ import StorageManager from './components/StorageManager';
 import LibraryManager from './components/LibraryManager';
 import PlaybackControls from './components/PlaybackControls';
 import NowPlaying from './components/NowPlaying';
+import TrackTimesEditor from './components/TrackTimesEditor';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'storage' | 'library' | 'player'>('player');
+  const [activeTab, setActiveTab] = useState<'storage' | 'library' | 'player' | 'tracks'>('player');
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -36,6 +37,12 @@ function App() {
             Player
           </button>
           <button 
+            className={activeTab === 'tracks' ? 'active' : ''} 
+            onClick={() => setActiveTab('tracks')}
+          >
+            Track Times
+          </button>
+          <button 
             className={activeTab === 'library' ? 'active' : ''} 
             onClick={() => setActiveTab('library')}
           >
@@ -56,6 +63,10 @@ function App() {
             <NowPlaying status={playbackStatus} />
             <PlaybackControls status={playbackStatus} onUpdate={() => {}} />
           </div>
+        )}
+        
+        {activeTab === 'tracks' && (
+          <TrackTimesEditor />
         )}
         
         {activeTab === 'library' && (

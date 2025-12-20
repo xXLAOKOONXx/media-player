@@ -213,6 +213,40 @@ def get_status():
     status = playback_controller.get_status()
     return jsonify(status)
 
+@app.route('/api/playback/tracks', methods=['GET'])
+def get_tracks():
+    """Get all tracks in the current playlist"""
+    tracks = playback_controller.get_playlist_tracks()
+    return jsonify({'tracks': tracks})
+
+@app.route('/api/playback/tracks/<int:track_index>/times', methods=['PUT'])
+def set_track_times(track_index):
+    """Set custom start and end times for a specific track"""
+    try:
+        data = request.json
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        # Validate input
+        if start_time is not None and (not isinstance(start_time, (int, float)) or start_time < 0):
+            return jsonify({'error': 'start_time must be a non-negative number'}), 400
+        
+        if end_time is not None and (not isinstance(end_time, (int, float)) or end_time < 0):
+            return jsonify({'error': 'end_time must be a non-negative number'}), 400
+        
+        if start_time is not None and end_time is not None and start_time >= end_time:
+            return jsonify({'error': 'start_time must be less than end_time'}), 400
+        
+        result = playback_controller.set_track_times(track_index, start_time, end_time)
+        
+        if result:
+            return jsonify({'success': True, 'track_index': track_index})
+        else:
+            return jsonify({'error': 'Invalid track index or playlist not loaded'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Crossfade Configuration APIs
 @app.route('/api/crossfade/config', methods=['GET'])
 def get_crossfade_config():

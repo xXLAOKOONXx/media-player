@@ -41,6 +41,13 @@ class PlaybackController:
         self.crossfade_start_time = None
         self.next_track_queued = False
         
+        # Track timing state
+        self.track_start_time = None  # System time when track started
+        self.track_custom_start = None  # Custom start time in track (seconds)
+        self.track_custom_end = None  # Custom end time in track (seconds)
+        self.pause_time = None  # System time when paused
+        self.total_pause_duration = 0  # Total time spent paused
+        
         # Set initial volume if audio is available
         if self.audio_available:
             pygame.mixer.music.set_volume(self.volume)
@@ -68,6 +75,22 @@ class PlaybackController:
                     if len(parts) == 2:
                         current_track['duration'] = parts[0]
                         current_track['title'] = parts[1]
+                
+                elif line.startswith('#EXTVLCOPT:'):
+                    # Parse VLC-style options for start/stop times
+                    # Format: #EXTVLCOPT:start-time=10.5
+                    # Format: #EXTVLCOPT:stop-time=120.5
+                    option = line[11:].strip()
+                    if option.startswith('start-time='):
+                        try:
+                            current_track['start_time'] = float(option.split('=')[1])
+                        except (ValueError, IndexError):
+                            pass
+                    elif option.startswith('stop-time='):
+                        try:
+                            current_track['end_time'] = float(option.split('=')[1])
+                        except (ValueError, IndexError):
+                            pass
                 
                 elif line and not line.startswith('#'):
                     # This is a file path
@@ -115,14 +138,30 @@ class PlaybackController:
                 print(f"Track not found: {track_path}")
                 return False
             
+            # Get custom start and end times if specified
+            self.track_custom_start = track.get('start_time')
+            self.track_custom_end = track.get('end_time')
+            
             if self.audio_available:
                 pygame.mixer.music.load(track_path)
-                pygame.mixer.music.play()
+                
+                # If custom start time is specified, seek to that position
+                if self.track_custom_start is not None:
+                    pygame.mixer.music.play(start=self.track_custom_start)
+                else:
+                    pygame.mixer.music.play()
             else:
                 print(f"Simulating playback of: {track_path}")
+                if self.track_custom_start is not None:
+                    print(f"  Starting at: {self.track_custom_start}s")
+                if self.track_custom_end is not None:
+                    print(f"  Ending at: {self.track_custom_end}s")
             
             self.is_playing = True
             self.is_paused = False
+            self.track_start_time = time.time()
+            self.pause_time = None
+            self.total_pause_duration = 0
             self._reset_crossfade_state()
             
             # Start monitoring thread
@@ -144,6 +183,7 @@ class PlaybackController:
             if self.audio_available:
                 pygame.mixer.music.pause()
             self.is_paused = True
+            self.pause_time = time.time()
     
     def resume(self):
         """Resume playback"""
@@ -151,6 +191,10 @@ class PlaybackController:
             if self.audio_available:
                 pygame.mixer.music.unpause()
             self.is_paused = False
+            # Track how long we were paused
+            if self.pause_time is not None:
+                self.total_pause_duration += time.time() - self.pause_time
+                self.pause_time = None
         elif not self.is_playing and self.current_playlist:
             self.play()
     
@@ -197,7 +241,9 @@ class PlaybackController:
             status['current_track'] = {
                 'title': track.get('title', 'Unknown'),
                 'path': track.get('path', ''),
-                'duration': track.get('duration', 'Unknown')
+                'duration': track.get('duration', 'Unknown'),
+                'start_time': track.get('start_time'),
+                'end_time': track.get('end_time')
             }
         
         return status
@@ -207,6 +253,17 @@ class PlaybackController:
         while not self.stop_monitoring.is_set():
             if self.is_playing and not self.is_paused:
                 if self.audio_available:
+                    # Check if custom end time has been reached
+                    if self.track_custom_end is not None and self.track_start_time is not None:
+                        elapsed = time.time() - self.track_start_time - self.total_pause_duration
+                        effective_position = (self.track_custom_start or 0) + elapsed
+                        
+                        # If we've reached the custom end time, stop and move to next
+                        if effective_position >= self.track_custom_end:
+                            print(f"Reached custom end time: {self.track_custom_end}s")
+                            self.next()
+                            continue
+                    
                     if not pygame.mixer.music.get_busy():
                         # Track finished, play next
                         self.next()
@@ -309,3 +366,45 @@ class PlaybackController:
     def get_crossfade_config(self):
         """Get current crossfade configuration"""
         return self.crossfade_config.copy()
+    
+    def set_track_times(self, track_index, start_time=None, end_time=None):
+        """Set custom start and end times for a specific track in the playlist"""
+        if not self.current_playlist or track_index < 0 or track_index >= len(self.current_playlist):
+            return False
+        
+        track = self.current_playlist[track_index]
+        
+        if start_time is not None:
+            if start_time < 0:
+                return False
+            track['start_time'] = start_time
+        else:
+            track.pop('start_time', None)
+        
+        if end_time is not None:
+            if end_time < 0:
+                return False
+            track['end_time'] = end_time
+        else:
+            track.pop('end_time', None)
+        
+        # If currently playing this track, update the runtime values
+        if track_index == self.current_track_index and self.is_playing:
+            self.track_custom_start = track.get('start_time')
+            self.track_custom_end = track.get('end_time')
+        
+        return True
+    
+    def get_playlist_tracks(self):
+        """Get all tracks in the current playlist with their custom times"""
+        return [
+            {
+                'index': i,
+                'title': track.get('title', 'Unknown'),
+                'path': track.get('path', ''),
+                'duration': track.get('duration', 'Unknown'),
+                'start_time': track.get('start_time'),
+                'end_time': track.get('end_time')
+            }
+            for i, track in enumerate(self.current_playlist)
+        ]
