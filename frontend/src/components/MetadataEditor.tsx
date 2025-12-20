@@ -19,17 +19,12 @@ interface MetadataEditorProps {
 }
 
 const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
-  const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editedMetadata, setEditedMetadata] = useState<Metadata | null>(null);
   const [newTagKey, setNewTagKey] = useState('');
   const [newTagValue, setNewTagValue] = useState('');
-
-  useEffect(() => {
-    loadMetadata();
-  }, [trackPath]);
 
   const loadMetadata = async () => {
     try {
@@ -46,7 +41,6 @@ const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
       }
 
       const data = await response.json();
-      setMetadata(data);
       setEditedMetadata(JSON.parse(JSON.stringify(data))); // Deep copy
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load metadata');
@@ -54,6 +48,11 @@ const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadMetadata();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackPath]);
 
   const handleSave = async () => {
     if (!editedMetadata) return;
@@ -76,7 +75,6 @@ const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
       }
 
       const updatedData = await response.json();
-      setMetadata(updatedData);
       setEditedMetadata(JSON.parse(JSON.stringify(updatedData)));
       alert('Metadata saved successfully!');
     } catch (err) {
@@ -121,7 +119,6 @@ const MetadataEditor = ({ trackPath, onClose }: MetadataEditorProps) => {
       }
 
       const updatedData = await response.json();
-      setMetadata(updatedData);
       setEditedMetadata(JSON.parse(JSON.stringify(updatedData)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete custom tag');
