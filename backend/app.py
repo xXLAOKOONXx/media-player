@@ -3,7 +3,7 @@ Media Player Backend
 Main Flask application for media player control
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
 import json
@@ -14,8 +14,13 @@ from storage_manager import StorageManager
 from library_manager import LibraryManager
 from playback_controller import PlaybackController
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
+# Configure Flask to serve static files from the static folder
+static_folder = os.path.join(os.path.dirname(__file__), 'static')
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
+
+# Enable CORS for development (when frontend runs on different port)
+# In production, frontend is served from Flask, so CORS not needed
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Initialize managers
 storage_manager = StorageManager()
@@ -211,6 +216,22 @@ def browse_path():
         return jsonify({'items': items, 'current_path': str(path_obj)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Serve React frontend
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Serve the React frontend or API 404"""
+    # If path starts with 'api', it's an API route that wasn't found
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # Check if it's a file in static folder
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    
+    # Otherwise, serve index.html (for React Router)
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
     # Development server configuration

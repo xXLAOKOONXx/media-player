@@ -1,11 +1,10 @@
-import React from 'react';
 import './NowPlaying.css';
 
 interface NowPlayingProps {
   status: any;
 }
 
-const NowPlaying: React.FC<NowPlayingProps> = ({ status }) => {
+const NowPlaying = ({ status }: NowPlayingProps) => {
   if (!status || !status.current_track) {
     return (
       <div className="now-playing card">

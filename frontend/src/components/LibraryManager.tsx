@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './LibraryManager.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = '';
 
 interface Library {
   id: number;
@@ -17,7 +17,7 @@ interface Playlist {
   size: number;
 }
 
-const LibraryManager: React.FC = () => {
+const LibraryManager = () => {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedLibrary, setSelectedLibrary] = useState<number | null>(null);

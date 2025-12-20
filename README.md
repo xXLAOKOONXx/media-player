@@ -116,28 +116,38 @@ graph LR
    
    See [UV Setup Guide](docs/UV_SETUP.md) for more details.
 
-3. **Install frontend dependencies**
+3. **Build and start the application**
    ```bash
-   cd ../frontend
+   # Build frontend (from project root)
+   cd frontend
    npm install
-   ```
-
-4. **Start the backend**
-   ```bash
+   npm run build
+   
+   # Start backend (serves both API and frontend)
    cd ../backend
    python app.py
    ```
-   The backend will run on `http://localhost:5000`
+   
+   The application will run on `http://localhost:5000`
 
-5. **Start the frontend** (in a new terminal)
-   ```bash
-   cd frontend
-   npm start
-   ```
-   The frontend will run on `http://localhost:3000`
+4. **Access the application**
+   Open your web browser and navigate to `http://localhost:5000`
 
-6. **Access the application**
-   Open your web browser and navigate to `http://localhost:3000`
+### Development Mode (Frontend Hot Reload)
+
+For frontend development with hot reload:
+
+```bash
+# Terminal 1 - Backend API
+cd backend
+python app.py
+
+# Terminal 2 - Frontend dev server with proxy
+cd frontend
+npm run dev
+```
+
+Then access the frontend at `http://localhost:5173` (Vite's default port)
 
 ### Production Build
 

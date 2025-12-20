@@ -17,40 +17,65 @@ Get the Media Player up and running in minutes!
    cd media-player
    ```
 
-2. **Start the backend**
+2. **Install and build**
    
    **Option A: Using uv (recommended - faster):**
    ```bash
+   # Backend
    cd backend
    # Install uv if needed: curl -LsSf https://astral.sh/uv/install.sh | sh
    uv venv && source .venv/bin/activate
    uv pip install -e .
+   
+   # Frontend
+   cd ../frontend
+   npm install
+   npm run build
+   
+   # Start application
+   cd ../backend
    python3 app.py
    ```
    
    **Option B: Using pip:**
    ```bash
+   # Backend
    cd backend
    pip install -r requirements.txt
+   
+   # Frontend
+   cd ../frontend
+   npm install
+   npm run build
+   
+   # Start application
+   cd ../backend
    python3 app.py
    ```
    
-   Backend is now running at `http://localhost:5000`
+   Application is now running at `http://localhost:5000`
 
-3. **Start the frontend** (in a new terminal)
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
-   
-   Frontend will open at `http://localhost:3000`
-
-4. **Use the application**
-   - Navigate to `http://localhost:3000` in your browser
+3. **Use the application**
+   - Navigate to `http://localhost:5000` in your browser
    - Click on the **Storage** tab to configure network storage
    - Switch to **Library** tab to add your playlist folders
    - Go to **Player** tab to control playback
+
+### Development Mode (Frontend Hot Reload)
+
+If you want to make frontend changes with live reload:
+
+```bash
+# Terminal 1 - Backend
+cd backend
+python3 app.py
+
+# Terminal 2 - Frontend dev server
+cd frontend
+npm run dev
+```
+
+Access at `http://localhost:5173` for hot reload development.
 
 ## For Raspberry Pi (Production)
 

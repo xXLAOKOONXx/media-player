@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './StorageManager.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = '';
 
 interface Storage {
   id: number;
@@ -13,7 +13,7 @@ interface Storage {
   mount_point: string;
 }
 
-const StorageManager: React.FC = () => {
+const StorageManager = () => {
   const [storages, setStorages] = useState<Storage[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStorage, setNewStorage] = useState({

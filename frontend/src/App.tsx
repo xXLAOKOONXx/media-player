@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import StorageManager from './components/StorageManager';
 import LibraryManager from './components/LibraryManager';
 import PlaybackControls from './components/PlaybackControls';
 import NowPlaying from './components/NowPlaying';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Use relative URL - works for both dev (proxied) and production (same origin)
+const API_BASE_URL = '';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'storage' | 'library' | 'player'>('player');
