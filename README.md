@@ -102,36 +102,35 @@ graph LR
 
 2. **Install backend dependencies**
    
-   **Option A: Using uv (recommended - 10x faster):**
+   **Quick Start (Recommended):**
+   ```bash
+   # Use the automated setup script (installs all dependencies)
+   ./start-dev.sh
+   ```
+   
+   **Manual Installation with uv (recommended - 10x faster):**
    ```bash
    cd backend
    # Install uv if not already installed
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   pip install uv
    
-   # Create virtual environment and install dependencies
-   uv venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   uv pip install -e .
-   ```
-   
-   **Option B: Using traditional pip:**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
+   # Install dependencies from uv.lock
+   uv sync --no-build-isolation
    ```
    
    See [UV Setup Guide](docs/UV_SETUP.md) for more details.
 
 3. **Build and start the application**
    ```bash
-   # Build frontend (from project root)
+   # If you used start-dev.sh, it already built the frontend
+   # Otherwise, build frontend manually:
    cd frontend
    npm install
    npm run build
    
    # Start backend (serves both API and frontend)
    cd ../backend
-   python app.py
+   uv run python app.py
    ```
    
    The application will run on `http://localhost:5000`
@@ -146,7 +145,7 @@ For frontend development with hot reload:
 ```bash
 # Terminal 1 - Backend API
 cd backend
-python app.py
+uv run python app.py
 
 # Terminal 2 - Frontend dev server with proxy
 cd frontend
