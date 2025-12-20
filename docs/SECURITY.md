@@ -79,7 +79,7 @@ from flask_cors import CORS
 # Restrict to specific origins
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:3000", "http://raspberrypi.local"],
+        "origins": ["http://localhost:5173", "http://raspberrypi.local:5000"],
         "methods": ["GET", "POST", "DELETE"],
         "allow_headers": ["Content-Type"]
     }
@@ -235,11 +235,10 @@ For use only on private home networks (recommended current usage):
 ```bash
 # Firewall - allow only from local network
 sudo ufw allow from 192.168.1.0/24 to any port 5000
-sudo ufw allow from 192.168.1.0/24 to any port 3000
 ```
 
 ### Router Configuration
-- Don't forward ports 5000 or 3000 to the internet
+- Don't forward port 5000 to the internet
 - Use strong WiFi password (WPA3 if available)
 - Enable MAC address filtering (optional)
 - Keep router firmware updated
@@ -257,8 +256,12 @@ If you discover a security vulnerability, please:
 # Regularly check for vulnerable dependencies
 
 # Python
-pip install safety
-safety check -r backend/requirements.txt
+cd backend
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+uv pip install safety
+safety check
 
 # Node.js
 cd frontend

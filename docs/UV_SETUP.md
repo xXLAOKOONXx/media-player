@@ -48,11 +48,6 @@ Using `pyproject.toml`:
 uv pip install -e .
 ```
 
-Or using `requirements.txt` (backward compatible):
-```bash
-uv pip install -r requirements.txt
-```
-
 ### 4. Install development dependencies (optional)
 ```bash
 uv pip install -e ".[dev]"
@@ -90,18 +85,14 @@ python app.py
 
 ## Backward Compatibility
 
-The project maintains both:
-- `pyproject.toml` for uv and modern Python tools
-- `requirements.txt` for traditional pip users
+The backend is defined in `backend/pyproject.toml`.
 
-Both files are kept in sync. You can use either:
+If you prefer plain pip (without uv), you can still use:
 
 ```bash
-# Traditional pip
-pip install -r requirements.txt
-
-# Modern uv
-uv pip install -e .
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e .
 ```
 
 ## Development Workflow
@@ -132,9 +123,6 @@ flake8 .
 ```bash
 # Add to pyproject.toml [project.dependencies]
 uv pip install package-name
-
-# Update requirements.txt to keep it in sync
-uv pip freeze > requirements.txt
 ```
 
 ### Upgrading all dependencies:
@@ -168,7 +156,7 @@ python app.py
 ### uv not found after installation
 ```bash
 # Add to PATH (typically done automatically)
-export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 # Or reinstall
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -183,7 +171,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### Compatibility issues
 ```bash
 # Fall back to pip if needed
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e .
 ```
 
 ## Additional Resources

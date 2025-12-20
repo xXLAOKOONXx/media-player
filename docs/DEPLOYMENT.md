@@ -27,7 +27,10 @@ This guide covers deploying the Media Player application in different environmen
    
    # Backend
    cd backend
-   pip install -r requirements.txt
+   # Install uv if needed: curl -LsSf https://astral.sh/uv/install.sh | sh
+   uv venv
+   source .venv/bin/activate
+   uv pip install -e .
    
    # Frontend
    cd ../frontend
@@ -42,11 +45,11 @@ This guide covers deploying the Media Player application in different environmen
    
    # Terminal 2 - Frontend
    cd frontend
-   npm start
+   npm run dev
    ```
 
 3. **Access**
-   - Frontend: http://localhost:3000
+   - Frontend (dev): http://localhost:5173
    - Backend API: http://localhost:5000
 
 ## Production Deployment on Raspberry Pi
@@ -60,7 +63,11 @@ Follow the [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md) for complete instru
 1. **Prepare the system**
    ```bash
    sudo apt update && sudo apt upgrade -y
-   sudo apt install -y python3 python3-pip python3-pygame nodejs npm git
+   sudo apt install -y python3 python3-venv git curl ca-certificates nodejs npm
+
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   export PATH="$HOME/.local/bin:$PATH"
    ```
 
 2. **Clone and setup**
@@ -71,7 +78,9 @@ Follow the [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md) for complete instru
    
    # Backend
    cd backend
-   pip3 install -r requirements.txt
+   uv venv
+   source .venv/bin/activate
+   uv pip install -e .
    
    # Frontend
    cd ../frontend
@@ -97,21 +106,8 @@ Follow the [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md) for complete instru
    ```
 
 4. **Serve frontend**
-   
-   Option A: Use a simple HTTP server
-   ```bash
-   cd ~/media-player/frontend/build
-   python3 -m http.server 3000
-   ```
-   
-   Option B: Use nginx (recommended)
-   ```bash
-   sudo apt install -y nginx
-   sudo cp examples/nginx-site.conf /etc/nginx/sites-available/mediaplayer
-   sudo ln -s /etc/nginx/sites-available/mediaplayer /etc/nginx/sites-enabled/
-   sudo nginx -t
-   sudo systemctl restart nginx
-   ```
+
+   The frontend build outputs into `backend/static` and is served by the Flask backend on port 5000.
 
 ### Systemd Service Management
 
@@ -335,13 +331,15 @@ app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key')
 
 1. **Use Gunicorn for production**
    ```bash
-   pip3 install gunicorn
-   gunicorn -w 4 -b 0.0.0.0:5000 app:app
+   cd ~/media-player/backend
+   source .venv/bin/activate
+   uv pip install gunicorn
+   .venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 app:app
    ```
 
 2. **Update systemd service**
    ```ini
-   ExecStart=/usr/local/bin/gunicorn -w 2 -b 127.0.0.1:5000 app:app
+   ExecStart=/home/pi/media-player/backend/.venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 app:app
    ```
 
 ### Frontend
@@ -454,7 +452,7 @@ python3 app.py
 
 ```bash
 # Check if build exists
-ls -la /home/pi/media-player/frontend/build
+ls -la /home/pi/media-player/backend/static
 
 # Check nginx/apache logs
 sudo tail -f /var/log/nginx/error.log
@@ -470,7 +468,7 @@ curl -I http://localhost:80
 curl http://localhost:5000/api/playback/status
 
 # Check CORS configuration
-curl -H "Origin: http://localhost:3000" \
+curl -H "Origin: http://localhost:5173" \
      -H "Access-Control-Request-Method: GET" \
      -X OPTIONS \
      http://localhost:5000/api/playback/status
@@ -494,7 +492,8 @@ git pull
 
 # Update dependencies
 cd backend
-pip3 install -r requirements.txt
+source .venv/bin/activate
+uv pip install -e .
 
 cd ../frontend
 npm install

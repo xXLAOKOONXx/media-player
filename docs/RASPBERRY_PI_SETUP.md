@@ -153,20 +153,29 @@ sudo systemctl restart dhcpcd
 ### 1. Install Python and Dependencies
 
 ```bash
-# Install Python 3 and pip
-sudo apt install -y python3 python3-pip python3-venv
+# Install Python 3
+sudo apt install -y python3 python3-venv
 
-# Install pygame dependencies
-sudo apt install -y python3-pygame
+# Tools used by the install steps
+sudo apt install -y git curl ca-certificates
 
 # Install audio libraries
 sudo apt install -y libsdl2-mixer-2.0-0 libsdl2-2.0-0
-
-# Install git
-sudo apt install -y git
 ```
 
-### 2. Install Node.js (for building frontend)
+### 2. Install uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Ensure uv is on PATH for this shell
+export PATH="$HOME/.local/bin:$PATH"
+
+# Verify
+uv --version
+```
+
+### 3. Install Node.js (for building frontend)
 
 ```bash
 # Install Node.js 18.x
@@ -178,7 +187,7 @@ node --version
 npm --version
 ```
 
-### 3. Clone Repository
+### 4. Clone Repository
 
 ```bash
 cd ~
@@ -186,17 +195,25 @@ git clone https://github.com/xXLAOKOONXx/media-player.git
 cd media-player
 ```
 
-### 4. Install Application Dependencies
+### 5. Install Application Dependencies
 
 ```bash
 # Backend
 cd ~/media-player/backend
-pip3 install -r requirements.txt
+
+# Create and use a local virtual environment
+uv venv
+source .venv/bin/activate
+
+# Install backend dependencies from pyproject.toml
+uv pip install -e .
 
 # Frontend
 cd ~/media-player/frontend
 npm install
 npm run build
+
+# The frontend build outputs into ../backend/static and is served by Flask.
 ```
 
 ## Audio Configuration
@@ -629,7 +646,8 @@ sudo apt upgrade -y
 
 # Update Python packages
 cd ~/media-player/backend
-pip3 install -r requirements.txt --upgrade
+source .venv/bin/activate
+uv pip install -e . --upgrade
 
 # Update application
 cd ~/media-player
@@ -665,7 +683,7 @@ uptime
 
 ## Next Steps
 
-1. Access web UI: `http://mediaplayer.local:3000`
+1. Access web UI: `http://mediaplayer.local:5000`
 2. Configure network storage in Storage tab
 3. Add libraries in Library tab
 4. Start playing music!

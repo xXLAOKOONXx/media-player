@@ -301,7 +301,7 @@ lsof -ti:5173 | xargs kill -9
 
 # Or change port in vite.config.ts:
 server: {
-  port: 3000,
+  port: 5173,
   proxy: { ... }
 }
 ```

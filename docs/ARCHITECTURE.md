@@ -245,7 +245,7 @@ sequenceDiagram
 ```mermaid
 graph TB
     Dev[Developer Machine]
-    Dev --> FE[Frontend :3000]
+    Dev --> FE[Frontend :5173]
     Dev --> BE[Backend :5000]
     FE --> Browser[Web Browser]
     BE --> FS[Local Filesystem]

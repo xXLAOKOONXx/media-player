@@ -41,7 +41,9 @@ Get the Media Player up and running in minutes!
    ```bash
    # Backend
    cd backend
-   pip install -r requirements.txt
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -e .
    
    # Frontend
    cd ../frontend
@@ -99,7 +101,11 @@ Access at `http://localhost:5173` for hot reload development.
 
 3. **Install dependencies**
    ```bash
-   sudo apt install -y python3 python3-pip python3-pygame nodejs npm git
+   sudo apt install -y python3 python3-venv git curl ca-certificates nodejs npm
+
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   export PATH="$HOME/.local/bin:$PATH"
    ```
 
 4. **Clone and setup**
@@ -110,7 +116,9 @@ Access at `http://localhost:5173` for hot reload development.
    
    # Backend
    cd backend
-   pip3 install -r requirements.txt
+   uv venv
+   source .venv/bin/activate
+   uv pip install -e .
    
    # Frontend
    cd ../frontend
@@ -133,8 +141,8 @@ Access at `http://localhost:5173` for hot reload development.
    ```
 
 7. **Access the UI**
-   - From any device on your network: `http://raspberrypi.local:3000`
-   - Or use the IP address: `http://192.168.1.xxx:3000`
+   - From any device on your network: `http://raspberrypi.local:5000`
+   - Or use the IP address: `http://192.168.1.xxx:5000`
 
 ## First Time Setup
 
@@ -177,7 +185,8 @@ python3 --version  # Should be 3.8+
 
 # Reinstall dependencies
 cd backend
-pip3 install -r requirements.txt --upgrade
+source .venv/bin/activate
+uv pip install -e . --upgrade
 ```
 
 ### Frontend won't start
@@ -212,7 +221,6 @@ sudo systemctl status mediaplayer
 # Check firewall (if enabled)
 sudo ufw status
 sudo ufw allow from 192.168.1.0/24 to any port 5000
-sudo ufw allow from 192.168.1.0/24 to any port 3000
 
 # Find your IP
 hostname -I

@@ -14,8 +14,8 @@ Environment="SDL_AUDIODRIVER=alsa"
 Environment="DISPLAY=:0"
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Main service command
-ExecStart=/usr/bin/python3 /home/pi/media-player/backend/app.py
+# Main service command (use the project's venv created by `uv venv`)
+ExecStart=/home/pi/media-player/backend/.venv/bin/python /home/pi/media-player/backend/app.py
 
 # Restart configuration
 Restart=always
