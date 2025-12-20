@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import importlib.util
 import os
 import platform
 import shutil
@@ -129,7 +130,6 @@ def bundle_with_pyinstaller(backend_dir):
         return True
     
     # Check if PyInstaller is installed using importlib for robustness
-    import importlib.util
     pyinstaller_spec = importlib.util.find_spec('PyInstaller')
     
     if pyinstaller_spec is None:
