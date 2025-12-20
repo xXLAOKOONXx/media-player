@@ -111,23 +111,23 @@ class PlaybackController:
                     album_tag = audio.tags.get('TALB')
                     if album_tag:
                         album = str(album_tag)
-                
-                # Try generic artist/album fields for other formats (Vorbis, etc.)
-                if not artist and hasattr(audio.tags, 'get'):
-                    try:
-                        artist_list = audio.tags.get('artist', [])
-                        if artist_list:
-                            artist = str(artist_list[0]) if isinstance(artist_list, list) else str(artist_list)
-                    except:
-                        pass
-                
-                if not album and hasattr(audio.tags, 'get'):
-                    try:
-                        album_list = audio.tags.get('album', [])
-                        if album_list:
-                            album = str(album_list[0]) if isinstance(album_list, list) else str(album_list)
-                    except:
-                        pass
+                    
+                    # Try generic artist/album fields for other formats (Vorbis, etc.)
+                    if not artist:
+                        try:
+                            artist_list = audio.tags.get('artist', [])
+                            if artist_list:
+                                artist = str(artist_list[0]) if isinstance(artist_list, list) else str(artist_list)
+                        except (AttributeError, TypeError, IndexError, KeyError):
+                            pass
+                    
+                    if not album:
+                        try:
+                            album_list = audio.tags.get('album', [])
+                            if album_list:
+                                album = str(album_list[0]) if isinstance(album_list, list) else str(album_list)
+                        except (AttributeError, TypeError, IndexError, KeyError):
+                            pass
                 
                 if artist:
                     metadata['artist'] = artist
