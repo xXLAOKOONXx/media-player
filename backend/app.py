@@ -9,11 +9,13 @@ from werkzeug.utils import secure_filename
 import os
 import json
 from pathlib import Path
+from urllib.parse import unquote
 
 # Import modules
 from storage_manager import StorageManager
 from library_manager import LibraryManager
 from playback_controller import PlaybackController
+from metadata_manager import MetadataManager
 
 # Configure Flask to serve static files from the static folder
 # Use absolute path for security
@@ -282,6 +284,116 @@ def update_crossfade_config():
         save_config(config)
         
         return jsonify(playback_controller.get_crossfade_config())
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Metadata Management APIs
+@app.route('/api/metadata', methods=['POST'])
+def get_track_metadata():
+    """Get metadata for a specific track
+    
+    Request body should contain:
+    {
+        "track_path": "/path/to/track.mp3"
+    }
+    """
+    try:
+        data = request.json
+        track_path = data.get('track_path')
+        
+        if not track_path:
+            return jsonify({'error': 'track_path is required'}), 400
+        
+        # Validate path exists
+        if not os.path.exists(track_path):
+            return jsonify({'error': 'Track file not found'}), 404
+        
+        metadata = MetadataManager.read_metadata(track_path)
+        
+        if metadata is None:
+            return jsonify({'error': 'Failed to read metadata'}), 500
+        
+        return jsonify(metadata)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metadata', methods=['PUT'])
+def update_track_metadata():
+    """Update metadata for a specific track
+    
+    Request body should contain:
+    {
+        "track_path": "/path/to/track.mp3",
+        "metadata": {
+            "title": "Song Title",
+            "artist": "Artist Name",
+            "album": "Album Name",
+            "year": "2024",
+            "track_number": "1",
+            "custom_tags": {
+                "LAO:CUSTOM_KEY": "custom_value"
+            }
+        }
+    }
+    """
+    try:
+        data = request.json
+        track_path = data.get('track_path')
+        metadata = data.get('metadata', {})
+        
+        if not track_path:
+            return jsonify({'error': 'track_path is required'}), 400
+        
+        # Validate path exists
+        if not os.path.exists(track_path):
+            return jsonify({'error': 'Track file not found'}), 404
+        
+        # Write metadata
+        success = MetadataManager.write_metadata(track_path, metadata)
+        
+        if not success:
+            return jsonify({'error': 'Failed to write metadata'}), 500
+        
+        # Return updated metadata
+        updated_metadata = MetadataManager.read_metadata(track_path)
+        return jsonify(updated_metadata)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metadata/custom-tag', methods=['DELETE'])
+def delete_custom_tag():
+    """Delete a custom tag from a track
+    
+    Request body should contain:
+    {
+        "track_path": "/path/to/track.mp3",
+        "tag_key": "LAO:CUSTOM_KEY"
+    }
+    """
+    try:
+        data = request.json
+        track_path = data.get('track_path')
+        tag_key = data.get('tag_key')
+        
+        if not track_path or not tag_key:
+            return jsonify({'error': 'track_path and tag_key are required'}), 400
+        
+        # Validate path exists
+        if not os.path.exists(track_path):
+            return jsonify({'error': 'Track file not found'}), 404
+        
+        # Delete custom tag
+        success = MetadataManager.delete_custom_tag(track_path, tag_key)
+        
+        if not success:
+            return jsonify({'error': 'Failed to delete custom tag'}), 500
+        
+        # Return updated metadata
+        updated_metadata = MetadataManager.read_metadata(track_path)
+        return jsonify(updated_metadata)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

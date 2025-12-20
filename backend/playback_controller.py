@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Thread, Event
 import time
 from mutagen import File as MutagenFile
+from metadata_manager import MetadataManager
 
 
 class PlaybackController:
@@ -291,12 +292,18 @@ class PlaybackController:
         
         if self.current_playlist and self.current_track_index < len(self.current_playlist):
             track = self.current_playlist[self.current_track_index]
+            track_path = track.get('path', '')
+            
+            # Read full metadata from file
+            metadata = MetadataManager.read_metadata(track_path) if track_path else None
+            
             status['current_track'] = {
                 'title': track.get('title', 'Unknown'),
-                'path': track.get('path', ''),
+                'path': track_path,
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
-                'end_time': track.get('end_time')
+                'end_time': track.get('end_time'),
+                'metadata': metadata  # Include full metadata
             }
         
         return status
@@ -455,15 +462,20 @@ class PlaybackController:
         return True
     
     def get_playlist_tracks(self):
-        """Get all tracks in the current playlist with their custom times"""
-        return [
-            {
+        """Get all tracks in the current playlist with their custom times and metadata"""
+        tracks = []
+        for i, track in enumerate(self.current_playlist):
+            track_path = track.get('path', '')
+            metadata = MetadataManager.read_metadata(track_path) if track_path else None
+            
+            tracks.append({
                 'index': i,
                 'title': track.get('title', 'Unknown'),
-                'path': track.get('path', ''),
+                'path': track_path,
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
-                'end_time': track.get('end_time')
-            }
-            for i, track in enumerate(self.current_playlist)
-        ]
+                'end_time': track.get('end_time'),
+                'metadata': metadata
+            })
+        
+        return tracks
