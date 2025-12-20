@@ -3,7 +3,7 @@
 }
 
 .track-times-editor .info-text {
-  color: #666;
+  color: #9d9d9d;
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
@@ -15,10 +15,10 @@
 }
 
 .track-item {
-  border: 1px solid #ddd;
+  border: 1px solid #9d9d9d;
   border-radius: 4px;
   padding: 0.75rem;
-  background-color: #f9f9f9;
+  background-color: #606060;
 }
 
 .track-display {
@@ -36,7 +36,7 @@
 
 .track-duration {
   font-size: 0.85rem;
-  color: #666;
+  color: #9d9d9d;
 }
 
 .track-times {
@@ -44,12 +44,12 @@
 }
 
 .custom-times {
-  color: #2e7d32;
+  color: #734457;
   font-weight: 500;
 }
 
 .no-custom-times {
-  color: #999;
+  color: #9d9d9d;
   font-style: italic;
 }
 
@@ -76,14 +76,16 @@
 .input-group label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #555;
+  color: #dfdfdf;
 }
 
 .input-group input {
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 1px solid #9d9d9d;
   border-radius: 4px;
   font-size: 0.9rem;
+  background-color: #414141;
+  color: #dfdfdf;
 }
 
 .button-group {
@@ -95,13 +97,21 @@
 .btn-small {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .btn-small {
+    min-height: 48px;
+    padding: 0.5rem 1rem;
+  }
 }
 
 .error-message {
-  color: #d32f2f;
+  color: #dfdfdf;
   font-size: 0.85rem;
   padding: 0.5rem;
-  background-color: #ffebee;
+  background-color: #8b4545;
   border-radius: 4px;
 }
 

@@ -63,13 +63,13 @@
 }
 
 .list-item.selected {
-  background-color: rgba(102, 126, 234, 0.3);
-  border-left: 4px solid #667eea;
+  background-color: rgba(157, 157, 157, 0.4);
+  border-left: 4px solid #9d9d9d;
 }
 
 .folder-path, .playlist-path {
   font-size: 0.85rem;
-  color: #888;
+  color: #9d9d9d;
   margin-top: 0.25rem;
 }
 
@@ -89,6 +89,15 @@
   display: flex;
   gap: 0.5rem;
   margin-left: auto;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .action-buttons {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
 }
 
 .edit-mode {
@@ -101,21 +110,29 @@
 .edit-input {
   flex: 1;
   padding: 0.5rem;
-  border: 1px solid #667eea;
+  border: 1px solid #9d9d9d;
   border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.2);
-  color: white;
+  background-color: rgba(65, 65, 65, 0.5);
+  color: #dfdfdf;
 }
 
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .btn-sm {
+    padding: 0.5rem 0.75rem;
+    min-height: 48px;
+  }
 }
 
 .btn-danger {
-  background-color: #dc3545;
+  background-color: #8b4545;
 }
 
 .btn-danger:hover {
-  background-color: #c82333;
+  background-color: #6b3535;
 }
