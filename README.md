@@ -95,10 +95,26 @@ graph LR
    ```
 
 2. **Install backend dependencies**
+   
+   **Option A: Using uv (recommended - 10x faster):**
+   ```bash
+   cd backend
+   # Install uv if not already installed
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Create virtual environment and install dependencies
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e .
+   ```
+   
+   **Option B: Using traditional pip:**
    ```bash
    cd backend
    pip install -r requirements.txt
    ```
+   
+   See [UV Setup Guide](docs/UV_SETUP.md) for more details.
 
 3. **Install frontend dependencies**
    ```bash

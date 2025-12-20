@@ -18,6 +18,17 @@ Get the Media Player up and running in minutes!
    ```
 
 2. **Start the backend**
+   
+   **Option A: Using uv (recommended - faster):**
+   ```bash
+   cd backend
+   # Install uv if needed: curl -LsSf https://astral.sh/uv/install.sh | sh
+   uv venv && source .venv/bin/activate
+   uv pip install -e .
+   python3 app.py
+   ```
+   
+   **Option B: Using pip:**
    ```bash
    cd backend
    pip install -r requirements.txt
