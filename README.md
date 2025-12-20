@@ -5,10 +5,16 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 ## 🎯 Features
 
 - **Network Storage Management**: Configure SMB/CIFS and NFS network storage locations
-- **Library Management**: Organize your media files into libraries
+- **Playlist Management**: Organize your media files into playlist folders
 - **Playlist Support**: Play M3U and M3U8 playlist files
 - **Web-Based Control**: Modern React-based UI accessible from any device on your network
-- **Playback Controls**: Play, pause, stop, skip tracks, and adjust volume
+- **Advanced Playback Controls**: 
+  - Play, pause, stop, skip tracks, and adjust volume
+  - Shuffle mode for randomized playback
+  - Repeat modes (off, all tracks, single track)
+  - Progress bar with seek functionality
+  - Track time display (current position / total duration)
+  - Visual crossfade indicators
 - **Real-Time Status**: See what's currently playing in real-time
 - **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
 
@@ -49,7 +55,7 @@ graph TB
 graph LR
     subgraph Frontend
         A[App.tsx] --> B[StorageManager]
-        A --> C[LibraryManager]
+        A --> C[PlaylistManager]
         A --> D[PlaybackControls]
         A --> E[NowPlaying]
     end
@@ -181,10 +187,10 @@ Example `config.json`:
       "mount_point": "/mnt/media_1"
     }
   ],
-  "libraries": [
+  "playlists": [
     {
       "id": 1,
-      "name": "Playlists",
+      "name": "My Playlists",
       "type": "playlist",
       "path": "/mnt/media_1/playlists",
       "storage_id": 1
@@ -220,17 +226,18 @@ REACT_APP_API_URL=http://raspberrypi.local:5000
    - Username/Password: Credentials for accessing the share
 4. Click **Add Storage**
 
-### 2. Add Libraries
+### 2. Add Playlist Folders
 
-1. Navigate to the **Library** tab
-2. Click **+ Add Library**
-3. Enter a library name and path to your playlist folder
+1. Navigate to the **Playlists** tab
+2. Click **+ Add Playlist Folder**
+3. Enter a folder name and path to your playlist folder
 4. Use the **Browse** button to navigate your filesystem
-5. Click **Add Library**
+5. Click **Add Playlist Folder**
+6. Use the ✏️ button to rename or 🗑️ button to delete a playlist folder
 
 ### 3. Play Music
 
-1. In the **Library** tab, select a library
+1. In the **Playlists** tab, select a playlist folder
 2. Browse the available playlists
 3. Click **Play** on any playlist to start playback
 4. Navigate to the **Player** tab to control playback
@@ -238,10 +245,18 @@ REACT_APP_API_URL=http://raspberrypi.local:5000
 ### 4. Control Playback
 
 In the **Player** tab, you can:
+- **Shuffle** (🔀): Toggle shuffle mode to randomize track playback order
+- **Repeat** (↻/🔁/🔂): Cycle through repeat modes:
+  - ↻ Off: Play playlist once and stop
+  - 🔁 All: Repeat entire playlist
+  - 🔂 One: Repeat current track
 - **Play/Pause**: Start or pause playback
 - **Stop**: Stop playback completely
 - **Previous/Next**: Navigate between tracks
 - **Volume**: Adjust the playback volume
+- **Progress Bar**: Click or drag to seek to any position in the current track
+- **Track Time**: View current position and total duration
+- **Crossfade Indicator**: Green gradient shows where track will fade out (last 5 seconds)
 - **Now Playing**: See the current track information
 
 ## 🍓 Raspberry Pi Setup
@@ -363,7 +378,7 @@ media-player/
 │   ├── src/
 │   │   ├── components/    # React components
 │   │   │   ├── StorageManager.tsx
-│   │   │   ├── LibraryManager.tsx
+│   │   │   ├── PlaylistManager.tsx
 │   │   │   ├── PlaybackControls.tsx
 │   │   │   └── NowPlaying.tsx
 │   │   ├── App.tsx        # Main App component
@@ -379,10 +394,12 @@ media-player/
 - `POST /api/storage` - Add new network storage
 - `DELETE /api/storage/:id` - Delete network storage
 
-#### Library Management
-- `GET /api/libraries` - List all libraries
-- `POST /api/libraries` - Add new library
-- `GET /api/libraries/:id/playlists` - Get playlists in library
+#### Playlist Management
+- `GET /api/playlists` - List all playlist folders
+- `POST /api/playlists` - Add new playlist folder
+- `PUT /api/playlists/:id` - Rename playlist folder
+- `DELETE /api/playlists/:id` - Delete playlist folder
+- `GET /api/playlists/:id/files` - Get playlists in folder
 
 #### Playback Control
 - `POST /api/playback/play` - Start/resume playback
@@ -391,7 +408,10 @@ media-player/
 - `POST /api/playback/next` - Next track
 - `POST /api/playback/previous` - Previous track
 - `POST /api/playback/volume` - Set volume
-- `GET /api/playback/status` - Get playback status
+- `POST /api/playback/shuffle` - Toggle shuffle mode
+- `POST /api/playback/repeat` - Set repeat mode (none/all/one)
+- `POST /api/playback/seek` - Seek to position in track
+- `GET /api/playback/status` - Get playback status (includes shuffle, repeat, position)
 
 #### File System
 - `POST /api/browse` - Browse filesystem path
