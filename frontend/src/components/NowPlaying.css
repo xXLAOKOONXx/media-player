@@ -37,9 +37,101 @@
   margin: 0.5rem 0;
 }
 
-.track-duration {
-  font-size: 0.9rem;
+.track-custom-times {
+  font-size: 0.85rem;
   margin: 0.5rem 0;
+  color: #43e97b;
+}
+
+.progress-section {
+  margin: 1.5rem 0;
+}
+
+.time-display {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+  font-family: monospace;
+}
+
+.current-time {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.total-time {
+  color: #888;
+}
+
+.progress-bar-container {
+  position: relative;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.progress-bar-wrapper {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+}
+
+.progress-bar-background {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.crossfade-region {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 8px;
+  background: linear-gradient(to right, 
+    rgba(67, 233, 123, 0.2) 0%, 
+    rgba(67, 233, 123, 0.4) 100%
+  );
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.progress-bar-input {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 30px;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.progress-bar-input:disabled {
+  cursor: not-allowed;
+}
+
+.progress-bar-wrapper:hover .progress-bar-background {
+  height: 10px;
+}
+
+.progress-bar-wrapper:hover .crossfade-region {
+  height: 10px;
 }
 
 .playlist-info {

@@ -106,46 +106,95 @@ def delete_storage(storage_id):
     save_config(config)
     return '', 204
 
-# Library Management APIs
-@app.route('/api/libraries', methods=['GET'])
-def get_libraries():
-    """Get all configured libraries"""
+# Playlist Management APIs
+@app.route('/api/playlists', methods=['GET'])
+def get_playlists():
+    """Get all configured playlist folders"""
     config = load_config()
-    return jsonify(config.get('libraries', []))
+    return jsonify(config.get('playlists', config.get('libraries', [])))
 
-@app.route('/api/libraries', methods=['POST'])
-def add_library():
-    """Add a new library"""
+@app.route('/api/playlists', methods=['POST'])
+def add_playlist():
+    """Add a new playlist folder"""
     data = request.json
     config = load_config()
     
-    library = {
-        'id': len(config.get('libraries', [])) + 1,
+    # Support both 'playlists' and 'libraries' keys for backward compatibility
+    if 'playlists' not in config:
+        config['playlists'] = config.get('libraries', [])
+        if 'libraries' in config:
+            del config['libraries']
+    
+    playlist_folder = {
+        'id': len(config.get('playlists', [])) + 1,
         'name': data.get('name'),
-        'type': data.get('type', 'playlist'),  # playlist, music, etc.
+        'type': data.get('type', 'playlist'),
         'path': data.get('path'),
         'storage_id': data.get('storage_id')
     }
     
-    if 'libraries' not in config:
-        config['libraries'] = []
-    config['libraries'].append(library)
+    config['playlists'].append(playlist_folder)
     save_config(config)
     
-    return jsonify(library), 201
+    return jsonify(playlist_folder), 201
+
+@app.route('/api/playlists/<int:playlist_id>', methods=['PUT'])
+def rename_playlist(playlist_id):
+    """Rename a playlist folder"""
+    data = request.json
+    config = load_config()
+    playlists = config.get('playlists', config.get('libraries', []))
+    
+    for playlist in playlists:
+        if playlist['id'] == playlist_id:
+            playlist['name'] = data.get('name', playlist['name'])
+            config['playlists'] = playlists
+            if 'libraries' in config:
+                del config['libraries']
+            save_config(config)
+            return jsonify(playlist)
+    
+    return jsonify({'error': 'Playlist folder not found'}), 404
+
+@app.route('/api/playlists/<int:playlist_id>', methods=['DELETE'])
+def delete_playlist(playlist_id):
+    """Delete a playlist folder"""
+    config = load_config()
+    playlists = config.get('playlists', config.get('libraries', []))
+    config['playlists'] = [p for p in playlists if p['id'] != playlist_id]
+    if 'libraries' in config:
+        del config['libraries']
+    save_config(config)
+    return '', 204
+
+@app.route('/api/playlists/<int:playlist_id>/files', methods=['GET'])
+def get_playlist_files(playlist_id):
+    """Get all playlist files in a folder"""
+    config = load_config()
+    playlists = config.get('playlists', config.get('libraries', []))
+    playlist_folder = next((pf for pf in playlists if pf['id'] == playlist_id), None)
+    
+    if not playlist_folder:
+        return jsonify({'error': 'Playlist folder not found'}), 404
+    
+    playlist_files = library_manager.get_playlists(playlist_folder['path'])
+    return jsonify(playlist_files)
+
+# Keep old endpoints for backward compatibility
+@app.route('/api/libraries', methods=['GET'])
+def get_libraries():
+    """Get all configured libraries (deprecated, use /api/playlists)"""
+    return get_playlists()
+
+@app.route('/api/libraries', methods=['POST'])
+def add_library():
+    """Add a new library (deprecated, use /api/playlists)"""
+    return add_playlist()
 
 @app.route('/api/libraries/<int:library_id>/playlists', methods=['GET'])
-def get_playlists(library_id):
-    """Get all playlists in a library"""
-    config = load_config()
-    libraries = config.get('libraries', [])
-    library = next((lib for lib in libraries if lib['id'] == library_id), None)
-    
-    if not library:
-        return jsonify({'error': 'Library not found'}), 404
-    
-    playlists = library_manager.get_playlists(library['path'])
-    return jsonify(playlists)
+def get_playlists_old(library_id):
+    """Get all playlists in a library (deprecated, use /api/playlists/<id>/files)"""
+    return get_playlist_files(library_id)
 
 @app.route('/api/playlists/<int:playlist_id>/tracks', methods=['GET'])
 def get_playlist_tracks(playlist_id):
@@ -206,6 +255,36 @@ def set_volume():
     volume = data.get('volume', 50)
     playback_controller.set_volume(volume)
     return jsonify({'volume': volume})
+
+@app.route('/api/playback/shuffle', methods=['POST'])
+def set_shuffle():
+    """Toggle shuffle mode"""
+    data = request.json
+    enabled = data.get('enabled', False)
+    result = playback_controller.set_shuffle(enabled)
+    return jsonify({'shuffle': enabled, 'success': result})
+
+@app.route('/api/playback/repeat', methods=['POST'])
+def set_repeat():
+    """Set repeat mode"""
+    data = request.json
+    mode = data.get('mode', 'none')
+    result = playback_controller.set_repeat_mode(mode)
+    if result:
+        return jsonify({'repeat_mode': mode, 'success': True})
+    else:
+        return jsonify({'error': 'Invalid repeat mode'}), 400
+
+@app.route('/api/playback/seek', methods=['POST'])
+def seek():
+    """Seek to a position in the current track"""
+    data = request.json
+    position = data.get('position', 0)
+    result = playback_controller.seek(position)
+    if result:
+        return jsonify({'success': True, 'position': position})
+    else:
+        return jsonify({'error': 'Seek failed'}), 400
 
 @app.route('/api/playback/status', methods=['GET'])
 def get_status():
