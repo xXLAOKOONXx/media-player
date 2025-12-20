@@ -180,6 +180,10 @@ class PlaybackController:
             for line in lines:
                 line = line.strip()
                 
+                # Skip M3U header and empty lines
+                if line == '#EXTM3U' or not line:
+                    continue
+                
                 if line.startswith('#EXTINF:'):
                     # Parse track info
                     parts = line[8:].split(',', 1)
@@ -207,7 +211,7 @@ class PlaybackController:
                         except (ValueError, IndexError):
                             pass
                 
-                elif line and not line.startswith('#'):
+                elif not line.startswith('#'):
                     # This is a file path
                     # Handle relative paths
                     if not os.path.isabs(line):
