@@ -117,8 +117,14 @@ class MetadataManager:
                 return False
             
             # Initialize ID3 tags if they don't exist
+            # Only works for ID3-capable formats (MP3, etc.)
             if not hasattr(audio, 'tags') or audio.tags is None:
-                audio.add_tags()
+                try:
+                    audio.add_tags()
+                except AttributeError:
+                    # File format doesn't support add_tags()
+                    print(f"Warning: File format doesn't support ID3 tags: {file_path}")
+                    return False
             
             tags = audio.tags
             
@@ -143,11 +149,14 @@ class MetadataManager:
                 for key, value in metadata['custom_tags'].items():
                     if key and value is not None:
                         # Remove existing TXXX frame with this description
-                        existing = tags.getall('TXXX')
-                        for frame in existing:
+                        # We need to delete by checking each frame
+                        frames_to_delete = []
+                        for frame in tags.getall('TXXX'):
                             if hasattr(frame, 'desc') and str(frame.desc) == key:
-                                tags.delall('TXXX:' + key)
-                                break
+                                frames_to_delete.append(frame)
+                        
+                        for frame in frames_to_delete:
+                            tags.pop(frame.HashKey)
                         
                         # Add new TXXX frame
                         tags.add(TXXX(encoding=3, desc=key, text=str(value)))
@@ -182,15 +191,14 @@ class MetadataManager:
             tags = audio.tags
             
             # Remove TXXX frame with this description
-            existing = tags.getall('TXXX')
-            found = False
-            for frame in existing:
+            frames_to_delete = []
+            for frame in tags.getall('TXXX'):
                 if hasattr(frame, 'desc') and str(frame.desc) == tag_key:
-                    tags.delall('TXXX:' + tag_key)
-                    found = True
-                    break
+                    frames_to_delete.append(frame)
             
-            if found:
+            if frames_to_delete:
+                for frame in frames_to_delete:
+                    tags.pop(frame.HashKey)
                 audio.save()
                 return True
             

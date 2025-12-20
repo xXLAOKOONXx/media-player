@@ -97,7 +97,7 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
               {Object.entries(metadata.custom_tags).map(([key, value]) => (
                 <div key={key} className="tag-item">
                   <span className="tag-key">{key}:</span>
-                  <span className="tag-value">{value as string}</span>
+                  <span className="tag-value">{String(value)}</span>
                 </div>
               ))}
             </div>
