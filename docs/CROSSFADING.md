@@ -194,9 +194,11 @@ The crossfading feature is implemented in `playback_controller.py` using:
 
 1. **M3U Metadata Required**: Crossfading requires track duration information from M3U files. If duration is missing or `0`, crossfading won't work for that track.
 
-2. **No Overlap**: pygame's `queue()` function loads the next track but doesn't support true overlap. The fade is a volume fade-out followed by the next track starting.
+2. **No True Overlap**: pygame's `queue()` function loads the next track but doesn't support true overlap. The fade is a volume fade-out followed by the next track starting.
 
 3. **Single Audio Channel**: pygame.mixer.music uses a single channel, so true simultaneous playback isn't possible. The crossfade is simulated through fadeout/fadein.
+
+4. **Position Tracking After Pause**: `pygame.mixer.music.get_pos()` returns milliseconds since playback started, which may be inaccurate after pause/resume. The system skips crossfade checks in the first second of playback to avoid issues.
 
 ### Behavior
 
