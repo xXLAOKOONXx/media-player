@@ -6,7 +6,6 @@ This file configures how PyInstaller bundles the application
 
 import os
 import sys
-from pathlib import Path
 
 block_cipher = None
 
