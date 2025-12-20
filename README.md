@@ -14,8 +14,11 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - Repeat modes (off, all tracks, single track)
   - Progress bar with seek functionality
   - Track time display (current position / total duration)
+  - **Proper crossfade with overlap**: Simultaneous fade-out/fade-in between tracks
   - Visual crossfade indicators
+- **Smart Duration Detection**: Automatically extracts accurate track duration from audio files using mutagen
 - **Real-Time Status**: See what's currently playing in real-time
+- **Performance Monitoring**: Comprehensive logging for monitoring playback performance
 - **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
 
 ## 📋 Table of Contents
@@ -254,9 +257,22 @@ In the **Player** tab, you can:
 - **Previous/Next**: Navigate between tracks
 - **Volume**: Adjust the playback volume
 - **Progress Bar**: Click or drag to seek to any position in the current track
-- **Track Time**: View current position and total duration
+- **Track Time**: View current position and total duration (extracted automatically from audio files)
 - **Crossfade Indicator**: Green gradient shows where track will fade out (last 5 seconds)
+- **Crossfade**: Smooth transitions with real overlap between tracks
 - **Now Playing**: See the current track information
+
+### 5. Crossfade Configuration
+
+The media player features intelligent crossfading with real overlap between tracks:
+
+- **Automatic Duration Detection**: Track durations are extracted directly from audio files using mutagen, ensuring accurate timing
+- **Configurable Crossfade**: 
+  - Default crossfade duration: 3 seconds
+  - Fade starts 5 seconds before track end
+  - Both tracks play simultaneously during crossfade
+- **Smart Fallback**: For large audio files that can't be loaded into memory, the system automatically falls back to queue-based crossfade
+- **Performance Monitoring**: Comprehensive logging tracks crossfade performance and helps diagnose issues
 
 ## 🍓 Raspberry Pi Setup
 
