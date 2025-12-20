@@ -57,6 +57,10 @@ class LibraryManager:
             for line in lines:
                 line = line.strip()
                 
+                # Skip M3U header and empty lines
+                if line == '#EXTM3U' or not line:
+                    continue
+                
                 if line.startswith('#EXTINF:'):
                     # Parse track info
                     # Format: #EXTINF:duration,Artist - Title
@@ -65,7 +69,7 @@ class LibraryManager:
                         current_track['duration'] = parts[0]
                         current_track['title'] = parts[1]
                 
-                elif line and not line.startswith('#'):
+                elif not line.startswith('#'):
                     # This is a file path
                     current_track['path'] = line
                     tracks.append(current_track)
