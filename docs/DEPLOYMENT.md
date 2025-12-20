@@ -6,9 +6,10 @@ This guide covers deploying the Media Player application in different environmen
 
 1. [Development Deployment](#development-deployment)
 2. [Production Deployment on Raspberry Pi](#production-deployment-on-raspberry-pi)
-3. [Docker Deployment](#docker-deployment-future)
-4. [Reverse Proxy Setup](#reverse-proxy-setup)
-5. [Security Considerations](#security-considerations)
+3. [Bundled Distribution](#bundled-distribution)
+4. [Docker Deployment](#docker-deployment-future)
+5. [Reverse Proxy Setup](#reverse-proxy-setup)
+6. [Security Considerations](#security-considerations)
 
 ## Development Deployment
 
@@ -124,6 +125,41 @@ sudo systemctl stop mediaplayer
 # Disable auto-start
 sudo systemctl disable mediaplayer
 ```
+
+## Bundled Distribution
+
+For distributing the application as standalone bundles with built frontend:
+
+### Windows Executable Bundle
+
+Create a standalone executable using PyInstaller:
+
+```bash
+# On Windows
+build.bat
+```
+
+The bundle will be created in `backend/dist/media-player/` and can be distributed to users without requiring Python installation.
+
+### Unix Distribution Package
+
+Create a distribution package for Linux/macOS:
+
+```bash
+# On Linux/macOS
+./build.sh
+```
+
+The package will be created in `dist/media-player-unix/` and includes all necessary files with installation instructions.
+
+### Benefits
+
+- **Pre-built Frontend**: All bundles include the built React frontend
+- **Easy Distribution**: Share a single folder with users
+- **No Build Steps**: Users don't need Node.js or build tools
+- **Platform-Specific**: Optimized for each platform
+
+For detailed bundling instructions, see the [Bundling Guide](BUNDLING.md).
 
 ## Docker Deployment (Future)
 

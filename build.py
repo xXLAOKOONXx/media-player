@@ -211,6 +211,8 @@ def create_unix_distribution(project_root, backend_dir):
     # Create a README for the distribution
     readme_content = """# Media Player Distribution
 
+This package includes the Media Player application with a pre-built frontend.
+
 ## Installation
 
 1. Install Python 3.8 or higher
@@ -220,6 +222,13 @@ def create_unix_distribution(project_root, backend_dir):
    pip install -r requirements.txt
    ```
 
+   Or using uv (faster):
+   ```bash
+   cd backend
+   pip install uv
+   uv sync --no-build-isolation
+   ```
+
 ## Running the Application
 
 ```bash
@@ -227,12 +236,29 @@ cd backend
 python app.py
 ```
 
+Or with uv:
+```bash
+cd backend
+uv run python app.py
+```
+
 Then open your browser and navigate to http://localhost:5000
+
+The web interface is already built and included in the `static/` folder.
 
 ## Requirements
 
 - Python 3.8+
-- pip
+- pip (or uv)
+
+## Features
+
+- Pre-built web interface (no Node.js required)
+- Network storage support (SMB/CIFS, NFS)
+- Playlist management
+- Advanced playback controls with crossfade
+
+## Documentation
 
 For detailed documentation, visit: https://github.com/xXLAOKOONXx/media-player
 """
