@@ -82,7 +82,6 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({ status, onUpdate })
   };
 
   const isPlaying = status?.is_playing && !status?.is_paused;
-  const isPaused = status?.is_paused;
 
   return (
     <div className="playback-controls card">

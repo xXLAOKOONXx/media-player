@@ -15,7 +15,13 @@ class PlaybackController:
     
     def __init__(self):
         # Initialize pygame mixer
-        pygame.mixer.init()
+        try:
+            pygame.mixer.init()
+            self.audio_available = True
+        except pygame.error as e:
+            print(f"Warning: Audio initialization failed: {e}")
+            print("Running in no-audio mode. Playback will be simulated.")
+            self.audio_available = False
         
         self.current_playlist = []
         self.current_track_index = 0
@@ -23,8 +29,9 @@ class PlaybackController:
         self.is_paused = False
         self.volume = 0.5
         
-        # Set initial volume
-        pygame.mixer.music.set_volume(self.volume)
+        # Set initial volume if audio is available
+        if self.audio_available:
+            pygame.mixer.music.set_volume(self.volume)
         
         # Playback monitoring thread
         self.monitor_thread = None
@@ -91,8 +98,12 @@ class PlaybackController:
                 print(f"Track not found: {track_path}")
                 return False
             
-            pygame.mixer.music.load(track_path)
-            pygame.mixer.music.play()
+            if self.audio_available:
+                pygame.mixer.music.load(track_path)
+                pygame.mixer.music.play()
+            else:
+                print(f"Simulating playback of: {track_path}")
+            
             self.is_playing = True
             self.is_paused = False
             
@@ -112,20 +123,23 @@ class PlaybackController:
     def pause(self):
         """Pause playback"""
         if self.is_playing and not self.is_paused:
-            pygame.mixer.music.pause()
+            if self.audio_available:
+                pygame.mixer.music.pause()
             self.is_paused = True
     
     def resume(self):
         """Resume playback"""
         if self.is_paused:
-            pygame.mixer.music.unpause()
+            if self.audio_available:
+                pygame.mixer.music.unpause()
             self.is_paused = False
         elif not self.is_playing and self.current_playlist:
             self.play()
     
     def stop(self):
         """Stop playback"""
-        pygame.mixer.music.stop()
+        if self.audio_available:
+            pygame.mixer.music.stop()
         self.is_playing = False
         self.is_paused = False
     
@@ -144,7 +158,8 @@ class PlaybackController:
     def set_volume(self, volume):
         """Set volume (0-100)"""
         self.volume = volume / 100.0
-        pygame.mixer.music.set_volume(self.volume)
+        if self.audio_available:
+            pygame.mixer.music.set_volume(self.volume)
     
     def get_status(self):
         """Get current playback status"""
@@ -171,8 +186,10 @@ class PlaybackController:
         """Monitor playback and auto-advance to next track"""
         while not self.stop_monitoring.is_set():
             if self.is_playing and not self.is_paused:
-                if not pygame.mixer.music.get_busy():
-                    # Track finished, play next
-                    self.next()
+                if self.audio_available:
+                    if not pygame.mixer.music.get_busy():
+                        # Track finished, play next
+                        self.next()
+                # In no-audio mode, don't auto-advance
             
             time.sleep(0.5)
