@@ -3,12 +3,26 @@ Playback Controller
 Handles audio playback using pygame with crossfading support
 """
 
-import pygame
+try:
+    import pygame
+    PYGAME_AVAILABLE = True
+except ImportError:
+    PYGAME_AVAILABLE = False
+    print("Warning: pygame not available, running in simulation mode")
+
 import os
 from pathlib import Path
 from threading import Thread, Event
 import time
-from mutagen import File as MutagenFile
+import random
+import copy
+
+try:
+    from mutagen import File as MutagenFile
+    MUTAGEN_AVAILABLE = True
+except ImportError:
+    MUTAGEN_AVAILABLE = False
+    print("Warning: mutagen not available, ID3 tag reading disabled")
 
 
 class PlaybackController:
@@ -16,13 +30,16 @@ class PlaybackController:
     
     def __init__(self, crossfade_config=None):
         # Initialize pygame mixer
-        try:
-            pygame.mixer.init()
-            self.audio_available = True
-        except pygame.error as e:
-            print(f"Warning: Audio initialization failed: {e}")
-            print("Running in no-audio mode. Playback will be simulated.")
-            self.audio_available = False
+        self.audio_available = False
+        if PYGAME_AVAILABLE:
+            try:
+                pygame.mixer.init()
+                self.audio_available = True
+            except Exception as e:
+                print(f"Warning: Audio initialization failed: {e}")
+                print("Running in no-audio mode. Playback will be simulated.")
+        else:
+            print("Warning: pygame not installed, running in no-audio mode")
         
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
@@ -68,6 +85,9 @@ class PlaybackController:
         Returns tuple (start_time_seconds, end_time_seconds) or (None, None)
         Times in ID3 are stored in milliseconds, converted to seconds here
         """
+        if not MUTAGEN_AVAILABLE:
+            return None, None
+            
         try:
             audio = MutagenFile(file_path)
             if audio is None:
@@ -164,7 +184,7 @@ class PlaybackController:
                     current_track = {}
             
             self.current_playlist = tracks
-            self.original_playlist = tracks.copy()  # Store original order
+            self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation
             self.current_track_index = 0
             
             # Apply shuffle if enabled

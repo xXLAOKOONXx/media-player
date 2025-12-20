@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import './NowPlaying.css';
 
 const API_BASE_URL = '';
@@ -8,8 +7,6 @@ interface NowPlayingProps {
 }
 
 const NowPlaying = ({ status }: NowPlayingProps) => {
-  const [isSeeking, setIsSeeking] = useState(false);
-
   if (!status || !status.current_track) {
     return (
       <div className="now-playing card">
@@ -33,7 +30,6 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
 
   const handleSeek = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const position = parseFloat(e.target.value);
-    setIsSeeking(true);
     
     try {
       await fetch(`${API_BASE_URL}/api/playback/seek`, {
@@ -43,8 +39,6 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
       });
     } catch (err) {
       console.error('Error seeking:', err);
-    } finally {
-      setTimeout(() => setIsSeeking(false), 100);
     }
   };
 
@@ -125,7 +119,7 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
                   min={startTime}
                   max={endTime || duration || 100}
                   step="0.1"
-                  value={isSeeking ? undefined : currentPos}
+                  value={currentPos}
                   onChange={handleSeek}
                   className="progress-bar-input"
                   disabled={!is_playing}
