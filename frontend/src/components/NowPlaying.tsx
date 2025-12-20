@@ -19,6 +19,13 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
 
   const { current_track, is_playing, is_paused, current_track_index, playlist_length } = status;
 
+  const formatTime = (seconds: number | null | undefined) => {
+    if (seconds == null) return null;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="now-playing card">
       <h2>Now Playing</h2>
@@ -32,6 +39,11 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
           <p className="track-path">{current_track.path}</p>
           {current_track.duration && current_track.duration !== 'Unknown' && (
             <p className="track-duration">Duration: {current_track.duration}s</p>
+          )}
+          {(current_track.start_time != null || current_track.end_time != null) && (
+            <p className="track-custom-times">
+              Custom Range: {formatTime(current_track.start_time) || '0:00'} - {formatTime(current_track.end_time) || 'end'}
+            </p>
           )}
         </div>
         <div className="playlist-info">
