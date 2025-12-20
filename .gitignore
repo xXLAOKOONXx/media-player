@@ -25,6 +25,11 @@ ENV/
 .venv/
 backend/.venv/
 
+# PyInstaller
+backend/build/
+backend/dist/
+*.spec.bak
+
 # Node
 node_modules/
 npm-debug.log*

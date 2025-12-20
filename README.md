@@ -168,6 +168,22 @@ Then access the frontend at `http://localhost:5173` (Vite's default port)
 2. **Serve the frontend through Flask** (optional)
    You can configure Flask to serve the built React app, or use a reverse proxy like nginx.
 
+### Creating Distributable Bundles
+
+For creating shippable bundles with the built frontend:
+
+**Windows** (creates standalone executable):
+```bash
+build.bat
+```
+
+**Unix/Linux/macOS** (creates distribution package):
+```bash
+./build.sh
+```
+
+See the [Bundling Guide](docs/BUNDLING.md) for detailed instructions on creating and distributing bundles.
+
 ## 🔧 Configuration
 
 ### Backend Configuration

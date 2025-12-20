@@ -16,6 +16,9 @@ dev = [
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
+build = [
+    "pyinstaller>=6.0.0",
+]
 
 [tool.black]
 line-length = 100
