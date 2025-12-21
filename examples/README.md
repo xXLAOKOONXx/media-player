@@ -6,6 +6,11 @@ This directory contains example files to help you get started with the media pla
 
 - `example_playlist.m3u` - Sample M3U playlist format
 - `config.example.json` - Example configuration file with all settings
+- `test_shuffle_first_track.py` - Test script for shuffle mode first track randomization
+- `test_api.py` - API testing script
+- `test_crossfade.py` - Crossfade functionality testing script
+- `test_id3_support.py` - ID3 tag support testing script
+- `test_track_times.py` - Track timing functionality testing script
 
 ## Configuration Sections
 
