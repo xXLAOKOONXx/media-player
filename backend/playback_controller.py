@@ -478,7 +478,7 @@ class PlaybackController:
                     
                     # Get the (possibly shuffled) first track
                     first_track_obj = self.current_playlist[0]
-                    first_track_path = first_track_obj['path']
+                    shuffled_first_track_path = first_track_obj['path']
                     self.track_custom_start = first_track_obj.get('start_time')
                     self.track_custom_end = first_track_obj.get('end_time')
                     
@@ -486,7 +486,7 @@ class PlaybackController:
                     played_duration = time.time() - next_start_time
                     
                     # Load and play from current position
-                    pygame.mixer.music.load(first_track_path)
+                    pygame.mixer.music.load(shuffled_first_track_path)
                     start_pos = (self.track_custom_start or 0) + played_duration
                     pygame.mixer.music.play(start=start_pos)
                     pygame.mixer.music.set_volume(self.volume)
