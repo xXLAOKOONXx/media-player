@@ -315,9 +315,9 @@ class PlaybackController:
             self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation
             self.current_track_index = 0
             
-            # Apply shuffle if enabled
+            # Apply shuffle if enabled - for new playlists, don't preserve current track
             if self.shuffle_enabled:
-                self._apply_shuffle()
+                self._apply_shuffle(preserve_current=False)
             
             return True
             
@@ -816,7 +816,7 @@ class PlaybackController:
         self.shuffle_enabled = enabled
         
         if enabled:
-            self._apply_shuffle()
+            self._apply_shuffle(preserve_current=True)
         else:
             # Restore original order
             if self.original_playlist:
@@ -836,23 +836,28 @@ class PlaybackController:
         
         return True
     
-    def _apply_shuffle(self):
-        """Apply shuffle to current playlist"""
+    def _apply_shuffle(self, preserve_current=True):
+        """Apply shuffle to current playlist
+        
+        Args:
+            preserve_current: If True, keeps the current track at position 0.
+                            If False, shuffles all tracks randomly (for new playlists).
+        """
         if not self.current_playlist:
             return
         
         import random
         
-        # Save current track
+        # Save current track if needed
         current_track = None
-        if self.current_track_index < len(self.current_playlist):
+        if preserve_current and self.current_track_index < len(self.current_playlist):
             current_track = self.current_playlist[self.current_track_index]
         
         # Shuffle the playlist
         shuffled = self.current_playlist.copy()
         random.shuffle(shuffled)
         
-        # If there's a current track, move it to position 0
+        # If there's a current track and we want to preserve it, move it to position 0
         if current_track:
             # Remove current track from shuffled list
             shuffled = [t for t in shuffled if t.get('path') != current_track.get('path')]
