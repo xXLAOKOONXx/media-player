@@ -17,6 +17,7 @@ import time
 import random
 import copy
 import logging
+import re
 
 try:
     from mutagen import File as MutagenFile
@@ -31,6 +32,45 @@ except ImportError:
 logger = logging.getLogger('PlaybackController')
 if not logger.handlers:  # Only configure if not already configured
     logger.setLevel(logging.INFO)  # Default level, can be changed by application
+
+
+_WINDOWS_ABS_PATH_RE = re.compile(r'^[A-Za-z]:[\\/]')
+
+
+def _is_url_path(value: str) -> bool:
+    # Be conservative: M3U can contain http(s) streams.
+    return '://' in value or value.startswith(('http:', 'https:'))
+
+
+def _normalize_m3u_entry_path(value: str) -> str:
+    """Normalize a single M3U path line for cross-platform compatibility.
+
+    - Treat backslashes as path separators for file paths.
+    - Leave URLs untouched.
+    """
+    if not value:
+        return value
+    if _is_url_path(value):
+        return value
+    return value.replace('\\', '/')
+
+
+def _is_absolute_path_cross_platform(value: str) -> bool:
+    """Return True for both POSIX-absolute paths and Windows-absolute paths.
+
+    This prevents incorrect joining like `/playlist/dir/C:/Music/track.mp3` on Linux.
+    """
+    if not value:
+        return False
+    if os.path.isabs(value):
+        return True
+    # Windows drive letter paths (e.g. C:/Music/file.mp3)
+    if _WINDOWS_ABS_PATH_RE.match(value):
+        return True
+    # UNC paths (e.g. //server/share/file.mp3)
+    if value.startswith('//'):
+        return True
+    return False
 
 
 class PlaybackController:
@@ -241,8 +281,9 @@ class PlaybackController:
                     continue
                 
                 # This is a file path (non-comment line)
+                line = _normalize_m3u_entry_path(line)
                 # Handle relative paths
-                if not os.path.isabs(line):
+                if not _is_absolute_path_cross_platform(line) and not _is_url_path(line):
                     line = str(playlist_dir / line)
                 
                 current_track['path'] = line

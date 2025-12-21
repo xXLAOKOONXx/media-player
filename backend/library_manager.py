@@ -71,6 +71,10 @@ class LibraryManager:
                     continue
                 
                 # This is a file path (non-comment line)
+                # Normalize Windows-style path separators for cross-platform compatibility.
+                # Windows itself accepts '/', so this is safe on all platforms.
+                if '://' not in line:
+                    line = line.replace('\\', '/')
                 current_track['path'] = line
                 tracks.append(current_track)
                 current_track = {}
