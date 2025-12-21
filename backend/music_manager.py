@@ -57,54 +57,6 @@ class MusicManager:
         return audio_files
     
     def _scan_audio_files(self, path, recursive=False):
-        """Get all audio files in a directory
-        
-        Args:
-            path: Directory path to scan
-            recursive: If True, scan subdirectories as well
-            
-        Returns:
-            List of dicts with file information and metadata
-        """
-        audio_files = []
-        
-        try:
-            path_obj = Path(path)
-            if not path_obj.exists():
-                return audio_files
-            
-            # Get audio files based on recursive setting
-            if recursive:
-                file_iterator = path_obj.rglob('*')
-            else:
-                file_iterator = path_obj.glob('*')
-            
-            for file in file_iterator:
-                if file.is_file() and file.suffix.lower() in self.AUDIO_EXTENSIONS:
-                    file_info = {
-                        'name': file.name,
-                        'path': str(file),
-                        'size': file.stat().st_size
-                    }
-                    
-                    # Extract metadata
-                    metadata = self._extract_metadata(str(file))
-                    file_info.update(metadata)
-                    
-                    audio_files.append(file_info)
-            
-            # Sort by artist, then title
-            audio_files.sort(key=lambda x: (
-                x.get('artist', '').lower(),
-                x.get('title', x.get('name', '')).lower()
-            ))
-            
-        except Exception as e:
-            print(f"Error getting audio files: {e}")
-        
-        return audio_files
-    
-    def _scan_audio_files(self, path, recursive=False):
         """Scan filesystem for audio files
         
         Args:
