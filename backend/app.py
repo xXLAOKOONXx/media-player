@@ -15,6 +15,7 @@ from library_manager import LibraryManager
 from playback_controller import PlaybackController
 from sound_effects_manager import SoundEffectsManager
 from music_manager import MusicManager
+from audio_metadata import display_title, read_audio_metadata
 
 # Configure Flask to serve static files from the static folder
 # Use absolute path for security
@@ -549,13 +550,30 @@ def add_tracks_to_current_playlist():
     if not track_paths:
         return jsonify({'error': 'No tracks provided'}), 400
     
-    # Validate that all track files exist
+    # Validate that all track files exist and enrich with metadata (same tooling as Music tab)
     valid_tracks = []
     for track_path in track_paths:
-        if os.path.exists(track_path):
-            valid_tracks.append({'path': track_path})
-        else:
+        if not os.path.exists(track_path):
             print(f"Warning: Skipping non-existent track: {track_path}")
+            continue
+
+        track_obj = {'path': track_path}
+        try:
+            metadata = read_audio_metadata(
+                track_path,
+                include_duration=True,
+                include_times=True,
+                include_tags=False,
+            )
+            if isinstance(metadata, dict):
+                track_obj.update(metadata)
+        except Exception:
+            # Best-effort: metadata is optional for playback.
+            pass
+
+        # Always apply the shared display-title fallback.
+        track_obj['title'] = display_title(track_obj)
+        valid_tracks.append(track_obj)
     
     if not valid_tracks:
         return jsonify({'error': 'No valid tracks found'}), 400
