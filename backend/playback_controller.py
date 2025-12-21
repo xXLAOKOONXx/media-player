@@ -335,13 +335,7 @@ class PlaybackController:
                 self._crossfade_to_new_playlist(tracks)
             else:
                 # Normal playlist load without crossfade
-                self.current_playlist = tracks
-                self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation
-                self.current_track_index = 0
-                
-                # Apply shuffle if enabled - for new playlists, don't preserve current track
-                if self.shuffle_enabled:
-                    self._apply_shuffle(preserve_current=False)
+                self._update_playlist_data(tracks, preserve_current=False)
             
             return True
             
@@ -353,6 +347,20 @@ class PlaybackController:
         """Reset crossfade state"""
         self.is_crossfading = False
         self.next_track_queued = False
+    
+    def _update_playlist_data(self, new_tracks, preserve_current=False):
+        """Update playlist data structures with new tracks
+        
+        Args:
+            new_tracks: List of track dictionaries
+            preserve_current: If True, preserve current track when shuffling
+        """
+        self.current_playlist = new_tracks
+        self.original_playlist = copy.deepcopy(new_tracks)
+        self.current_track_index = 0
+        
+        if self.shuffle_enabled:
+            self._apply_shuffle(preserve_current=preserve_current)
     
     def _crossfade_to_new_playlist(self, new_tracks):
         """Crossfade from current track to the first track of a new playlist
@@ -372,11 +380,7 @@ class PlaybackController:
             if not os.path.exists(first_track_path):
                 logger.warning(f"First track of new playlist not found: {first_track_path}")
                 # Fall back to normal load
-                self.current_playlist = new_tracks
-                self.original_playlist = copy.deepcopy(new_tracks)
-                self.current_track_index = 0
-                if self.shuffle_enabled:
-                    self._apply_shuffle(preserve_current=False)
+                self._update_playlist_data(new_tracks, preserve_current=False)
                 return
             
             # Mark that we're crossfading
@@ -407,11 +411,7 @@ class PlaybackController:
                             time.sleep(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
                             
                             # Update playlist and play first track
-                            self.current_playlist = new_tracks
-                            self.original_playlist = copy.deepcopy(new_tracks)
-                            self.current_track_index = 0
-                            if self.shuffle_enabled:
-                                self._apply_shuffle(preserve_current=False)
+                            self._update_playlist_data(new_tracks, preserve_current=False)
                             
                             self.play(0)
                             self._reset_crossfade_state()
@@ -428,11 +428,7 @@ class PlaybackController:
                         time.sleep(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
                         
                         # Update playlist and play first track
-                        self.current_playlist = new_tracks
-                        self.original_playlist = copy.deepcopy(new_tracks)
-                        self.current_track_index = 0
-                        if self.shuffle_enabled:
-                            self._apply_shuffle(preserve_current=False)
+                        self._update_playlist_data(new_tracks, preserve_current=False)
                         
                         self.play(0)
                         self._reset_crossfade_state()
@@ -478,13 +474,7 @@ class PlaybackController:
                     next_channel.stop()
                     
                     # Update playlist data structures
-                    self.current_playlist = new_tracks
-                    self.original_playlist = copy.deepcopy(new_tracks)
-                    self.current_track_index = 0
-                    
-                    # Apply shuffle if enabled
-                    if self.shuffle_enabled:
-                        self._apply_shuffle(preserve_current=False)
+                    self._update_playlist_data(new_tracks, preserve_current=False)
                     
                     # Get the (possibly shuffled) first track
                     first_track_obj = self.current_playlist[0]
@@ -518,11 +508,7 @@ class PlaybackController:
                         pygame.mixer.music.set_volume(self.volume)
                     
                     # Fall back to normal load and play
-                    self.current_playlist = new_tracks
-                    self.original_playlist = copy.deepcopy(new_tracks)
-                    self.current_track_index = 0
-                    if self.shuffle_enabled:
-                        self._apply_shuffle(preserve_current=False)
+                    self._update_playlist_data(new_tracks, preserve_current=False)
                     self.play(0)
             
             # Start the crossfade thread
@@ -534,11 +520,7 @@ class PlaybackController:
             logger.error(f"Error starting playlist crossfade: {e}")
             self._reset_crossfade_state()
             # Fall back to normal load
-            self.current_playlist = new_tracks
-            self.original_playlist = copy.deepcopy(new_tracks)
-            self.current_track_index = 0
-            if self.shuffle_enabled:
-                self._apply_shuffle(preserve_current=False)
+            self._update_playlist_data(new_tracks, preserve_current=False)
     
     def play(self, track_index=None):
         """Play a track from the current playlist"""
