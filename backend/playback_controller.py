@@ -846,8 +846,6 @@ class PlaybackController:
         if not self.current_playlist:
             return
         
-        import random
-        
         # Save current track if needed
         current_track = None
         if preserve_current and self.current_track_index < len(self.current_playlist):
