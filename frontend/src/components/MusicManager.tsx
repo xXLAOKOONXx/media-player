@@ -691,8 +691,8 @@ const MusicManager = () => {
       )}
 
       <div className="music-folders">
-        <h3 onClick={() => setFoldersCollapsed(!foldersCollapsed)} style={{cursor: 'pointer'}}>
-          <span className="material-icons" style={{fontSize: '20px', verticalAlign: 'middle'}}>
+        <h3 onClick={() => setFoldersCollapsed(!foldersCollapsed)}>
+          <span className="material-icons">
             {foldersCollapsed ? 'expand_more' : 'expand_less'}
           </span>
           Music Folders
@@ -850,7 +850,7 @@ const MusicManager = () => {
                       checked={selectedTracks.size === filteredTracks.length && filteredTracks.length > 0}
                       onChange={toggleSelectAll}
                     />
-                    <span style={{marginLeft: '8px'}}>Select All ({filteredTracks.length} track(s))</span>
+                    <span className="select-all-text">Select All ({filteredTracks.length} track(s))</span>
                   </label>
                 </div>
               </div>

@@ -83,6 +83,24 @@
   margin-bottom: 15px;
   color: #ffffff;
   font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.music-folders h3 .material-icons {
+  font-size: 20px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.tracks-header label {
+  display: flex;
+  align-items: center;
+}
+
+.tracks-header label .select-all-text {
+  margin-left: 8px;
 }
 
 .music-folders ul {
