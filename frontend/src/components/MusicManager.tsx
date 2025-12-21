@@ -329,6 +329,33 @@ const MusicManager = () => {
     }
   };
 
+  const handleAddToCurrentPlaylist = async () => {
+    try {
+      const trackPaths = Array.from(selectedTracks);
+      
+      const response = await fetch(`${API_BASE_URL}/api/playback/add-tracks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          track_paths: trackPaths
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Added ${result.tracks_added} track(s) to current playlist. Total: ${result.total_tracks} tracks.`);
+        setSelectedTracks(new Set()); // Clear selection
+      } else {
+        alert('Failed to add tracks to current playlist');
+      }
+    } catch (err) {
+      console.error('Error adding tracks to current playlist:', err);
+      alert('Error adding tracks to current playlist');
+    }
+  };
+
   const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -429,10 +456,16 @@ const MusicManager = () => {
             Search All Folders
           </button>
           {selectedTracks.size > 0 && (
-            <button onClick={() => setShowCreatePlaylistForm(true)}>
-              <span className="material-icons">playlist_add</span>
-              Create Playlist ({selectedTracks.size})
-            </button>
+            <>
+              <button onClick={() => setShowCreatePlaylistForm(true)}>
+                <span className="material-icons">playlist_add</span>
+                Create Playlist ({selectedTracks.size})
+              </button>
+              <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
+                <span className="material-icons">queue_music</span>
+                Add to Current Playlist ({selectedTracks.size})
+              </button>
+            </>
           )}
         </div>
       </div>

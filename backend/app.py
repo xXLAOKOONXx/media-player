@@ -538,6 +538,49 @@ def add_track_to_music_playlist(playlist_name):
     else:
         return jsonify({'error': 'Track already exists in playlist or failed to add'}), 400
 
+@app.route('/api/playback/add-tracks', methods=['POST'])
+def add_tracks_to_current_playlist():
+    """Add tracks to the current playing playlist"""
+    data = request.json
+    track_paths = data.get('track_paths', [])
+    
+    if not track_paths:
+        return jsonify({'error': 'No tracks provided'}), 400
+    
+    # Validate that all track files exist
+    valid_tracks = []
+    for track_path in track_paths:
+        if os.path.exists(track_path):
+            valid_tracks.append({'path': track_path})
+        else:
+            print(f"Warning: Skipping non-existent track: {track_path}")
+    
+    if not valid_tracks:
+        return jsonify({'error': 'No valid tracks found'}), 400
+    
+    # Add tracks to current playlist
+    current_tracks = playback_controller.get_playlist_tracks()
+    
+    # Get existing track paths to avoid duplicates
+    existing_paths = {track['path'] for track in current_tracks}
+    
+    # Add only new tracks
+    tracks_added = 0
+    for track in valid_tracks:
+        if track['path'] not in existing_paths:
+            playback_controller.current_playlist.append(track)
+            tracks_added += 1
+    
+    # If shuffle is enabled, update shuffled playlist
+    if playback_controller.shuffle_enabled:
+        playback_controller._apply_shuffle(preserve_current=True)
+    
+    return jsonify({
+        'success': True,
+        'tracks_added': tracks_added,
+        'total_tracks': len(playback_controller.current_playlist)
+    })
+
 # Playback Control APIs
 @app.route('/api/playback/play', methods=['POST'])
 def play():

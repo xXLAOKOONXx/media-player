@@ -332,6 +332,15 @@ class MusicManager:
             True if successful, False if track already exists or error
         """
         try:
+            # Validate track file exists before adding
+            track_path = track.get('path')
+            if not track_path:
+                return False
+            
+            if not os.path.exists(track_path):
+                print(f"Warning: Track file does not exist: {track_path}")
+                return False
+            
             # Read existing playlist
             existing_tracks = []
             if os.path.exists(playlist_path):
@@ -340,11 +349,6 @@ class MusicManager:
                         line = line.strip()
                         if line and not line.startswith('#'):
                             existing_tracks.append(line)
-            
-            # Calculate track path (relative if base_path provided)
-            track_path = track.get('path')
-            if not track_path:
-                return False
             
             if base_path:
                 try:
