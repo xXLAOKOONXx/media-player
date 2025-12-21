@@ -33,11 +33,19 @@ REM Run the build script
 if errorlevel 1 (
     echo.
     echo Build failed!
-    pause
+    if /i "%GITHUB_ACTIONS%"=="true" (
+        REM Don't pause in CI
+    ) else (
+        pause
+    )
     exit /b 1
 )
 
 echo.
 echo Build completed successfully!
 echo.
-pause
+if /i "%GITHUB_ACTIONS%"=="true" (
+    REM Don't pause in CI
+) else (
+    pause
+)

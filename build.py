@@ -33,24 +33,32 @@ class Colors:
     BOLD = '\033[1m'
 
 
+# Use ASCII-only prefixes to avoid UnicodeEncodeError on Windows consoles
+# that default to legacy code pages (e.g. cp1252) in CI.
+STEP_PREFIX = '->'
+OK_PREFIX = '[OK]'
+WARN_PREFIX = '[WARN]'
+ERR_PREFIX = '[ERROR]'
+
+
 def print_step(message):
     """Print a step message in blue"""
-    print(f"\n{Colors.OKBLUE}{Colors.BOLD}► {message}{Colors.ENDC}")
+    print(f"\n{Colors.OKBLUE}{Colors.BOLD}{STEP_PREFIX} {message}{Colors.ENDC}")
 
 
 def print_success(message):
     """Print a success message in green"""
-    print(f"{Colors.OKGREEN}✓ {message}{Colors.ENDC}")
+    print(f"{Colors.OKGREEN}{OK_PREFIX} {message}{Colors.ENDC}")
 
 
 def print_error(message):
     """Print an error message in red"""
-    print(f"{Colors.FAIL}✗ {message}{Colors.ENDC}", file=sys.stderr)
+    print(f"{Colors.FAIL}{ERR_PREFIX} {message}{Colors.ENDC}", file=sys.stderr)
 
 
 def print_warning(message):
     """Print a warning message in yellow"""
-    print(f"{Colors.WARNING}⚠ {message}{Colors.ENDC}")
+    print(f"{Colors.WARNING}{WARN_PREFIX} {message}{Colors.ENDC}")
 
 
 def run_command(cmd, cwd=None, shell=False):
