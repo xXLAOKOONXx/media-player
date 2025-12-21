@@ -12,7 +12,7 @@ The Media Player supports creating shippable bundles that include the built fron
 ## Prerequisites
 
 ### All Platforms
-- Python 3.8 or higher
+- Python 3.13
 - Node.js 14 or higher
 - npm
 
@@ -143,7 +143,7 @@ When running the executable for the first time, Windows may show a SmartScreen w
 ### Unix/Linux/macOS
 
 The Unix distribution requires users to:
-1. Install Python 3.8+
+1. Install Python 3.13
 2. Install pip dependencies
 3. Run the application with `python app.py`
 

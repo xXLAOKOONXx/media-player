@@ -2,7 +2,7 @@
 name = "media-player-backend"
 version = "0.1.0"
 description = "Media Player Backend for Raspberry Pi"
-requires-python = ">=3.8"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "flask==3.0.0",
     "flask-cors==4.0.0",
@@ -22,7 +22,7 @@ build = [
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py313']
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

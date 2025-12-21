@@ -217,7 +217,7 @@ This package includes the Media Player application with a pre-built frontend.
 
 ## Installation
 
-1. Install Python 3.8 or higher
+1. Install Python 3.13
 2. Install dependencies:
    ```bash
    cd backend
@@ -250,7 +250,7 @@ The web interface is already built and included in the `static/` folder.
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.13
 - pip (or uv)
 
 ## Features
