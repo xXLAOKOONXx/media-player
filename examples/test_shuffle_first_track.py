@@ -11,8 +11,9 @@ import shutil
 import traceback
 from pathlib import Path
 
-# Add parent directory to path to import modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add backend directory to path to import modules
+backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend')
+sys.path.insert(0, backend_dir)
 
 from playback_controller import PlaybackController
 
