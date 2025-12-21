@@ -300,7 +300,10 @@ def play():
     if playlist_path:
         result = playback_controller.load_playlist(playlist_path)
         if result:
-            playback_controller.play(track_index)
+            # If crossfading to new playlist, don't call play() as it's handled in the crossfade
+            # Only call play() if we're not crossfading
+            if not playback_controller.is_crossfading:
+                playback_controller.play(track_index)
             return jsonify({'status': 'playing', 'track_index': track_index})
     else:
         playback_controller.resume()
