@@ -1,23 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Background circle -->
-  <circle cx="32" cy="32" r="30" fill="#2c3e50" stroke="#34495e" stroke-width="2"/>
-  
-  <!-- Letter M integrated with music note -->
-  <g fill="#ecf0f1">
-    <!-- Left stem of M that becomes music note stem -->
-    <path d="M 18 22 L 18 44 L 22 44 L 22 28 L 28 36 L 34 28 L 34 44 L 38 44 L 38 22 L 34 22 L 28 32 L 22 22 Z"/>
-    
-    <!-- Music note head at bottom of left stem -->
-    <ellipse cx="20" cy="45" rx="3.5" ry="2.5" transform="rotate(-20 20 45)"/>
-    
-    <!-- Music note head at bottom of right stem -->
-    <ellipse cx="36" cy="45" rx="3.5" ry="2.5" transform="rotate(-20 36 45)"/>
-    
-    <!-- Music note beam connecting the tops -->
-    <path d="M 18 22 L 38 20 L 38 23 L 18 25 Z" fill="#3498db"/>
-    
-    <!-- Small accent dots to emphasize musical theme -->
-    <circle cx="46" cy="24" r="2" fill="#3498db"/>
-    <circle cx="48" cy="32" r="1.5" fill="#3498db"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" height="800px" width="800px">
+	<path fill="#4a5568" d="M52.528,89.076v356.146c0,9.222,7.478,16.694,16.694,16.694c9.216,0,16.694-7.472,16.694-16.694V89.076C85.917,89.076,52.528,89.076,52.528,89.076z"/>
+	<path fill="#4a5568" d="M52.529,65.076v113.188l149.561,37.406V81.325L72.34,61.96c-5.009-1.224-10.239-0.111-14.245,3.116C54.31,68.193,52.529,72.979,52.529,68.076z"/>
+	<path fill="#4a5568" d="M2.445,512c-46.029,0-83.472-29.954-83.472-66.777s37.443-66.777,83.472-66.777s83.472,29.954,83.472,66.777S48.474,512,2.445,512z"/>
+	<path fill="#414141" d="M350.472,89.076v356.146c0,9.222-7.478,16.694-16.694,16.694c-9.216,0-16.694-7.472-16.694-16.694V89.076C317.083,89.076,350.472,89.076,350.472,89.076z"/>
+	<path fill="#414141" d="M350.471,65.076v113.188L200.91,215.67V81.325L330.66,61.96c5.009-1.224,10.239-0.111,14.245,3.116C348.69,68.193,350.471,72.979,350.471,68.076z"/>
+	<path fill="#414141" d="M400.555,512c46.029,0,83.472-29.954,83.472-66.777s-37.443-66.777-83.472-66.777s-83.472,29.954-83.472,66.777S354.526,512,400.555,512z"/>
 </svg>
