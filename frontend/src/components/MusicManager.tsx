@@ -53,6 +53,7 @@ const MusicManager = () => {
   const [showAddToPlaylistForm, setShowAddToPlaylistForm] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
   const [trackToAdd, setTrackToAdd] = useState<Track | null>(null);
+  const [globalSearch, setGlobalSearch] = useState(false);
   
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
@@ -75,8 +76,10 @@ const MusicManager = () => {
   useEffect(() => {
     if (selectedFolder) {
       loadTracks(selectedFolder);
+    } else if (globalSearch) {
+      loadAllTracks();
     }
-  }, [selectedFolder]);
+  }, [selectedFolder, globalSearch]);
 
   useEffect(() => {
     applyFilters();
@@ -137,6 +140,27 @@ const MusicManager = () => {
     } catch (err) {
       console.error('Error loading tracks:', err);
     }
+  };
+
+  const loadAllTracks = async () => {
+    try {
+      // Load tracks from all folders
+      const allTracks: Track[] = [];
+      for (const folder of musicFolders) {
+        const response = await fetch(`${API_BASE_URL}/api/music/${folder.id}/tracks`);
+        const data = await response.json();
+        allTracks.push(...data);
+      }
+      setTracks(allTracks);
+    } catch (err) {
+      console.error('Error loading all tracks:', err);
+    }
+  };
+
+  const handleGlobalSearch = () => {
+    setGlobalSearch(true);
+    setSelectedFolder(null);
+    loadAllTracks();
   };
 
   const applyFilters = () => {
@@ -363,6 +387,10 @@ const MusicManager = () => {
           <button onClick={() => setShowAddForm(true)}>
             <span className="material-icons">add</span>
             Add Music Folder
+          </button>
+          <button onClick={handleGlobalSearch} className="search-all-button">
+            <span className="material-icons">search</span>
+            Search All Folders
           </button>
           {selectedTracks.size > 0 && (
             <button onClick={() => setShowCreatePlaylistForm(true)}>
@@ -694,9 +722,9 @@ const MusicManager = () => {
         )}
       </div>
 
-      {selectedFolder && (
+      {(selectedFolder || globalSearch) && (
         <div className="music-tracks">
-          <h3>Tracks</h3>
+          <h3>{globalSearch ? 'All Tracks' : 'Tracks'}</h3>
           
           <div className="search-filters">
             <h4>Search Filters</h4>
