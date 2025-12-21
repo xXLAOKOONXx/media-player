@@ -368,7 +368,8 @@ def get_music_tracks(folder_id):
         folder['path'], 
         folder.get('recursive', False),
         folder_id=folder_id,
-        force_refresh=force_refresh
+        force_refresh=force_refresh,
+        include_duration=False
     )
     return jsonify(tracks)
 
@@ -388,7 +389,8 @@ def refresh_music_folder(folder_id):
         folder['path'],
         folder.get('recursive', False),
         folder_id=folder_id,
-        force_refresh=True
+        force_refresh=True,
+        include_duration=False
     )
     
     return jsonify({

@@ -62,11 +62,30 @@ class MusicCache:
         """Register a music folder in the cache"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO folders (id, path, recursive, last_scan)
-            VALUES (?, ?, ?, ?)
-        ''', (folder_id, path, 1 if recursive else 0, None))
+
+        recursive_int = 1 if recursive else 0
+
+        # Important: do NOT blindly REPLACE here.
+        # REPLACE deletes + re-inserts the row, which would reset last_scan to NULL
+        # on every request and effectively disable caching.
+        cursor.execute('SELECT path, recursive FROM folders WHERE id = ?', (folder_id,))
+        existing = cursor.fetchone()
+
+        if existing is None:
+            cursor.execute('''
+                INSERT INTO folders (id, path, recursive, last_scan)
+                VALUES (?, ?, ?, NULL)
+            ''', (folder_id, path, recursive_int))
+        else:
+            existing_path, existing_recursive = existing[0], existing[1]
+
+            # If folder definition changed, invalidate cached tracks.
+            if existing_path != path or int(existing_recursive) != recursive_int:
+                cursor.execute('DELETE FROM tracks WHERE folder_id = ?', (folder_id,))
+                cursor.execute('UPDATE folders SET last_scan = NULL WHERE id = ?', (folder_id,))
+
+            cursor.execute('UPDATE folders SET path = ?, recursive = ? WHERE id = ?',
+                           (path, recursive_int, folder_id))
         
         conn.commit()
         conn.close()
@@ -85,13 +104,18 @@ class MusicCache:
         
         # Insert new tracks
         current_time = datetime.now().timestamp()
+
+        rows = []
         for track in tracks:
-            cursor.execute('''
-                INSERT INTO tracks 
-                (folder_id, file_path, file_name, file_size, artist, title, album, 
-                 duration, tags, last_modified, cached_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
+            # last_modified is captured during scan to avoid an extra network call.
+            last_modified = track.get('last_modified')
+            if last_modified is None:
+                try:
+                    last_modified = os.path.getmtime(track['path']) if os.path.exists(track['path']) else None
+                except OSError:
+                    last_modified = None
+
+            rows.append((
                 folder_id,
                 track['path'],
                 track['name'],
@@ -101,9 +125,16 @@ class MusicCache:
                 track.get('album'),
                 track.get('duration'),
                 json.dumps(track.get('tags', [])),
-                os.path.getmtime(track['path']) if os.path.exists(track['path']) else None,
-                current_time
+                last_modified,
+                current_time,
             ))
+
+        cursor.executemany('''
+            INSERT INTO tracks 
+            (folder_id, file_path, file_name, file_size, artist, title, album, 
+             duration, tags, last_modified, cached_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', rows)
         
         conn.commit()
         conn.close()

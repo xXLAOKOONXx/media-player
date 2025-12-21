@@ -1,6 +1,11 @@
-"""
-Music Manager
-Handles music library management with ID3 metadata extraction
+"""Music Manager
+
+Handles music library management with ID3 metadata extraction.
+
+Performance note:
+Music folders can be on network shares (UNC). Avoid per-file full MP3 parsing
+when scanning libraries, because computing accurate duration requires syncing
+to MPEG frames and is extremely slow over SMB for large collections.
 """
 
 import os
@@ -8,6 +13,17 @@ from pathlib import Path
 
 try:
     from mutagen import File as MutagenFile
+    try:
+        # Optional: used to detect and silence MP3 frame sync failures.
+        from mutagen.mp3 import HeaderNotFoundError  # type: ignore
+    except Exception:  # pragma: no cover
+        HeaderNotFoundError = None  # type: ignore
+
+    try:
+        # ID3 tag reader that does not require decoding MP3 audio frames.
+        from mutagen.id3 import ID3  # type: ignore
+    except Exception:  # pragma: no cover
+        ID3 = None  # type: ignore
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False
@@ -25,7 +41,14 @@ class MusicManager:
     def __init__(self, use_cache=True):
         self.cache = MusicCache() if use_cache else None
     
-    def get_audio_files(self, path, recursive=False, folder_id=None, force_refresh=False):
+    def get_audio_files(
+        self,
+        path,
+        recursive=False,
+        folder_id=None,
+        force_refresh=False,
+        include_duration=False,
+    ):
         """Get all audio files in a directory
         
         Args:
@@ -48,7 +71,7 @@ class MusicManager:
                 return cached_tracks
         
         # Cache miss or force refresh - scan filesystem
-        audio_files = self._scan_audio_files(path, recursive)
+        audio_files = self._scan_audio_files(path, recursive, include_duration=include_duration)
         
         # Update cache
         if self.cache and folder_id is not None:
@@ -56,7 +79,7 @@ class MusicManager:
         
         return audio_files
     
-    def _scan_audio_files(self, path, recursive=False):
+    def _scan_audio_files(self, path, recursive=False, include_duration=False):
         """Scan filesystem for audio files
         
         Args:
@@ -69,29 +92,41 @@ class MusicManager:
         audio_files = []
         
         try:
-            path_obj = Path(path)
-            if not path_obj.exists():
+            # Prefer os.scandir/os.walk over pathlib rglob on Windows/UNC shares.
+            if not os.path.exists(path):
                 return audio_files
-            
-            # Get audio files based on recursive setting
+
+            def handle_file(full_path: str, file_name: str):
+                ext = os.path.splitext(file_name)[1].lower()
+                if ext not in self.AUDIO_EXTENSIONS:
+                    return
+
+                try:
+                    stat = os.stat(full_path)
+                except OSError:
+                    return
+
+                file_info = {
+                    'name': file_name,
+                    'path': full_path,
+                    'size': stat.st_size,
+                    'last_modified': stat.st_mtime,
+                }
+
+                metadata = self._extract_metadata(full_path, include_duration=include_duration)
+                file_info.update(metadata)
+
+                audio_files.append(file_info)
+
             if recursive:
-                file_iterator = path_obj.rglob('*')
+                for root, _dirs, files in os.walk(path):
+                    for name in files:
+                        handle_file(os.path.join(root, name), name)
             else:
-                file_iterator = path_obj.glob('*')
-            
-            for file in file_iterator:
-                if file.is_file() and file.suffix.lower() in self.AUDIO_EXTENSIONS:
-                    file_info = {
-                        'name': file.name,
-                        'path': str(file),
-                        'size': file.stat().st_size
-                    }
-                    
-                    # Extract metadata
-                    metadata = self._extract_metadata(str(file))
-                    file_info.update(metadata)
-                    
-                    audio_files.append(file_info)
+                with os.scandir(path) as it:
+                    for entry in it:
+                        if entry.is_file():
+                            handle_file(entry.path, entry.name)
             
             # Sort by artist, then title
             audio_files.sort(key=lambda x: (
@@ -109,59 +144,114 @@ class MusicManager:
         if self.cache:
             self.cache.invalidate_folder(folder_id)
     
-    def _extract_metadata(self, file_path):
+    def _extract_metadata(self, file_path, include_duration=False):
         """Extract metadata from audio file
         
         Returns dict with artist, title, album, duration, and tags
         """
         if not MUTAGEN_AVAILABLE:
             return {}
-        
+
+        def _extract_tags_only_id3() -> dict:
+            if ID3 is None:
+                return {}
+            try:
+                tags_obj = ID3(file_path)
+            except Exception:
+                return {}
+
+            metadata_local = {}
+
+            artist = self._get_tag_value(tags_obj, ['TPE1', 'artist', '\xa9ART'])
+            if artist:
+                metadata_local['artist'] = artist
+
+            title = self._get_tag_value(tags_obj, ['TIT2', 'title', '\xa9nam'])
+            if title:
+                metadata_local['title'] = title
+
+            album = self._get_tag_value(tags_obj, ['TALB', 'album', '\xa9alb'])
+            if album:
+                metadata_local['album'] = album
+
+            tags = self._get_custom_tag(tags_obj, 'LAO:TAGS')
+            if tags:
+                try:
+                    import json
+                    if tags.startswith('[') and tags.endswith(']'):
+                        metadata_local['tags'] = json.loads(tags.replace("'", '"'))
+                    else:
+                        metadata_local['tags'] = [t.strip() for t in tags.split(',')]
+                except Exception:
+                    metadata_local['tags'] = [tags]
+
+            return metadata_local
+
         try:
+            ext = Path(file_path).suffix.lower()
+
+            # MP3 fast-path: ID3-only. Avoid decoding/inspecting audio frames during scans.
+            if ext == '.mp3':
+                metadata = _extract_tags_only_id3()
+
+                # If TLEN is present, we can get an approximate duration without syncing frames.
+                if include_duration and ID3 is not None:
+                    try:
+                        tags_obj = ID3(file_path)
+                        tlen = tags_obj.get('TLEN') if hasattr(tags_obj, 'get') else None
+                        if tlen is not None and hasattr(tlen, 'text') and tlen.text:
+                            # TLEN is milliseconds
+                            metadata['duration'] = float(tlen.text[0]) / 1000.0
+                    except Exception:
+                        pass
+
+                return metadata
+
+            # Non-MP3 formats: MutagenFile is generally fast enough.
             audio = MutagenFile(file_path)
             if audio is None:
                 return {}
-            
+
             metadata = {}
-            
-            # Extract duration
-            if hasattr(audio.info, 'length'):
+
+            if include_duration and hasattr(audio, 'info') and hasattr(audio.info, 'length'):
                 metadata['duration'] = audio.info.length
-            
-            # Extract tags
+
             if hasattr(audio, 'tags') and audio.tags:
-                # Extract artist
                 artist = self._get_tag_value(audio.tags, ['TPE1', 'artist', '\xa9ART'])
                 if artist:
                     metadata['artist'] = artist
-                
-                # Extract title
+
                 title = self._get_tag_value(audio.tags, ['TIT2', 'title', '\xa9nam'])
                 if title:
                     metadata['title'] = title
-                
-                # Extract album
+
                 album = self._get_tag_value(audio.tags, ['TALB', 'album', '\xa9alb'])
                 if album:
                     metadata['album'] = album
-                
-                # Extract custom LAO:TAGS field
+
                 tags = self._get_custom_tag(audio.tags, 'LAO:TAGS')
                 if tags:
-                    # Parse stringified list
                     try:
-                        # Handle different formats: "['tag1', 'tag2']" or "tag1,tag2"
                         import json
                         if tags.startswith('[') and tags.endswith(']'):
                             metadata['tags'] = json.loads(tags.replace("'", '"'))
                         else:
                             metadata['tags'] = [t.strip() for t in tags.split(',')]
-                    except:
+                    except Exception:
                         metadata['tags'] = [tags]
-            
+
             return metadata
-            
+
         except Exception as e:
+            # Mutagen sometimes raises HeaderNotFoundError for files with an .mp3 extension
+            # that don't contain valid MPEG frames (corrupt/truncated/mislabelled files).
+            if (HeaderNotFoundError is not None and isinstance(e, HeaderNotFoundError)) or "can't sync to MPEG frame" in str(e):
+                # Keep whatever ID3 tags we could read; omit duration.
+                if Path(file_path).suffix.lower() == '.mp3':
+                    return _extract_tags_only_id3()
+                return {}
+
             print(f"Error extracting metadata from {file_path}: {e}")
             return {}
     
