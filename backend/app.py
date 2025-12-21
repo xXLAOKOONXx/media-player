@@ -419,7 +419,11 @@ def search_music_tracks():
     
     all_tracks = []
     for folder in music_folders:
-        tracks = music_manager.get_audio_files(folder['path'], folder.get('recursive', False))
+        tracks = music_manager.get_audio_files(
+            folder['path'], 
+            folder.get('recursive', False),
+            folder_id=folder['id']  # Pass folder_id to enable caching
+        )
         all_tracks.extend(tracks)
     
     # Apply search filters
