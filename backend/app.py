@@ -13,6 +13,7 @@ from pathlib import Path
 from storage_manager import StorageManager
 from library_manager import LibraryManager
 from playback_controller import PlaybackController
+from sound_effects_manager import SoundEffectsManager
 
 # Configure Flask to serve static files from the static folder
 # Use absolute path for security
@@ -29,6 +30,7 @@ if not os.path.exists(static_folder):
 # Initialize managers
 storage_manager = StorageManager()
 library_manager = LibraryManager()
+sound_effects_manager = SoundEffectsManager()
 
 # Configuration
 CONFIG_FILE = 'config.json'
@@ -201,6 +203,87 @@ def get_playlist_tracks(playlist_id):
     config = load_config()
     # For now, return empty list
     return jsonify([])
+
+# Sound Effects Management APIs
+@app.route('/api/soundeffects', methods=['GET'])
+def get_sound_effects_folders():
+    """Get all configured sound effects folders"""
+    config = load_config()
+    return jsonify(config.get('sound_effects', []))
+
+@app.route('/api/soundeffects', methods=['POST'])
+def add_sound_effects_folder():
+    """Add a new sound effects folder"""
+    data = request.json
+    config = load_config()
+    
+    if 'sound_effects' not in config:
+        config['sound_effects'] = []
+    
+    sound_effects_folder = {
+        'id': len(config['sound_effects']) + 1,
+        'name': data.get('name'),
+        'path': data.get('path'),
+        'storage_id': data.get('storage_id')
+    }
+    
+    config['sound_effects'].append(sound_effects_folder)
+    save_config(config)
+    
+    return jsonify(sound_effects_folder), 201
+
+@app.route('/api/soundeffects/<int:folder_id>', methods=['PUT'])
+def rename_sound_effects_folder(folder_id):
+    """Rename a sound effects folder"""
+    data = request.json
+    config = load_config()
+    sound_effects = config.get('sound_effects', [])
+    
+    for folder in sound_effects:
+        if folder['id'] == folder_id:
+            folder['name'] = data.get('name', folder['name'])
+            config['sound_effects'] = sound_effects
+            save_config(config)
+            return jsonify(folder)
+    
+    return jsonify({'error': 'Sound effects folder not found'}), 404
+
+@app.route('/api/soundeffects/<int:folder_id>', methods=['DELETE'])
+def delete_sound_effects_folder(folder_id):
+    """Delete a sound effects folder"""
+    config = load_config()
+    sound_effects = config.get('sound_effects', [])
+    config['sound_effects'] = [f for f in sound_effects if f['id'] != folder_id]
+    save_config(config)
+    return '', 204
+
+@app.route('/api/soundeffects/<int:folder_id>/files', methods=['GET'])
+def get_sound_effects_files(folder_id):
+    """Get all audio files in a sound effects folder"""
+    config = load_config()
+    sound_effects = config.get('sound_effects', [])
+    folder = next((f for f in sound_effects if f['id'] == folder_id), None)
+    
+    if not folder:
+        return jsonify({'error': 'Sound effects folder not found'}), 404
+    
+    audio_files = sound_effects_manager.get_audio_files(folder['path'])
+    return jsonify(audio_files)
+
+@app.route('/api/soundeffects/play', methods=['POST'])
+def play_sound_effect():
+    """Play a sound effect in parallel with music"""
+    data = request.json
+    sound_path = data.get('sound_path')
+    
+    if not sound_path:
+        return jsonify({'error': 'sound_path is required'}), 400
+    
+    result = playback_controller.play_sound_effect(sound_path)
+    if result:
+        return jsonify({'status': 'playing', 'sound_path': sound_path})
+    else:
+        return jsonify({'error': 'Failed to play sound effect'}), 500
 
 # Playback Control APIs
 @app.route('/api/playback/play', methods=['POST'])

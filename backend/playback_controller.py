@@ -933,3 +933,30 @@ class PlaybackController:
         except Exception as e:
             logger.error(f"Error seeking: {e}")
             return False
+    
+    def play_sound_effect(self, sound_path):
+        """Play a sound effect in parallel with music using a separate channel"""
+        if not os.path.exists(sound_path):
+            logger.error(f"Sound effect file not found: {sound_path}")
+            return False
+        
+        try:
+            if self.audio_available:
+                # Load and play sound effect on a separate channel
+                sound = pygame.mixer.Sound(sound_path)
+                channel = pygame.mixer.find_channel()
+                
+                if channel:
+                    channel.play(sound)
+                    logger.info(f"Playing sound effect: {sound_path}")
+                    return True
+                else:
+                    logger.warning("No available channel for sound effect")
+                    return False
+            else:
+                logger.info(f"Simulating sound effect: {sound_path}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error playing sound effect: {e}")
+            return False
