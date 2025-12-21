@@ -93,7 +93,7 @@ const SoundEffectsManager = () => {
   };
 
   const handleDeleteFolder = async (folderId: number) => {
-    if (!confirm('Are you sure you want to delete this sound effects folder?')) {
+    if (!window.confirm('Are you sure you want to delete this sound effects folder?')) {
       return;
     }
     try {

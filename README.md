@@ -7,6 +7,11 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 - **Network Storage Management**: Configure SMB/CIFS and NFS network storage locations
 - **Playlist Management**: Organize your media files into playlist folders
 - **Playlist Support**: Play M3U and M3U8 playlist files
+- **Sound Effects**: Play sound effects in parallel with music
+  - Configure sound effects folders containing audio files
+  - Support for MP3, WAV, OGG, FLAC, M4A, and AAC formats
+  - Click-to-play interface for instant sound effect playback
+  - Plays simultaneously alongside music tracks
 - **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Advanced Playback Controls**: 
   - Play, pause, stop, skip tracks, and adjust volume
@@ -285,7 +290,19 @@ In the **Player** tab, you can:
 - **Crossfade**: Smooth transitions with real overlap between tracks
 - **Now Playing**: See the current track information
 
-### 5. Crossfade Configuration
+### 5. Play Sound Effects
+
+1. Navigate to the **Sound Effects** tab
+2. Click **+ Add Sound Effects Folder**
+3. Enter a folder name and path to your sound effects folder
+4. Use the **Browse** button to navigate your filesystem
+5. Click **Add Sound Effects Folder**
+6. Select a sound effects folder to view available audio files
+7. Click **Play** on any sound effect to play it alongside the currently playing music
+
+Sound effects will play in parallel with music using separate audio channels, allowing you to trigger sound effects without interrupting music playback.
+
+### 6. Crossfade Configuration
 
 The media player features intelligent crossfading with real overlap between tracks:
 
@@ -410,6 +427,7 @@ media-player/
 │   ├── app.py              # Main Flask application
 │   ├── storage_manager.py  # Network storage handling
 │   ├── library_manager.py  # Playlist and library management
+│   ├── sound_effects_manager.py # Sound effects management
 │   ├── playback_controller.py # Audio playback control
 │   └── requirements.txt    # Python dependencies
 ├── frontend/               # React frontend
@@ -417,6 +435,7 @@ media-player/
 │   │   ├── components/    # React components
 │   │   │   ├── StorageManager.tsx
 │   │   │   ├── PlaylistManager.tsx
+│   │   │   ├── SoundEffectsManager.tsx
 │   │   │   ├── PlaybackControls.tsx
 │   │   │   └── NowPlaying.tsx
 │   │   ├── App.tsx        # Main App component
@@ -438,6 +457,14 @@ media-player/
 - `PUT /api/playlists/:id` - Rename playlist folder
 - `DELETE /api/playlists/:id` - Delete playlist folder
 - `GET /api/playlists/:id/files` - Get playlists in folder
+
+#### Sound Effects Management
+- `GET /api/soundeffects` - List all sound effects folders
+- `POST /api/soundeffects` - Add new sound effects folder
+- `PUT /api/soundeffects/:id` - Rename sound effects folder
+- `DELETE /api/soundeffects/:id` - Delete sound effects folder
+- `GET /api/soundeffects/:id/files` - Get audio files in folder
+- `POST /api/soundeffects/play` - Play a sound effect in parallel with music
 
 #### Playback Control
 - `POST /api/playback/play` - Start/resume playback

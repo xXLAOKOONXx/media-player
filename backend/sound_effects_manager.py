@@ -29,7 +29,7 @@ class SoundEffectsManager:
             for file in path_obj.iterdir():
                 if file.is_file() and file.suffix.lower() in self.AUDIO_EXTENSIONS:
                     audio_files.append({
-                        'name': file.stem,
+                        'name': file.name,  # Use full name with extension
                         'path': str(file),
                         'size': file.stat().st_size,
                         'extension': file.suffix
