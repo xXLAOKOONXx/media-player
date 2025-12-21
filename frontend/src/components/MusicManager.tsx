@@ -53,7 +53,9 @@ const MusicManager = () => {
   const [showAddToPlaylistForm, setShowAddToPlaylistForm] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
   const [trackToAdd, setTrackToAdd] = useState<Track | null>(null);
-  const [globalSearch, setGlobalSearch] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState(true); // Open by default
+  const [isLoading, setIsLoading] = useState(false);
+  const [foldersCollapsed, setFoldersCollapsed] = useState(true); // Collapsed by default
   
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
@@ -79,7 +81,7 @@ const MusicManager = () => {
     } else if (globalSearch) {
       loadAllTracks();
     }
-  }, [selectedFolder, globalSearch]);
+  }, [selectedFolder, globalSearch, musicFolders]); // Add musicFolders dependency
 
   useEffect(() => {
     applyFilters();
@@ -134,16 +136,20 @@ const MusicManager = () => {
 
   const loadTracks = async (folderId: number) => {
     try {
+      setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/music/${folderId}/tracks`);
       const data = await response.json();
       setTracks(data);
     } catch (err) {
       console.error('Error loading tracks:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadAllTracks = async () => {
     try {
+      setIsLoading(true);
       // Load tracks from all folders concurrently
       const trackPromises = musicFolders.map(folder =>
         fetch(`${API_BASE_URL}/api/music/${folder.id}/tracks`).then(res => res.json())
@@ -153,12 +159,33 @@ const MusicManager = () => {
       setTracks(allTracks);
     } catch (err) {
       console.error('Error loading all tracks:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGlobalSearch = () => {
     setGlobalSearch(true);
     setSelectedFolder(null);
+  };
+
+  const refreshFolder = async (folderId: number) => {
+    try {
+      setIsLoading(true);
+      await fetch(`${API_BASE_URL}/api/music/${folderId}/refresh`, {
+        method: 'POST'
+      });
+      // Reload tracks
+      if (selectedFolder === folderId) {
+        await loadTracks(folderId);
+      } else if (globalSearch) {
+        await loadAllTracks();
+      }
+    } catch (err) {
+      console.error('Error refreshing folder:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const applyFilters = () => {
@@ -289,6 +316,17 @@ const MusicManager = () => {
       newSelection.add(trackPath);
     }
     setSelectedTracks(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTracks.size === filteredTracks.length) {
+      // Deselect all
+      setSelectedTracks(new Set());
+    } else {
+      // Select all filtered tracks
+      const allPaths = new Set(filteredTracks.map(t => t.path));
+      setSelectedTracks(allPaths);
+    }
   };
 
   const handleCreatePlaylist = async (e: React.FormEvent) => {
@@ -653,70 +691,88 @@ const MusicManager = () => {
       )}
 
       <div className="music-folders">
-        <h3>Music Folders</h3>
-        {musicFolders.length === 0 ? (
-          <p className="empty-message">No music folders configured</p>
-        ) : (
-          <ul>
-            {musicFolders.map((folder) => (
-              <li
-                key={folder.id}
-                className={selectedFolder === folder.id ? 'selected' : ''}
-              >
-                {editingFolder === folder.id ? (
-                  <div className="editing">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleUpdateFolder(folder.id);
-                        }
-                      }}
-                    />
-                    <button onClick={() => handleUpdateFolder(folder.id)}>
-                      <span className="material-icons">check</span>
-                    </button>
-                    <button onClick={() => setEditingFolder(null)}>
-                      <span className="material-icons">close</span>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className="folder-info"
-                      onClick={() => setSelectedFolder(folder.id)}
-                    >
-                      <span className="material-icons">
-                        {folder.recursive ? 'folder_open' : 'folder'}
-                      </span>
-                      <div>
-                        <div className="folder-name">{folder.name}</div>
-                        <div className="folder-path">{folder.path}</div>
-                        {folder.recursive && (
-                          <div className="folder-badge">Recursive</div>
-                        )}
+        <h3 onClick={() => setFoldersCollapsed(!foldersCollapsed)} style={{cursor: 'pointer'}}>
+          <span className="material-icons" style={{fontSize: '20px', verticalAlign: 'middle'}}>
+            {foldersCollapsed ? 'expand_more' : 'expand_less'}
+          </span>
+          Music Folders
+        </h3>
+        {!foldersCollapsed && (
+          <>
+            {musicFolders.length === 0 ? (
+              <p className="empty-message">No music folders configured</p>
+            ) : (
+              <ul>
+                {musicFolders.map((folder) => (
+                  <li
+                    key={folder.id}
+                    className={selectedFolder === folder.id ? 'selected' : ''}
+                  >
+                    {editingFolder === folder.id ? (
+                      <div className="editing">
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleUpdateFolder(folder.id);
+                            }
+                          }}
+                        />
+                        <button onClick={() => handleUpdateFolder(folder.id)}>
+                          <span className="material-icons">check</span>
+                        </button>
+                        <button onClick={() => setEditingFolder(null)}>
+                          <span className="material-icons">close</span>
+                        </button>
                       </div>
-                    </div>
-                    <div className="folder-actions">
-                      <button
-                        onClick={() => {
-                          setEditingFolder(folder.id);
-                          setEditName(folder.name);
-                        }}
-                      >
-                        <span className="material-icons">edit</span>
-                      </button>
-                      <button onClick={() => handleDeleteFolder(folder.id)}>
-                        <span className="material-icons">delete</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
+                    ) : (
+                      <>
+                        <div
+                          className="folder-info"
+                          onClick={() => {
+                            setSelectedFolder(folder.id);
+                            setGlobalSearch(false);
+                          }}
+                        >
+                          <span className="material-icons">
+                            {folder.recursive ? 'folder_open' : 'folder'}
+                          </span>
+                          <div>
+                            <div className="folder-name">{folder.name}</div>
+                            <div className="folder-path">{folder.path}</div>
+                            {folder.recursive && (
+                              <div className="folder-badge">Recursive</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="folder-actions">
+                          <button
+                            onClick={() => refreshFolder(folder.id)}
+                            title="Refresh folder"
+                          >
+                            <span className="material-icons">refresh</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingFolder(folder.id);
+                              setEditName(folder.name);
+                            }}
+                          >
+                            <span className="material-icons">edit</span>
+                          </button>
+                          <button onClick={() => handleDeleteFolder(folder.id)}>
+                            <span className="material-icons">delete</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
 
@@ -773,16 +829,30 @@ const MusicManager = () => {
             </div>
           </div>
 
-          {filteredTracks.length === 0 ? (
+          {isLoading ? (
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p>Loading tracks...</p>
+            </div>
+          ) : filteredTracks.length === 0 ? (
             <p className="empty-message">
               {tracks.length === 0 
-                ? 'No tracks found in this folder'
+                ? 'No tracks found'
                 : 'No tracks match your search criteria'}
             </p>
           ) : (
             <div className="tracks-list">
               <div className="tracks-header">
-                <span>{filteredTracks.length} track(s)</span>
+                <div>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={selectedTracks.size === filteredTracks.length && filteredTracks.length > 0}
+                      onChange={toggleSelectAll}
+                    />
+                    <span style={{marginLeft: '8px'}}>Select All ({filteredTracks.length} track(s))</span>
+                  </label>
+                </div>
               </div>
               <table>
                 <thead>

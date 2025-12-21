@@ -32,7 +32,7 @@ if not os.path.exists(static_folder):
 storage_manager = StorageManager()
 library_manager = LibraryManager()
 sound_effects_manager = SoundEffectsManager()
-music_manager = MusicManager()
+music_manager = MusicManager(use_cache=True)
 
 # Configuration
 CONFIG_FILE = 'config.json'
@@ -361,8 +361,41 @@ def get_music_tracks(folder_id):
     if not folder:
         return jsonify({'error': 'Music folder not found'}), 404
     
-    tracks = music_manager.get_audio_files(folder['path'], folder.get('recursive', False))
+    # Check if force refresh is requested
+    force_refresh = request.args.get('refresh', 'false').lower() == 'true'
+    
+    tracks = music_manager.get_audio_files(
+        folder['path'], 
+        folder.get('recursive', False),
+        folder_id=folder_id,
+        force_refresh=force_refresh
+    )
     return jsonify(tracks)
+
+@app.route('/api/music/<int:folder_id>/refresh', methods=['POST'])
+def refresh_music_folder(folder_id):
+    """Refresh/rescan a music folder and update cache"""
+    config = load_config()
+    music_folders = config.get('music_folders', [])
+    folder = next((f for f in music_folders if f['id'] == folder_id), None)
+    
+    if not folder:
+        return jsonify({'error': 'Music folder not found'}), 404
+    
+    # Force refresh - invalidate cache and rescan
+    music_manager.invalidate_cache(folder_id)
+    tracks = music_manager.get_audio_files(
+        folder['path'],
+        folder.get('recursive', False),
+        folder_id=folder_id,
+        force_refresh=True
+    )
+    
+    return jsonify({
+        'success': True,
+        'folder_id': folder_id,
+        'track_count': len(tracks)
+    })
 
 @app.route('/api/music/search', methods=['POST'])
 def search_music_tracks():
