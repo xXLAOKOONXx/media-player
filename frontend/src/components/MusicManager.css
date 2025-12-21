@@ -259,10 +259,6 @@
   background-color: #dc2626;
 }
 
-.search-filters button:hover {
-  background-color: #555;
-}
-
 .tracks-list {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;

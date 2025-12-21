@@ -144,13 +144,12 @@ const MusicManager = () => {
 
   const loadAllTracks = async () => {
     try {
-      // Load tracks from all folders
-      const allTracks: Track[] = [];
-      for (const folder of musicFolders) {
-        const response = await fetch(`${API_BASE_URL}/api/music/${folder.id}/tracks`);
-        const data = await response.json();
-        allTracks.push(...data);
-      }
+      // Load tracks from all folders concurrently
+      const trackPromises = musicFolders.map(folder =>
+        fetch(`${API_BASE_URL}/api/music/${folder.id}/tracks`).then(res => res.json())
+      );
+      const allTracksArrays = await Promise.all(trackPromises);
+      const allTracks = allTracksArrays.flat();
       setTracks(allTracks);
     } catch (err) {
       console.error('Error loading all tracks:', err);
@@ -160,7 +159,6 @@ const MusicManager = () => {
   const handleGlobalSearch = () => {
     setGlobalSearch(true);
     setSelectedFolder(null);
-    loadAllTracks();
   };
 
   const applyFilters = () => {
