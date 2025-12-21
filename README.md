@@ -20,6 +20,7 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - Progress bar with seek functionality
   - Track time display (current position / total duration)
   - **Proper crossfade with overlap**: Simultaneous fade-out/fade-in between tracks
+  - **Smooth playlist transitions**: Crossfade from current track into new playlists
   - Visual crossfade indicators
 - **Smart Duration Detection**: Automatically extracts accurate track duration from audio files using mutagen
 - **Real-Time Status**: See what's currently playing in real-time
@@ -304,13 +305,14 @@ Sound effects will play in parallel with music using separate audio channels, al
 
 ### 6. Crossfade Configuration
 
-The media player features intelligent crossfading with real overlap between tracks:
+The media player features intelligent crossfading with real overlap between tracks and playlists:
 
 - **Automatic Duration Detection**: Track durations are extracted directly from audio files using mutagen, ensuring accurate timing
 - **Configurable Crossfade**: 
   - Default crossfade duration: 3 seconds
   - Fade starts 5 seconds before track end
   - Both tracks play simultaneously during crossfade
+- **Smooth Playlist Transitions**: When switching to a new playlist while music is playing, the system automatically crossfades from the current track to the first track of the new playlist
 - **Smart Fallback**: For large audio files that can't be loaded into memory, the system automatically falls back to queue-based crossfade
 - **Performance Monitoring**: Comprehensive logging tracks crossfade performance and helps diagnose issues
 
