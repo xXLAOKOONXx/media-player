@@ -16,6 +16,13 @@ import time
 import argparse
 from pathlib import Path
 
+# Check if optional dependencies are available
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+
 
 def check_dependencies():
     """Check if required dependencies are installed."""
@@ -32,7 +39,12 @@ def check_dependencies():
 
 def wait_for_server(url, timeout=30):
     """Wait for the server to be available."""
-    import requests
+    if not REQUESTS_AVAILABLE:
+        print("Warning: requests module not available, skipping server check")
+        return True
+    
+    print(f"Waiting for server at {url}...")
+    start_time = time.time()
     
     print(f"Waiting for server at {url}...")
     start_time = time.time()

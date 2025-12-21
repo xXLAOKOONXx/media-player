@@ -24,9 +24,9 @@ class TestAudioFileScanning:
         
         # Copy actual audio files (using the test audio file)
         import shutil
-        shutil.copy(test_audio_file, music_dir / "track1.mp3")
-        shutil.copy(test_audio_file, music_dir / "track2.mp3")
-        shutil.copy(test_audio_file, music_dir / "track3.mp3")
+        test_files = ["track1.mp3", "track2.mp3", "track3.mp3"]
+        for filename in test_files:
+            shutil.copy(test_audio_file, music_dir / filename)
         (music_dir / "not_audio.txt").touch()
         
         # Create subdirectory (should be ignored in non-recursive scan)
@@ -37,7 +37,8 @@ class TestAudioFileScanning:
         # Test non-recursive scan
         tracks = manager.get_audio_files(str(music_dir), recursive=False)
         
-        assert len(tracks) == 3, f"Expected 3 tracks, found {len(tracks)}"
+        expected_count = len(test_files)
+        assert len(tracks) == expected_count, f"Expected {expected_count} tracks, found {len(tracks)}"
 
     def test_recursive_scan(self, temp_dir, test_audio_file):
         """Test recursive audio file scanning."""
@@ -49,20 +50,23 @@ class TestAudioFileScanning:
         
         # Copy actual audio files (using the test audio file)
         import shutil
-        shutil.copy(test_audio_file, music_dir / "track1.mp3")
-        shutil.copy(test_audio_file, music_dir / "track2.mp3")
-        shutil.copy(test_audio_file, music_dir / "track3.mp3")
+        root_files = ["track1.mp3", "track2.mp3", "track3.mp3"]
+        for filename in root_files:
+            shutil.copy(test_audio_file, music_dir / filename)
         (music_dir / "not_audio.txt").touch()
         
         # Create subdirectory
         subdir = music_dir / "subdir"
         subdir.mkdir()
-        shutil.copy(test_audio_file, subdir / "track4.mp3")
+        subdir_files = ["track4.mp3"]
+        for filename in subdir_files:
+            shutil.copy(test_audio_file, subdir / filename)
         
         # Test recursive scan
         tracks = manager.get_audio_files(str(music_dir), recursive=True)
         
-        assert len(tracks) == 4, f"Expected 4 tracks, found {len(tracks)}"
+        expected_count = len(root_files) + len(subdir_files)
+        assert len(tracks) == expected_count, f"Expected {expected_count} tracks, found {len(tracks)}"
 
     def test_supported_formats(self, temp_dir, test_audio_file):
         """Test that all supported audio formats are detected."""
