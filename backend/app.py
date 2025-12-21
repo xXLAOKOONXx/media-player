@@ -14,6 +14,7 @@ from storage_manager import StorageManager
 from library_manager import LibraryManager
 from playback_controller import PlaybackController
 from sound_effects_manager import SoundEffectsManager
+from music_manager import MusicManager
 
 # Configure Flask to serve static files from the static folder
 # Use absolute path for security
@@ -31,6 +32,7 @@ if not os.path.exists(static_folder):
 storage_manager = StorageManager()
 library_manager = LibraryManager()
 sound_effects_manager = SoundEffectsManager()
+music_manager = MusicManager()
 
 # Configuration
 CONFIG_FILE = 'config.json'
@@ -288,6 +290,216 @@ def play_sound_effect():
         return jsonify({'status': 'playing', 'sound_path': sound_path})
     else:
         return jsonify({'error': 'Failed to play sound effect'}), 500
+
+# Music Management APIs
+@app.route('/api/music', methods=['GET'])
+def get_music_folders():
+    """Get all configured music folders"""
+    config = load_config()
+    return jsonify(config.get('music_folders', []))
+
+@app.route('/api/music', methods=['POST'])
+def add_music_folder():
+    """Add a new music folder"""
+    data = request.json
+    config = load_config()
+    
+    if 'music_folders' not in config:
+        config['music_folders'] = []
+    
+    # Generate ID based on max existing ID + 1, or 1 if no folders exist
+    existing_ids = [f['id'] for f in config['music_folders']]
+    new_id = max(existing_ids) + 1 if existing_ids else 1
+    
+    music_folder = {
+        'id': new_id,
+        'name': data.get('name'),
+        'path': data.get('path'),
+        'recursive': data.get('recursive', False),
+        'storage_id': data.get('storage_id')
+    }
+    
+    config['music_folders'].append(music_folder)
+    save_config(config)
+    
+    return jsonify(music_folder), 201
+
+@app.route('/api/music/<int:folder_id>', methods=['PUT'])
+def update_music_folder(folder_id):
+    """Update a music folder"""
+    data = request.json
+    config = load_config()
+    music_folders = config.get('music_folders', [])
+    
+    for folder in music_folders:
+        if folder['id'] == folder_id:
+            folder['name'] = data.get('name', folder['name'])
+            folder['path'] = data.get('path', folder['path'])
+            folder['recursive'] = data.get('recursive', folder.get('recursive', False))
+            config['music_folders'] = music_folders
+            save_config(config)
+            return jsonify(folder)
+    
+    return jsonify({'error': 'Music folder not found'}), 404
+
+@app.route('/api/music/<int:folder_id>', methods=['DELETE'])
+def delete_music_folder(folder_id):
+    """Delete a music folder"""
+    config = load_config()
+    music_folders = config.get('music_folders', [])
+    config['music_folders'] = [f for f in music_folders if f['id'] != folder_id]
+    save_config(config)
+    return '', 204
+
+@app.route('/api/music/<int:folder_id>/tracks', methods=['GET'])
+def get_music_tracks(folder_id):
+    """Get all tracks in a music folder with metadata"""
+    config = load_config()
+    music_folders = config.get('music_folders', [])
+    folder = next((f for f in music_folders if f['id'] == folder_id), None)
+    
+    if not folder:
+        return jsonify({'error': 'Music folder not found'}), 404
+    
+    tracks = music_manager.get_audio_files(folder['path'], folder.get('recursive', False))
+    return jsonify(tracks)
+
+@app.route('/api/music/search', methods=['POST'])
+def search_music_tracks():
+    """Search tracks across all music folders by various criteria"""
+    data = request.json
+    
+    # Get search criteria
+    artist = data.get('artist')
+    duration_min = data.get('duration_min')
+    duration_max = data.get('duration_max')
+    tags = data.get('tags')  # List of tags
+    title = data.get('title')
+    folder_id = data.get('folder_id')  # Optional: search in specific folder
+    
+    # Get all tracks from music folders
+    config = load_config()
+    music_folders = config.get('music_folders', [])
+    
+    if folder_id:
+        music_folders = [f for f in music_folders if f['id'] == folder_id]
+    
+    all_tracks = []
+    for folder in music_folders:
+        tracks = music_manager.get_audio_files(folder['path'], folder.get('recursive', False))
+        all_tracks.extend(tracks)
+    
+    # Apply search filters
+    filtered_tracks = music_manager.search_tracks(
+        all_tracks,
+        artist=artist,
+        duration_min=duration_min,
+        duration_max=duration_max,
+        tags=tags,
+        title=title
+    )
+    
+    return jsonify(filtered_tracks)
+
+@app.route('/api/music/playlists-folder', methods=['GET'])
+def get_playlists_folder():
+    """Get the configured playlist folder path"""
+    config = load_config()
+    return jsonify({'path': config.get('playlist_folder_path', '')})
+
+@app.route('/api/music/playlists-folder', methods=['PUT'])
+def set_playlists_folder():
+    """Set the playlist folder path"""
+    data = request.json
+    path = data.get('path')
+    
+    if not path:
+        return jsonify({'error': 'path is required'}), 400
+    
+    config = load_config()
+    config['playlist_folder_path'] = path
+    save_config(config)
+    
+    return jsonify({'path': path})
+
+@app.route('/api/music/playlists/create', methods=['POST'])
+def create_music_playlist():
+    """Create a new M3U playlist from selected tracks"""
+    data = request.json
+    
+    playlist_name = data.get('playlist_name')
+    tracks = data.get('tracks', [])
+    
+    if not playlist_name:
+        return jsonify({'error': 'playlist_name is required'}), 400
+    
+    if not tracks:
+        return jsonify({'error': 'tracks list cannot be empty'}), 400
+    
+    # Get playlist folder from config
+    config = load_config()
+    playlist_folder = config.get('playlist_folder_path')
+    
+    if not playlist_folder:
+        return jsonify({'error': 'Playlist folder not configured'}), 400
+    
+    # Create playlist file path
+    playlist_filename = f"{playlist_name}.m3u"
+    playlist_path = os.path.join(playlist_folder, playlist_filename)
+    
+    # Check if playlist already exists
+    if os.path.exists(playlist_path):
+        return jsonify({'error': 'Playlist already exists'}), 400
+    
+    # Create the playlist with relative paths
+    success = music_manager.create_playlist(
+        playlist_path, 
+        tracks, 
+        base_path=playlist_folder
+    )
+    
+    if success:
+        return jsonify({
+            'success': True,
+            'playlist_path': playlist_path,
+            'playlist_name': playlist_name
+        }), 201
+    else:
+        return jsonify({'error': 'Failed to create playlist'}), 500
+
+@app.route('/api/music/playlists/<path:playlist_name>/add-track', methods=['POST'])
+def add_track_to_music_playlist(playlist_name):
+    """Add a track to an existing playlist"""
+    data = request.json
+    track = data.get('track')
+    
+    if not track:
+        return jsonify({'error': 'track is required'}), 400
+    
+    # Get playlist folder from config
+    config = load_config()
+    playlist_folder = config.get('playlist_folder_path')
+    
+    if not playlist_folder:
+        return jsonify({'error': 'Playlist folder not configured'}), 400
+    
+    # Build playlist path
+    playlist_path = os.path.join(playlist_folder, f"{playlist_name}.m3u")
+    
+    if not os.path.exists(playlist_path):
+        return jsonify({'error': 'Playlist not found'}), 404
+    
+    # Add track to playlist
+    success = music_manager.add_track_to_playlist(
+        playlist_path,
+        track,
+        base_path=playlist_folder
+    )
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Track already exists in playlist or failed to add'}), 400
 
 # Playback Control APIs
 @app.route('/api/playback/play', methods=['POST'])
