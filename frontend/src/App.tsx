@@ -5,12 +5,13 @@ import PlaylistManager from './components/PlaylistManager';
 import PlaybackControls from './components/PlaybackControls';
 import NowPlaying from './components/NowPlaying';
 import TrackTimesEditor from './components/TrackTimesEditor';
+import SoundEffectsManager from './components/SoundEffectsManager';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'storage' | 'playlists' | 'player' | 'tracks'>('player');
+  const [activeTab, setActiveTab] = useState<'storage' | 'playlists' | 'player' | 'tracks' | 'soundeffects'>('player');
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -49,6 +50,12 @@ function App() {
             Playlists
           </button>
           <button 
+            className={activeTab === 'soundeffects' ? 'active' : ''} 
+            onClick={() => setActiveTab('soundeffects')}
+          >
+            Sound Effects
+          </button>
+          <button 
             className={activeTab === 'storage' ? 'active' : ''} 
             onClick={() => setActiveTab('storage')}
           >
@@ -71,6 +78,10 @@ function App() {
         
         {activeTab === 'playlists' && (
           <PlaylistManager />
+        )}
+        
+        {activeTab === 'soundeffects' && (
+          <SoundEffectsManager />
         )}
         
         {activeTab === 'storage' && (
