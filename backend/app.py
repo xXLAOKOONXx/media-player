@@ -223,8 +223,12 @@ def add_sound_effects_folder():
     if 'sound_effects' not in config:
         config['sound_effects'] = []
     
+    # Generate ID based on max existing ID + 1, or 1 if no folders exist
+    existing_ids = [f['id'] for f in config['sound_effects']]
+    new_id = max(existing_ids) + 1 if existing_ids else 1
+    
     sound_effects_folder = {
-        'id': len(config['sound_effects']) + 1,
+        'id': new_id,
         'name': data.get('name'),
         'path': data.get('path'),
         'storage_id': data.get('storage_id')
