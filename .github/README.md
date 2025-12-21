@@ -4,6 +4,41 @@ This directory contains automated workflows for the Media Player project.
 
 ## Available Workflows
 
+### Run Tests
+
+**File:** `test.yml`
+
+**Trigger:** Automatic on push/PR to main/develop branches, or manual (workflow_dispatch)
+
+**Purpose:** Runs the pytest test suite across multiple platforms and Python versions.
+
+#### What It Does
+
+1. **Multi-platform testing:**
+   - Tests on Ubuntu, Windows, and macOS
+   - Tests with Python 3.12 and 3.13
+   
+2. **Unit tests:**
+   - Runs all tests in `backend/tests/`
+   - Generates JUnit XML test results
+   - Uploads test results as artifacts
+   
+3. **Coverage report:**
+   - Runs tests with coverage tracking
+   - Generates HTML and XML coverage reports
+   - Uploads coverage reports as artifacts
+
+#### Test Results
+
+After the workflow completes, you can:
+- View test results in the workflow summary
+- Download test result XML files from artifacts
+- Download HTML coverage reports from artifacts
+
+#### Build Time
+
+Typical run time: 3-5 minutes per platform/Python combination
+
 ### Build Windows Executable
 
 **File:** `build-windows-exe.yml`
@@ -79,5 +114,6 @@ If the workflow fails:
 Potential future workflows could include:
 - Automated builds on release tags
 - Unix/Linux distribution packages
-- Automated testing before building
 - Multi-platform builds
+- Integration tests with running server
+- UI screenshot generation and comparison

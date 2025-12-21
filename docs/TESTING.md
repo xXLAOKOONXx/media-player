@@ -193,11 +193,34 @@ class TestNewFeature:
 
 ## Continuous Integration
 
-Tests are automatically run on:
-- Every pull request
-- Every push to main branch
+The project uses GitHub Actions for automated testing.
 
-See `.github/workflows/` for CI configuration.
+### Test Workflow
+
+**File:** `.github/workflows/test.yml`
+
+**Triggers:**
+- Automatically on push to `main` or `develop` branches
+- Automatically on pull requests to `main` or `develop` branches
+- Manually via workflow_dispatch
+
+**What it tests:**
+- Multi-platform: Ubuntu, Windows, and macOS
+- Multi-version: Python 3.12 and 3.13
+- All unit tests in `backend/tests/`
+- Coverage reporting
+
+**Artifacts:**
+- Test results (JUnit XML) for each platform/Python combination
+- Code coverage report (HTML and XML)
+
+**Viewing Results:**
+1. Go to the **Actions** tab in the GitHub repository
+2. Select a workflow run
+3. View the test summary in the workflow page
+4. Download artifacts (test results and coverage reports) from the artifacts section
+
+See `.github/workflows/test.yml` for the complete workflow configuration.
 
 ## UI Testing
 
