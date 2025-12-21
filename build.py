@@ -17,6 +17,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -55,6 +56,10 @@ def print_warning(message):
 def run_command(cmd, cwd=None, shell=False):
     """Run a command and return the result"""
     try:
+        # On Windows, when using shell=True, `subprocess.run()` expects a string command.
+        # This is particularly important for tools like `npm` which are often `npm.cmd`.
+        if shell and isinstance(cmd, (list, tuple)):
+            cmd = subprocess.list2cmdline(list(cmd))
         result = subprocess.run(
             cmd,
             cwd=cwd,
@@ -66,6 +71,48 @@ def run_command(cmd, cwd=None, shell=False):
         return True, result.stdout
     except subprocess.CalledProcessError as e:
         return False, e.stderr
+    except FileNotFoundError as e:
+        return False, str(e)
+
+
+def remove_tree_with_retries(path: Path, retries: int = 5, delay_seconds: float = 1.0) -> bool:
+    """Remove a directory tree, retrying on Windows file-lock errors."""
+    if not path.exists():
+        return True
+
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            shutil.rmtree(path)
+            return True
+        except PermissionError as e:
+            last_error = e
+            if attempt < retries:
+                time.sleep(delay_seconds)
+            else:
+                break
+    print_error(f"Failed to remove directory {path}: {last_error}")
+    return False
+
+
+def remove_file_with_retries(path: Path, retries: int = 5, delay_seconds: float = 1.0) -> bool:
+    """Remove a file, retrying on Windows file-lock errors."""
+    if not path.exists():
+        return True
+
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            path.unlink()
+            return True
+        except PermissionError as e:
+            last_error = e
+            if attempt < retries:
+                time.sleep(delay_seconds)
+            else:
+                break
+    print_warning(f"Could not remove file {path}: {last_error}")
+    return False
 
 
 def check_node_installed():
@@ -76,13 +123,17 @@ def check_node_installed():
 
 def check_npm_installed():
     """Check if npm is installed"""
-    success, _ = run_command(['npm', '--version'])
+    # On Windows, npm is typically a `.cmd` shim; using shell=True makes it reliably runnable.
+    is_windows = platform.system() == 'Windows'
+    success, _ = run_command(['npm', '--version'], shell=is_windows)
     return success
 
 
 def build_frontend(frontend_dir):
     """Build the frontend using npm"""
     print_step("Building frontend...")
+
+    is_windows = platform.system() == 'Windows'
     
     if not check_node_installed():
         print_error("Node.js is not installed. Please install Node.js to build the frontend.")
@@ -96,7 +147,7 @@ def build_frontend(frontend_dir):
     node_modules = frontend_dir / 'node_modules'
     if not node_modules.exists():
         print("Installing frontend dependencies...")
-        success, output = run_command(['npm', 'install'], cwd=frontend_dir)
+        success, output = run_command(['npm', 'install'], cwd=frontend_dir, shell=is_windows)
         if not success:
             print_error(f"Failed to install frontend dependencies:\n{output}")
             return False
@@ -104,7 +155,7 @@ def build_frontend(frontend_dir):
     
     # Build the frontend
     print("Running npm build...")
-    success, output = run_command(['npm', 'run', 'build'], cwd=frontend_dir)
+    success, output = run_command(['npm', 'run', 'build'], cwd=frontend_dir, shell=is_windows)
     if not success:
         print_error(f"Frontend build failed:\n{output}")
         return False
@@ -128,6 +179,19 @@ def bundle_with_pyinstaller(backend_dir):
     if not is_windows:
         print_warning("PyInstaller bundling is designed for Windows. Skipping on Unix systems.")
         return True
+
+    # Ensure backend runtime dependencies are available in the build environment.
+    # PyInstaller bundles what it can import/resolve from the current interpreter.
+    requirements_file = backend_dir / 'requirements.txt'
+    if requirements_file.exists():
+        print("Installing backend dependencies (requirements.txt)...")
+        success, output = run_command([sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)])
+        if not success:
+            print_error(f"Failed to install backend dependencies:\n{output}")
+            return False
+        print_success("Backend dependencies installed")
+    else:
+        print_warning(f"requirements.txt not found at {requirements_file}; continuing without installing backend deps")
     
     # Check if PyInstaller is installed using importlib for robustness
     pyinstaller_spec = importlib.util.find_spec('PyInstaller')
@@ -150,19 +214,32 @@ def bundle_with_pyinstaller(backend_dir):
     # Clean previous build
     dist_dir = backend_dir / 'dist'
     build_dir = backend_dir / 'build'
+
+    # For one-file builds, the primary output is dist/media-player.exe.
+    # Try removing just the output exe first to avoid deleting dist/ when it is held open.
+    remove_file_with_retries(dist_dir / 'media-player.exe')
+    remove_file_with_retries(dist_dir / 'media-player' / 'media-player.exe')
     
     if dist_dir.exists():
         print(f"Cleaning previous build in {dist_dir}...")
-        shutil.rmtree(dist_dir)
+        if not remove_tree_with_retries(dist_dir):
+            print_warning(
+                "Could not fully remove dist directory (it may be open in Explorer or locked by AV). "
+                "Continuing build; if PyInstaller fails, close any processes using backend/dist and retry."
+            )
     
     if build_dir.exists():
         print(f"Cleaning build directory {build_dir}...")
-        shutil.rmtree(build_dir)
+        if not remove_tree_with_retries(build_dir):
+            print_warning(
+                "Could not fully remove build directory (it may be locked). "
+                "Continuing build; if PyInstaller fails, close any processes using backend/build and retry."
+            )
     
     # Run PyInstaller
     print("Running PyInstaller...")
     success, output = run_command(
-        [sys.executable, '-m', 'PyInstaller', str(spec_file)],
+        [sys.executable, '-m', 'PyInstaller', '--noconfirm', str(spec_file)],
         cwd=backend_dir
     )
     
@@ -171,16 +248,26 @@ def bundle_with_pyinstaller(backend_dir):
         return False
     
     # Check if the executable was created
-    exe_path = dist_dir / 'media-player' / 'media-player.exe'
-    if not exe_path.exists():
-        print_error(f"Executable not found at {exe_path}")
-        return False
+    # One-file build: dist/media-player.exe
+    # One-dir build (legacy): dist/media-player/media-player.exe
+    onefile_exe_path = dist_dir / 'media-player.exe'
+    onedir_exe_path = dist_dir / 'media-player' / 'media-player.exe'
+
+    if onefile_exe_path.exists():
+        print_success(f"Executable created at {onefile_exe_path}")
+        print(f"\n{Colors.OKGREEN}The application can be distributed by sharing this single file:")
+        print(f"  {onefile_exe_path}{Colors.ENDC}")
+        return True
+
+    if onedir_exe_path.exists():
+        print_success(f"Executable bundle created at {dist_dir / 'media-player'}")
+        print(f"\n{Colors.OKGREEN}The application can be distributed by sharing the entire folder:")
+        print(f"  {dist_dir / 'media-player'}{Colors.ENDC}")
+        return True
+
+    print_error(f"Executable not found at {onefile_exe_path} or {onedir_exe_path}")
+    return False
     
-    print_success(f"Executable bundle created at {dist_dir / 'media-player'}")
-    print(f"\n{Colors.OKGREEN}The application can be distributed by sharing the entire folder:")
-    print(f"  {dist_dir / 'media-player'}{Colors.ENDC}")
-    
-    return True
 
 
 def create_unix_distribution(project_root, backend_dir):
