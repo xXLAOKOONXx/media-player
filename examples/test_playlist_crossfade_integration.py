@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import tempfile
+import shutil
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -123,7 +124,6 @@ def test_api_behavior():
     finally:
         # Cleanup
         controller.stop()
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 def test_crossfade_flag():
@@ -179,7 +179,6 @@ def test_crossfade_flag():
         
     finally:
         controller.stop()
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ import sys
 import os
 import time
 import tempfile
+import shutil
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -124,7 +125,6 @@ def test_playlist_crossfade():
     finally:
         # Cleanup
         controller.stop()
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 def test_crossfade_disabled():
@@ -168,7 +168,6 @@ def test_crossfade_disabled():
         
     finally:
         controller.stop()
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 def test_crossfade_explicit_control():
@@ -231,7 +230,6 @@ def test_crossfade_explicit_control():
         
     finally:
         controller.stop()
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == '__main__':
