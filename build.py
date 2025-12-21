@@ -431,7 +431,7 @@ def main():
     else:
         print_warning("Skipping bundle creation (--skip-bundle specified)")
     
-    print(f"\n{Colors.OKGREEN}{Colors.BOLD}✓ Build completed successfully!{Colors.ENDC}\n")
+    print(f"\n{Colors.OKGREEN}{Colors.BOLD}{OK_PREFIX} Build completed successfully!{Colors.ENDC}\n")
 
 
 if __name__ == '__main__':
