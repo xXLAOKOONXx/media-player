@@ -172,6 +172,13 @@ Then access the frontend at `http://localhost:5173` (Vite's default port)
 
 For creating shippable bundles with the built frontend:
 
+**Automated (GitHub Actions - Recommended for Windows):**
+- Go to the Actions tab in GitHub
+- Run the "Build Windows Executable" workflow
+- Download the artifact when complete
+
+**Local Build:**
+
 **Windows** (creates standalone executable):
 ```bash
 build.bat

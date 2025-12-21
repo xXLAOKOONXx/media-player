@@ -21,14 +21,34 @@ The Media Player supports creating shippable bundles that include the built fron
 
 ## Building Bundles
 
-### Quick Start
+### Automated Build (GitHub Actions)
 
-#### Windows
+The easiest way to create a Windows executable is using the automated GitHub Actions workflow:
+
+1. Go to the **Actions** tab in the GitHub repository
+2. Select **"Build Windows Executable"**
+3. Click **"Run workflow"**
+4. (Optional) Enter a version tag
+5. Download the artifact when the build completes
+
+See [`.github/README.md`](../.github/README.md) for detailed instructions.
+
+**Benefits:**
+- No local build environment needed
+- Consistent builds every time
+- Automatic artifact storage
+- Build logs for troubleshooting
+
+### Local Build
+
+#### Quick Start
+
+##### Windows
 ```bash
 build.bat
 ```
 
-#### Unix/Linux/macOS
+##### Unix/Linux/macOS
 ```bash
 ./build.sh
 ```
@@ -249,12 +269,34 @@ The `build.py` script can be modified to add custom build steps:
 
 ## Continuous Integration
 
-You can integrate the build process into CI/CD pipelines:
+You can integrate the build process into CI/CD pipelines.
 
-### GitHub Actions Example
+### GitHub Actions (Included)
+
+This repository includes a ready-to-use GitHub Actions workflow for building Windows executables:
+
+**File:** `.github/workflows/build-windows-exe.yml`
+
+**Features:**
+- Manual trigger (workflow_dispatch)
+- Automated frontend and backend builds
+- Artifact upload with retention
+- Optional version tagging
+- Release notes generation
+
+**To use:**
+1. Navigate to Actions tab in GitHub
+2. Select "Build Windows Executable"
+3. Click "Run workflow"
+
+See [`.github/README.md`](../.github/README.md) for complete documentation.
+
+### Custom CI/CD Example
+
+For automated builds on tags, you can modify the workflow or create a new one:
 
 ```yaml
-name: Build Bundle
+name: Build on Release
 
 on:
   push:
@@ -265,19 +307,19 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-      - uses: actions/setup-node@v2
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '20'
       - name: Build
         run: python build.py
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: media-player-windows
+          name: media-player-windows-${{ github.ref_name }}
           path: backend/dist/media-player/
 ```
 
