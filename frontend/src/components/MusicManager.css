@@ -54,6 +54,14 @@
   background-color: #059669;
 }
 
+.music-actions button.add-to-current-button {
+  background-color: #f59e0b;
+}
+
+.music-actions button.add-to-current-button:hover {
+  background-color: #d97706;
+}
+
 .music-actions button .material-icons {
   font-size: 18px;
 }

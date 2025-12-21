@@ -140,29 +140,21 @@ class MusicCache:
         if not rows:
             return []
         
+        # Trust the cache - don't check file existence
+        # Files will only be validated when adding to playlists or on refresh
         tracks = []
         for row in rows:
-            # Verify file still exists and hasn't been modified
-            file_path = row[0]
-            cached_mtime = row[8]
-            
-            if os.path.exists(file_path):
-                current_mtime = os.path.getmtime(file_path)
-                # If file modified, invalidate cache
-                if cached_mtime and abs(current_mtime - cached_mtime) > 1:
-                    return None
-                
-                track = {
-                    'path': row[0],
-                    'name': row[1],
-                    'size': row[2],
-                    'artist': row[3],
-                    'title': row[4],
-                    'album': row[5],
-                    'duration': row[6],
-                    'tags': json.loads(row[7]) if row[7] else []
-                }
-                tracks.append(track)
+            track = {
+                'path': row[0],
+                'name': row[1],
+                'size': row[2],
+                'artist': row[3],
+                'title': row[4],
+                'album': row[5],
+                'duration': row[6],
+                'tags': json.loads(row[7]) if row[7] else []
+            }
+            tracks.append(track)
         
         return tracks
     
