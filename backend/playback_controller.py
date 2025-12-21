@@ -19,23 +19,7 @@ import copy
 import logging
 import re
 
-from audio_metadata import display_title, read_audio_metadata
-
-try:
-    from mutagen import File as MutagenFile
-    try:
-        from mutagen.mp3 import HeaderNotFoundError  # type: ignore
-    except Exception:  # pragma: no cover
-        HeaderNotFoundError = None  # type: ignore
-
-    try:
-        from mutagen.id3 import ID3  # type: ignore
-    except Exception:  # pragma: no cover
-        ID3 = None  # type: ignore
-    MUTAGEN_AVAILABLE = True
-except ImportError:
-    MUTAGEN_AVAILABLE = False
-    print("Warning: mutagen not available, ID3 tag reading disabled")
+from audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
 
 # Configure logging for performance monitoring
 # Note: This is a module-level logger. Applications can configure the root logger
@@ -169,6 +153,66 @@ class PlaybackController:
         except Exception as e:
             logger.error(f"Error reading audio metadata from {file_path}: {e}")
             return {}
+
+    def _ensure_track_metadata(self, track: dict) -> None:
+        """Best-effort: populate missing title/duration/artist/album from file metadata.
+
+        This is intentionally one-time per track to avoid repeated disk/network I/O
+        during frequent status polling.
+        """
+        if not isinstance(track, dict):
+            return
+        if track.get('_metadata_enriched') is True:
+            return
+
+        path = track.get('path')
+        if not isinstance(path, str) or not path:
+            track['_metadata_enriched'] = True
+            return
+
+        # Only attempt if metadata might help.
+        duration_val = track.get('duration')
+        has_duration = False
+        if isinstance(duration_val, (int, float)):
+            has_duration = True
+        elif isinstance(duration_val, str):
+            try:
+                float(duration_val)
+                has_duration = True
+            except ValueError:
+                has_duration = False
+
+        title_val = track.get('title')
+        needs_title = not (isinstance(title_val, str) and title_val.strip())
+        needs_metadata = needs_title or (not has_duration) or (track.get('artist') is None) or (track.get('album') is None)
+
+        if not needs_metadata:
+            track['_metadata_enriched'] = True
+            return
+
+        if not os.path.exists(path):
+            track['_metadata_enriched'] = True
+            return
+
+        if not MUTAGEN_AVAILABLE:
+            track['title'] = display_title(track)
+            track['_metadata_enriched'] = True
+            return
+
+        try:
+            metadata = read_audio_metadata(
+                path,
+                include_duration=True,
+                include_times=True,
+                include_tags=False,
+            )
+            if isinstance(metadata, dict) and metadata:
+                track.update(metadata)
+        except Exception:
+            pass
+
+        track['title'] = display_title(track)
+        track['_metadata_enriched'] = True
     
     def _read_id3_times(self, file_path):
         """Read start and end times from ID3 tags
@@ -243,6 +287,9 @@ class PlaybackController:
                 # Read ID3 tags for metadata (takes precedence over M3U directives)
                 if os.path.exists(line):
                     metadata = self._read_id3_metadata(line)
+                    # Title (takes precedence over filename / EXTINF)
+                    if 'title' in metadata and isinstance(metadata['title'], str) and metadata['title'].strip():
+                        current_track['title'] = metadata['title']
                     # Duration from audio file (takes precedence over M3U duration)
                     if 'duration' in metadata:
                         current_track['duration'] = str(metadata['duration'])
@@ -421,6 +468,7 @@ class PlaybackController:
         
         if self.current_playlist and self.current_track_index < len(self.current_playlist):
             track = self.current_playlist[self.current_track_index]
+            self._ensure_track_metadata(track)
             status['current_track'] = {
                 'title': _display_title(track),
                 'path': track.get('path', ''),
