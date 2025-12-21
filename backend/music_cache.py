@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+from audio_metadata import display_title
+
 
 class MusicCache:
     """Manages SQLite cache for music metadata"""
@@ -185,6 +187,8 @@ class MusicCache:
                 'duration': row[6],
                 'tags': json.loads(row[7]) if row[7] else []
             }
+            # Ensure consistent title fallback for older cached rows.
+            track['title'] = display_title(track)
             tracks.append(track)
         
         return tracks
@@ -232,3 +236,19 @@ class MusicCache:
             'tracks': track_count,
             'total_size_bytes': total_size
         }
+
+    def update_track_duration(self, file_path, duration):
+        """Update cached duration for a single track by file path.
+
+        This is used to backfill durations lazily (e.g., when a track is played).
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            'UPDATE tracks SET duration = ? WHERE file_path = ?',
+            (duration, file_path),
+        )
+
+        conn.commit()
+        conn.close()

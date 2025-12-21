@@ -19,6 +19,8 @@ import copy
 import logging
 import re
 
+from audio_metadata import display_title, read_audio_metadata
+
 try:
     from mutagen import File as MutagenFile
     try:
@@ -62,6 +64,11 @@ def _normalize_m3u_entry_path(value: str) -> str:
     if _is_url_path(value):
         return value
     return value.replace('\\', '/')
+
+
+def _display_title(track: dict) -> str:
+    # Backwards-compat wrapper for any internal calls.
+    return display_title(track)
 
 
 def _is_absolute_path_cross_platform(value: str) -> bool:
@@ -150,103 +157,17 @@ class PlaybackController:
         
         Returns dict with artist, album, duration, and timing information
         """
-        if not MUTAGEN_AVAILABLE:
-            return {}
-
-        def _read_id3_only() -> dict:
-            if ID3 is None:
-                return {}
-            try:
-                tags_obj = ID3(file_path)
-            except Exception:
-                return {}
-
-            metadata_local = {}
-
-            # Artist/album
-            if hasattr(tags_obj, 'get'):
-                artist_tag = tags_obj.get('TPE1')
-                if artist_tag:
-                    metadata_local['artist'] = str(artist_tag)
-
-                album_tag = tags_obj.get('TALB')
-                if album_tag:
-                    metadata_local['album'] = str(album_tag)
-
-            # Custom timing
-            try:
-                txxx_frames = tags_obj.getall('TXXX') if hasattr(tags_obj, 'getall') else []
-                for frame in txxx_frames:
-                    desc = str(frame.desc) if hasattr(frame, 'desc') else ''
-                    if desc == 'LAO:MUSIC_START':
-                        try:
-                            metadata_local['start_time'] = float(frame.text[0]) / 1000.0
-                        except (ValueError, IndexError, TypeError):
-                            pass
-                    elif desc == 'LAO:MUSIC_END':
-                        try:
-                            metadata_local['end_time'] = float(frame.text[0]) / 1000.0
-                        except (ValueError, IndexError, TypeError):
-                            pass
-            except Exception:
-                pass
-
-            return metadata_local
-
+        # Shared implementation used by both Music + Player.
+        # Include duration (for crossfade timing) + custom times.
         try:
-            metadata = {}
-
-            # For MP3s, read ID3 tags without decoding frames.
-            if Path(file_path).suffix.lower() == '.mp3':
-                metadata.update(_read_id3_only())
-
-            audio = MutagenFile(file_path)
-            if audio is None:
-                return metadata
-
-            # Duration may require MPEG frame sync; tolerate failure.
-            if hasattr(audio, 'info') and hasattr(audio.info, 'length'):
-                metadata['duration'] = audio.info.length
-                logger.debug(f"Extracted duration {audio.info.length}s from {file_path}")
-
-            # If tags were not read via ID3-only, fall back to whatever mutagen provided.
-            if not metadata.get('artist') and not metadata.get('album') and not metadata.get('start_time') and not metadata.get('end_time'):
-                if hasattr(audio, 'tags') and audio.tags and hasattr(audio.tags, 'get'):
-                    artist_tag = audio.tags.get('TPE1')
-                    if artist_tag:
-                        metadata['artist'] = str(artist_tag)
-
-                    album_tag = audio.tags.get('TALB')
-                    if album_tag:
-                        metadata['album'] = str(album_tag)
-
-                    try:
-                        txxx_frames = audio.tags.getall('TXXX')
-                        for frame in txxx_frames:
-                            desc = str(frame.desc) if hasattr(frame, 'desc') else ''
-                            if desc == 'LAO:MUSIC_START':
-                                try:
-                                    metadata['start_time'] = float(frame.text[0]) / 1000.0
-                                except (ValueError, IndexError, TypeError):
-                                    pass
-                            elif desc == 'LAO:MUSIC_END':
-                                try:
-                                    metadata['end_time'] = float(frame.text[0]) / 1000.0
-                                except (ValueError, IndexError, TypeError):
-                                    pass
-                    except Exception:
-                        pass
-
-            return metadata
-
+            return read_audio_metadata(
+                file_path,
+                include_duration=True,
+                include_times=True,
+                include_tags=False,
+            )
         except Exception as e:
-            if (HeaderNotFoundError is not None and isinstance(e, HeaderNotFoundError)) or "can't sync to MPEG frame" in str(e):
-                # Non-fatal: return whatever ID3 tags we can read; omit duration.
-                if Path(file_path).suffix.lower() == '.mp3':
-                    return _read_id3_only()
-                return {}
-
-            logger.error(f"Error reading ID3 tags from {file_path}: {e}")
+            logger.error(f"Error reading audio metadata from {file_path}: {e}")
             return {}
     
     def _read_id3_times(self, file_path):
@@ -501,7 +422,7 @@ class PlaybackController:
         if self.current_playlist and self.current_track_index < len(self.current_playlist):
             track = self.current_playlist[self.current_track_index]
             status['current_track'] = {
-                'title': track.get('title', 'Unknown'),
+                'title': _display_title(track),
                 'path': track.get('path', ''),
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
@@ -515,7 +436,7 @@ class PlaybackController:
             if next_track_index < len(self.current_playlist):
                 next_track = self.current_playlist[next_track_index]
                 status['next_track'] = {
-                    'title': next_track.get('title', 'Unknown'),
+                    'title': _display_title(next_track),
                     'artist': next_track.get('artist'),
                     'album': next_track.get('album')
                 }
@@ -523,7 +444,7 @@ class PlaybackController:
                 # If repeat all is on, next track is the first track
                 next_track = self.current_playlist[0]
                 status['next_track'] = {
-                    'title': next_track.get('title', 'Unknown'),
+                    'title': _display_title(next_track),
                     'artist': next_track.get('artist'),
                     'album': next_track.get('album')
                 }
@@ -829,7 +750,7 @@ class PlaybackController:
         return [
             {
                 'index': i,
-                'title': track.get('title', 'Unknown'),
+                'title': _display_title(track),
                 'path': track.get('path', ''),
                 'duration': track.get('duration', 'Unknown'),
                 'start_time': track.get('start_time'),
