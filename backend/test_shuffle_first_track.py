@@ -7,6 +7,8 @@ before loading a playlist.
 import sys
 import os
 import tempfile
+import shutil
+import traceback
 from pathlib import Path
 
 # Add parent directory to path to import modules
@@ -92,7 +94,6 @@ def test_shuffle_first_track():
     print("✓ Test 3 passed: Current track preserved when enabling shuffle during playback")
     
     # Cleanup
-    import shutil
     shutil.rmtree(temp_dir)
     
     print("\n" + "="*60)
@@ -109,6 +110,5 @@ if __name__ == '__main__':
         sys.exit(1)
     except Exception as e:
         print(f"\n✗ ERROR: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
