@@ -1,16 +1,48 @@
 # Example Configuration
 
-This directory contains example files to help you get started with the media player.
+This directory contains example files and legacy test scripts for the media player.
 
-## Files
+## Main Files
 
 - `example_playlist.m3u` - Sample M3U playlist format
+- `example_playlist_with_times.m3u` - Sample M3U playlist with custom start/end times
+- `test_id3_playlist.m3u` - Playlist for ID3 tag testing
 - `config.example.json` - Example configuration file with all settings
-- `test_shuffle_first_track.py` - Test script for shuffle mode first track randomization
-- `test_api.py` - API testing script
-- `test_crossfade.py` - Crossfade functionality testing script
-- `test_id3_support.py` - ID3 tag support testing script
-- `test_track_times.py` - Track timing functionality testing script
+- `id3_tag_manager.py` - Utility script for managing ID3 tags in audio files
+- `monitor_performance.py` - Performance monitoring utility
+- `mediaplayer.service` - Systemd service file for auto-start
+- `nginx-site.conf` - Nginx configuration for reverse proxy
+
+## Test Audio Files
+
+Test audio files are now located in `example_tracks/` directory:
+- See `example_tracks/README.md` for details
+
+## Legacy Test Scripts
+
+The following test scripts are kept for reference but have been superseded by the new pytest-based test suite in `backend/tests/`:
+
+- `test_api.py` - API endpoint tests → Use `backend/tests/test_api.py`
+- `test_crossfade.py` - Crossfade functionality tests → Use `backend/tests/test_crossfade.py`
+- `test_id3_support.py` - ID3 tag support tests (reference only)
+- `test_music_tab.py` - Music manager tests → Use `backend/tests/test_music.py`
+- `test_shuffle_first_track.py` - Shuffle mode tests (reference only)
+- `test_track_times.py` - Track timing tests (reference only)
+
+**To run the new test suite:**
+```bash
+# Unix/Linux/macOS
+./run_tests.sh
+
+# Windows
+run_tests.bat
+
+# Or directly with pytest
+cd backend
+pytest tests/
+```
+
+See `docs/TESTING.md` for comprehensive testing documentation.
 
 ## Configuration Sections
 
