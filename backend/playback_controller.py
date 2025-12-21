@@ -21,6 +21,15 @@ import re
 
 try:
     from mutagen import File as MutagenFile
+    try:
+        from mutagen.mp3 import HeaderNotFoundError  # type: ignore
+    except Exception:  # pragma: no cover
+        HeaderNotFoundError = None  # type: ignore
+
+    try:
+        from mutagen.id3 import ID3  # type: ignore
+    except Exception:  # pragma: no cover
+        ID3 = None  # type: ignore
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False
@@ -143,80 +152,100 @@ class PlaybackController:
         """
         if not MUTAGEN_AVAILABLE:
             return {}
-            
-        try:
-            audio = MutagenFile(file_path)
-            if audio is None:
+
+        def _read_id3_only() -> dict:
+            if ID3 is None:
                 return {}
-            
-            metadata = {}
-            
-            # Extract duration from audio file (in seconds)
-            if hasattr(audio.info, 'length'):
-                metadata['duration'] = audio.info.length
-                logger.debug(f"Extracted duration {audio.info.length}s from {file_path}")
-            
-            # Extract artist and album information
-            if hasattr(audio, 'tags') and audio.tags:
-                # Try different artist tag formats (TPE1 for ID3v2, artist for other formats)
-                artist = None
-                album = None
-                
-                # ID3v2 tags
-                if hasattr(audio.tags, 'get'):
-                    # TPE1 is the standard ID3v2 artist field
-                    artist_tag = audio.tags.get('TPE1')
-                    if artist_tag:
-                        artist = str(artist_tag)
-                    
-                    # TALB is the standard ID3v2 album field
-                    album_tag = audio.tags.get('TALB')
-                    if album_tag:
-                        album = str(album_tag)
-                    
-                    # Try generic artist/album fields for other formats (Vorbis, etc.)
-                    if not artist:
-                        try:
-                            artist_list = audio.tags.get('artist', [])
-                            if artist_list:
-                                artist = str(artist_list[0]) if isinstance(artist_list, list) else str(artist_list)
-                        except (AttributeError, TypeError, IndexError, KeyError):
-                            pass
-                    
-                    if not album:
-                        try:
-                            album_list = audio.tags.get('album', [])
-                            if album_list:
-                                album = str(album_list[0]) if isinstance(album_list, list) else str(album_list)
-                        except (AttributeError, TypeError, IndexError, KeyError):
-                            pass
-                
-                if artist:
-                    metadata['artist'] = artist
-                if album:
-                    metadata['album'] = album
-                
-                # Check for custom ID3 fields: LAO:MUSIC_START and LAO:MUSIC_END
-                # These are stored in TXXX frames in ID3v2
-                txxx_frames = audio.tags.getall('TXXX')
+            try:
+                tags_obj = ID3(file_path)
+            except Exception:
+                return {}
+
+            metadata_local = {}
+
+            # Artist/album
+            if hasattr(tags_obj, 'get'):
+                artist_tag = tags_obj.get('TPE1')
+                if artist_tag:
+                    metadata_local['artist'] = str(artist_tag)
+
+                album_tag = tags_obj.get('TALB')
+                if album_tag:
+                    metadata_local['album'] = str(album_tag)
+
+            # Custom timing
+            try:
+                txxx_frames = tags_obj.getall('TXXX') if hasattr(tags_obj, 'getall') else []
                 for frame in txxx_frames:
                     desc = str(frame.desc) if hasattr(frame, 'desc') else ''
                     if desc == 'LAO:MUSIC_START':
                         try:
-                            # Value is in milliseconds, convert to seconds
-                            metadata['start_time'] = float(frame.text[0]) / 1000.0
+                            metadata_local['start_time'] = float(frame.text[0]) / 1000.0
                         except (ValueError, IndexError, TypeError):
                             pass
                     elif desc == 'LAO:MUSIC_END':
                         try:
-                            # Value is in milliseconds, convert to seconds
-                            metadata['end_time'] = float(frame.text[0]) / 1000.0
+                            metadata_local['end_time'] = float(frame.text[0]) / 1000.0
                         except (ValueError, IndexError, TypeError):
                             pass
-            
+            except Exception:
+                pass
+
+            return metadata_local
+
+        try:
+            metadata = {}
+
+            # For MP3s, read ID3 tags without decoding frames.
+            if Path(file_path).suffix.lower() == '.mp3':
+                metadata.update(_read_id3_only())
+
+            audio = MutagenFile(file_path)
+            if audio is None:
+                return metadata
+
+            # Duration may require MPEG frame sync; tolerate failure.
+            if hasattr(audio, 'info') and hasattr(audio.info, 'length'):
+                metadata['duration'] = audio.info.length
+                logger.debug(f"Extracted duration {audio.info.length}s from {file_path}")
+
+            # If tags were not read via ID3-only, fall back to whatever mutagen provided.
+            if not metadata.get('artist') and not metadata.get('album') and not metadata.get('start_time') and not metadata.get('end_time'):
+                if hasattr(audio, 'tags') and audio.tags and hasattr(audio.tags, 'get'):
+                    artist_tag = audio.tags.get('TPE1')
+                    if artist_tag:
+                        metadata['artist'] = str(artist_tag)
+
+                    album_tag = audio.tags.get('TALB')
+                    if album_tag:
+                        metadata['album'] = str(album_tag)
+
+                    try:
+                        txxx_frames = audio.tags.getall('TXXX')
+                        for frame in txxx_frames:
+                            desc = str(frame.desc) if hasattr(frame, 'desc') else ''
+                            if desc == 'LAO:MUSIC_START':
+                                try:
+                                    metadata['start_time'] = float(frame.text[0]) / 1000.0
+                                except (ValueError, IndexError, TypeError):
+                                    pass
+                            elif desc == 'LAO:MUSIC_END':
+                                try:
+                                    metadata['end_time'] = float(frame.text[0]) / 1000.0
+                                except (ValueError, IndexError, TypeError):
+                                    pass
+                    except Exception:
+                        pass
+
             return metadata
-            
+
         except Exception as e:
+            if (HeaderNotFoundError is not None and isinstance(e, HeaderNotFoundError)) or "can't sync to MPEG frame" in str(e):
+                # Non-fatal: return whatever ID3 tags we can read; omit duration.
+                if Path(file_path).suffix.lower() == '.mp3':
+                    return _read_id3_only()
+                return {}
+
             logger.error(f"Error reading ID3 tags from {file_path}: {e}")
             return {}
     
