@@ -5,7 +5,6 @@ description = "Media Player Backend for Raspberry Pi"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "flask==3.0.0",
-    "flask-cors==6.0.0",
     "pygame==2.6.1",
     "mutagen==1.47.0",
 ]

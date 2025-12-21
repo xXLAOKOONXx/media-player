@@ -4,7 +4,6 @@ Main Flask application for media player control
 """
 
 from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -25,9 +24,7 @@ if not os.path.exists(static_folder):
     print(f"Warning: Static folder not found at {static_folder}")
     print("Run 'cd ../frontend && npm run build' to build the frontend")
 
-# Enable CORS for development (when frontend runs on different port)
-# In production, frontend is served from Flask, so CORS not needed
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 
 # Initialize managers
 storage_manager = StorageManager()

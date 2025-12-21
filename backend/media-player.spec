@@ -37,7 +37,6 @@ a = Analysis(
         'flask',
         'flask.json',
         'flask.json.provider',
-        'flask_cors',
         'pygame',
         'mutagen',
         'werkzeug',
