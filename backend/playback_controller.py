@@ -229,8 +229,15 @@ class PlaybackController:
         metadata = self._read_id3_metadata(file_path)
         return metadata.get('start_time'), metadata.get('end_time')
     
-    def load_playlist(self, playlist_path):
-        """Load a playlist from M3U file"""
+    def load_playlist(self, playlist_path, crossfade_to_new=None):
+        """Load a playlist from M3U file
+        
+        Args:
+            playlist_path: Path to the M3U playlist file
+            crossfade_to_new: If True, crossfade from current track to new playlist
+                            If False, load without crossfade
+                            If None (default), auto-detect based on playback state
+        """
         try:
             tracks = []
             playlist_dir = Path(playlist_path).parent
@@ -311,13 +318,30 @@ class PlaybackController:
                 tracks.append(current_track)
                 current_track = {}
             
-            self.current_playlist = tracks
-            self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation
-            self.current_track_index = 0
+            if not tracks:
+                logger.warning(f"No tracks found in playlist: {playlist_path}")
+                return False
             
-            # Apply shuffle if enabled - for new playlists, don't preserve current track
-            if self.shuffle_enabled:
-                self._apply_shuffle(preserve_current=False)
+            # Determine if we should crossfade
+            should_crossfade = crossfade_to_new
+            if should_crossfade is None:
+                # Auto-detect: crossfade if currently playing and crossfade is enabled
+                should_crossfade = (self.is_playing and not self.is_paused and 
+                                  self.crossfade_config.get('enabled', False))
+            
+            # If we should crossfade to the new playlist, handle it specially
+            if should_crossfade and self.audio_available:
+                logger.info(f"Crossfading from current track to new playlist: {playlist_path}")
+                self._crossfade_to_new_playlist(tracks)
+            else:
+                # Normal playlist load without crossfade
+                self.current_playlist = tracks
+                self.original_playlist = copy.deepcopy(tracks)  # Deep copy for full isolation
+                self.current_track_index = 0
+                
+                # Apply shuffle if enabled - for new playlists, don't preserve current track
+                if self.shuffle_enabled:
+                    self._apply_shuffle(preserve_current=False)
             
             return True
             
@@ -329,6 +353,192 @@ class PlaybackController:
         """Reset crossfade state"""
         self.is_crossfading = False
         self.next_track_queued = False
+    
+    def _crossfade_to_new_playlist(self, new_tracks):
+        """Crossfade from current track to the first track of a new playlist
+        
+        Args:
+            new_tracks: List of track dictionaries for the new playlist
+        """
+        if not self.audio_available or not new_tracks:
+            return
+        
+        try:
+            # Get the first track of the new playlist
+            first_track = new_tracks[0]
+            first_track_path = first_track['path']
+            
+            # Check if first track file exists
+            if not os.path.exists(first_track_path):
+                logger.warning(f"First track of new playlist not found: {first_track_path}")
+                # Fall back to normal load
+                self.current_playlist = new_tracks
+                self.original_playlist = copy.deepcopy(new_tracks)
+                self.current_track_index = 0
+                if self.shuffle_enabled:
+                    self._apply_shuffle(preserve_current=False)
+                return
+            
+            # Mark that we're crossfading
+            self.is_crossfading = True
+            self.crossfade_start_time = time.time()
+            
+            # Get crossfade duration
+            fade_duration_ms = self.crossfade_config.get('duration_ms', 3000)
+            fade_duration_seconds = fade_duration_ms / 1000.0
+            
+            logger.info(f"Starting playlist crossfade: {fade_duration_ms}ms transition to new playlist")
+            
+            # Start a thread to execute the crossfade
+            def execute_playlist_crossfade():
+                try:
+                    # Get current volume for fade calculations
+                    current_volume = pygame.mixer.music.get_volume()
+                    
+                    # Try to load the first track of new playlist as a Sound object
+                    try:
+                        next_sound = pygame.mixer.Sound(first_track_path)
+                        next_channel = pygame.mixer.find_channel()
+                        
+                        if next_channel is None:
+                            logger.warning("No available channel for playlist crossfade, using fadeout method")
+                            # Fallback: simple fadeout then play new playlist
+                            pygame.mixer.music.fadeout(fade_duration_ms)
+                            time.sleep(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
+                            
+                            # Update playlist and play first track
+                            self.current_playlist = new_tracks
+                            self.original_playlist = copy.deepcopy(new_tracks)
+                            self.current_track_index = 0
+                            if self.shuffle_enabled:
+                                self._apply_shuffle(preserve_current=False)
+                            
+                            self.play(0)
+                            self._reset_crossfade_state()
+                            return
+                        
+                        logger.info(f"Successfully loaded first track of new playlist as Sound (length: {next_sound.get_length():.2f}s)")
+                        
+                    except pygame.error as e:
+                        logger.warning(f"Cannot load track as Sound (possibly too large): {e}")
+                        logger.info("Falling back to fadeout then play")
+                        
+                        # Fallback: simple fadeout then play new playlist
+                        pygame.mixer.music.fadeout(fade_duration_ms)
+                        time.sleep(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
+                        
+                        # Update playlist and play first track
+                        self.current_playlist = new_tracks
+                        self.original_playlist = copy.deepcopy(new_tracks)
+                        self.current_track_index = 0
+                        if self.shuffle_enabled:
+                            self._apply_shuffle(preserve_current=False)
+                        
+                        self.play(0)
+                        self._reset_crossfade_state()
+                        return
+                    
+                    # Now we have both tracks - perform simultaneous fade
+                    start_time = time.time()
+                    steps = self.CROSSFADE_VOLUME_STEPS
+                    step_duration = fade_duration_seconds / steps
+                    
+                    # Start playing new track at volume 0
+                    next_sound.set_volume(0.0)
+                    next_channel.play(next_sound)
+                    next_start_time = time.time()
+                    
+                    logger.info("Both tracks playing - performing simultaneous playlist crossfade")
+                    
+                    # Gradually fade out current track and fade in new track
+                    for i in range(steps):
+                        if not self.is_crossfading:
+                            next_channel.stop()
+                            break
+                        
+                        elapsed = time.time() - start_time
+                        progress = min(elapsed / fade_duration_seconds, 1.0)
+                        
+                        # Fade out current track
+                        current_vol = current_volume * (1.0 - progress)
+                        pygame.mixer.music.set_volume(current_vol)
+                        
+                        # Fade in new track
+                        next_vol = self.volume * progress
+                        next_sound.set_volume(next_vol)
+                        
+                        # Log periodically
+                        if i % self.CROSSFADE_LOG_FREQUENCY == 0:
+                            logger.debug(f"Playlist crossfade {progress*100:.0f}%: current={current_vol:.2f}, next={next_vol:.2f}")
+                        
+                        time.sleep(step_duration)
+                    
+                    # Crossfade complete - stop old track and switch to new playlist
+                    pygame.mixer.music.stop()
+                    next_channel.stop()
+                    
+                    # Update playlist data structures
+                    self.current_playlist = new_tracks
+                    self.original_playlist = copy.deepcopy(new_tracks)
+                    self.current_track_index = 0
+                    
+                    # Apply shuffle if enabled
+                    if self.shuffle_enabled:
+                        self._apply_shuffle(preserve_current=False)
+                    
+                    # Get the (possibly shuffled) first track
+                    first_track_obj = self.current_playlist[0]
+                    first_track_path = first_track_obj['path']
+                    self.track_custom_start = first_track_obj.get('start_time')
+                    self.track_custom_end = first_track_obj.get('end_time')
+                    
+                    # Calculate how much of the track we already played
+                    played_duration = time.time() - next_start_time
+                    
+                    # Load and play from current position
+                    pygame.mixer.music.load(first_track_path)
+                    start_pos = (self.track_custom_start or 0) + played_duration
+                    pygame.mixer.music.play(start=start_pos)
+                    pygame.mixer.music.set_volume(self.volume)
+                    
+                    # Update timing
+                    self.track_start_time = time.time() - played_duration
+                    self.pause_time = None
+                    self.total_pause_duration = 0
+                    
+                    logger.info(f"Playlist crossfade complete - now playing: {first_track_obj.get('title', 'Unknown')}")
+                    
+                    self._reset_crossfade_state()
+                    
+                except Exception as e:
+                    logger.error(f"Error in playlist crossfade execution: {e}", exc_info=True)
+                    self._reset_crossfade_state()
+                    # Restore volume in case of error
+                    if self.audio_available:
+                        pygame.mixer.music.set_volume(self.volume)
+                    
+                    # Fall back to normal load and play
+                    self.current_playlist = new_tracks
+                    self.original_playlist = copy.deepcopy(new_tracks)
+                    self.current_track_index = 0
+                    if self.shuffle_enabled:
+                        self._apply_shuffle(preserve_current=False)
+                    self.play(0)
+            
+            # Start the crossfade thread
+            crossfade_thread = Thread(target=execute_playlist_crossfade)
+            crossfade_thread.daemon = True
+            crossfade_thread.start()
+            
+        except Exception as e:
+            logger.error(f"Error starting playlist crossfade: {e}")
+            self._reset_crossfade_state()
+            # Fall back to normal load
+            self.current_playlist = new_tracks
+            self.original_playlist = copy.deepcopy(new_tracks)
+            self.current_track_index = 0
+            if self.shuffle_enabled:
+                self._apply_shuffle(preserve_current=False)
     
     def play(self, track_index=None):
         """Play a track from the current playlist"""
