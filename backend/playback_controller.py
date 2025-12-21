@@ -383,6 +383,20 @@ class PlaybackController:
                 self._update_playlist_data(new_tracks, preserve_current=False)
                 return
             
+            # Check track duration - skip crossfade for long tracks (>= 10 minutes)
+            duration_str = first_track.get('duration', '0')
+            try:
+                duration_seconds = float(duration_str)
+                if duration_seconds >= 600:  # 10 minutes or longer
+                    logger.info(f"Skipping crossfade for long track (duration: {duration_seconds:.1f}s >= 600s)")
+                    # Stop current playback and load new playlist without crossfade
+                    pygame.mixer.music.stop()
+                    self._update_playlist_data(new_tracks, preserve_current=False)
+                    return
+            except (ValueError, TypeError):
+                # If duration can't be determined, proceed with crossfade attempt
+                logger.debug(f"Could not determine track duration, proceeding with crossfade")
+            
             # Mark that we're crossfading
             self.is_crossfading = True
             self.crossfade_start_time = time.time()
