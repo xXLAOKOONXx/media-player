@@ -27,6 +27,13 @@ interface Playlist {
   path: string;
 }
 
+interface BrowseItem {
+  name: string;
+  path: string;
+  is_directory: boolean;
+  is_playlist?: boolean;
+}
+
 const MusicManager = () => {
   const [musicFolders, setMusicFolders] = useState<MusicFolder[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -34,7 +41,7 @@ const MusicManager = () => {
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [browsePath, setBrowsePath] = useState('/');
-  const [browseItems, setBrowseItems] = useState<any[]>([]);
+  const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
   const [editingFolder, setEditingFolder] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [playlistFolder, setPlaylistFolder] = useState('');

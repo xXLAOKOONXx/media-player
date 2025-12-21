@@ -204,7 +204,7 @@ class MusicManager:
         if artist:
             artist_lower = artist.lower()
             filtered = [t for t in filtered 
-                       if t.get('artist', '').lower().find(artist_lower) != -1]
+                       if artist_lower in t.get('artist', '').lower()]
         
         if duration_min is not None:
             filtered = [t for t in filtered 
@@ -222,7 +222,7 @@ class MusicManager:
         if title:
             title_lower = title.lower()
             filtered = [t for t in filtered 
-                       if t.get('title', '').lower().find(title_lower) != -1]
+                       if title_lower in t.get('title', '').lower()]
         
         return filtered
     
