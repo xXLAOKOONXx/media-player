@@ -11,23 +11,12 @@ to MPEG frames and is extremely slow over SMB for large collections.
 import os
 from pathlib import Path
 
-try:
-    from mutagen import File as MutagenFile
-    try:
-        # Optional: used to detect and silence MP3 frame sync failures.
-        from mutagen.mp3 import HeaderNotFoundError  # type: ignore
-    except Exception:  # pragma: no cover
-        HeaderNotFoundError = None  # type: ignore
-
-    try:
-        # ID3 tag reader that does not require decoding MP3 audio frames.
-        from mutagen.id3 import ID3  # type: ignore
-    except Exception:  # pragma: no cover
-        ID3 = None  # type: ignore
-    MUTAGEN_AVAILABLE = True
-except ImportError:
-    MUTAGEN_AVAILABLE = False
-    print("Warning: mutagen not available, ID3 tag reading disabled")
+from audio_metadata import (
+    MUTAGEN_AVAILABLE,
+    compute_duration_seconds,
+    display_title,
+    read_audio_metadata,
+)
 
 from music_cache import MusicCache
 
@@ -36,7 +25,7 @@ class MusicManager:
     """Manages music libraries and tracks with metadata"""
     
     # Supported audio file extensions
-    AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.wma', '.opus'}
+    AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus'}
     
     def __init__(self, use_cache=True):
         self.cache = MusicCache() if use_cache else None
@@ -71,7 +60,10 @@ class MusicManager:
                 return cached_tracks
         
         # Cache miss or force refresh - scan filesystem
-        audio_files = self._scan_audio_files(path, recursive, include_duration=include_duration)
+        # If we're going to cache results, it's worth computing duration once during the scan.
+        # This avoids re-opening files later and keeps subsequent calls fast.
+        scan_include_duration = include_duration or (self.cache is not None and folder_id is not None)
+        audio_files = self._scan_audio_files(path, recursive, include_duration=scan_include_duration)
         
         # Update cache
         if self.cache and folder_id is not None:
@@ -113,8 +105,17 @@ class MusicManager:
                     'last_modified': stat.st_mtime,
                 }
 
-                metadata = self._extract_metadata(full_path, include_duration=include_duration)
-                file_info.update(metadata)
+                if MUTAGEN_AVAILABLE:
+                    metadata = read_audio_metadata(
+                        full_path,
+                        include_duration=include_duration,
+                        include_times=False,
+                        include_tags=True,
+                    )
+                    file_info.update(metadata)
+
+                # Ensure consistent title fallback across Music + Player.
+                file_info['title'] = display_title(file_info)
 
                 audio_files.append(file_info)
 
@@ -143,174 +144,25 @@ class MusicManager:
         """Invalidate cache for a folder"""
         if self.cache:
             self.cache.invalidate_folder(folder_id)
-    
-    def _extract_metadata(self, file_path, include_duration=False):
-        """Extract metadata from audio file
-        
-        Returns dict with artist, title, album, duration, and tags
+
+    def compute_duration_seconds(self, file_path):
+        """Compute duration in seconds for a single audio file (best-effort).
+
+        Cross-platform: relies on mutagen only.
+        Returns float seconds or None if duration can't be determined.
         """
-        if not MUTAGEN_AVAILABLE:
-            return {}
+        return compute_duration_seconds(file_path)
 
-        def _extract_tags_only_id3() -> dict:
-            if ID3 is None:
-                return {}
-            try:
-                tags_obj = ID3(file_path)
-            except Exception:
-                return {}
-
-            metadata_local = {}
-
-            artist = self._get_tag_value(tags_obj, ['TPE1', 'artist', '\xa9ART'])
-            if artist:
-                metadata_local['artist'] = artist
-
-            title = self._get_tag_value(tags_obj, ['TIT2', 'title', '\xa9nam'])
-            if title:
-                metadata_local['title'] = title
-
-            album = self._get_tag_value(tags_obj, ['TALB', 'album', '\xa9alb'])
-            if album:
-                metadata_local['album'] = album
-
-            tags = self._get_custom_tag(tags_obj, 'LAO:TAGS')
-            if tags:
-                try:
-                    import json
-                    if tags.startswith('[') and tags.endswith(']'):
-                        metadata_local['tags'] = json.loads(tags.replace("'", '"'))
-                    else:
-                        metadata_local['tags'] = [t.strip() for t in tags.split(',')]
-                except Exception:
-                    metadata_local['tags'] = [tags]
-
-            return metadata_local
-
+    def backfill_cached_duration(self, file_path, duration_seconds):
+        """Persist a duration into the cache if caching is enabled."""
+        if not self.cache:
+            return
         try:
-            ext = Path(file_path).suffix.lower()
-
-            # MP3 fast-path: ID3-only. Avoid decoding/inspecting audio frames during scans.
-            if ext == '.mp3':
-                metadata = _extract_tags_only_id3()
-
-                # If TLEN is present, we can get an approximate duration without syncing frames.
-                if include_duration and ID3 is not None:
-                    try:
-                        tags_obj = ID3(file_path)
-                        tlen = tags_obj.get('TLEN') if hasattr(tags_obj, 'get') else None
-                        if tlen is not None and hasattr(tlen, 'text') and tlen.text:
-                            # TLEN is milliseconds
-                            metadata['duration'] = float(tlen.text[0]) / 1000.0
-                    except Exception:
-                        pass
-
-                return metadata
-
-            # Non-MP3 formats: MutagenFile is generally fast enough.
-            audio = MutagenFile(file_path)
-            if audio is None:
-                return {}
-
-            metadata = {}
-
-            if include_duration and hasattr(audio, 'info') and hasattr(audio.info, 'length'):
-                metadata['duration'] = audio.info.length
-
-            if hasattr(audio, 'tags') and audio.tags:
-                artist = self._get_tag_value(audio.tags, ['TPE1', 'artist', '\xa9ART'])
-                if artist:
-                    metadata['artist'] = artist
-
-                title = self._get_tag_value(audio.tags, ['TIT2', 'title', '\xa9nam'])
-                if title:
-                    metadata['title'] = title
-
-                album = self._get_tag_value(audio.tags, ['TALB', 'album', '\xa9alb'])
-                if album:
-                    metadata['album'] = album
-
-                tags = self._get_custom_tag(audio.tags, 'LAO:TAGS')
-                if tags:
-                    try:
-                        import json
-                        if tags.startswith('[') and tags.endswith(']'):
-                            metadata['tags'] = json.loads(tags.replace("'", '"'))
-                        else:
-                            metadata['tags'] = [t.strip() for t in tags.split(',')]
-                    except Exception:
-                        metadata['tags'] = [tags]
-
-            return metadata
-
-        except Exception as e:
-            # Mutagen sometimes raises HeaderNotFoundError for files with an .mp3 extension
-            # that don't contain valid MPEG frames (corrupt/truncated/mislabelled files).
-            if (HeaderNotFoundError is not None and isinstance(e, HeaderNotFoundError)) or "can't sync to MPEG frame" in str(e):
-                # Keep whatever ID3 tags we could read; omit duration.
-                if Path(file_path).suffix.lower() == '.mp3':
-                    return _extract_tags_only_id3()
-                return {}
-
-            print(f"Error extracting metadata from {file_path}: {e}")
-            return {}
-    
-    def _get_tag_value(self, tags, tag_names):
-        """Get value from various tag formats
-        
-        Args:
-            tags: Audio tags object
-            tag_names: List of possible tag names to try
-            
-        Returns:
-            String value or None
-        """
-        for tag_name in tag_names:
-            try:
-                if hasattr(tags, 'get'):
-                    tag = tags.get(tag_name)
-                    if tag:
-                        # Handle different tag value formats
-                        if isinstance(tag, list):
-                            return str(tag[0]) if tag else None
-                        elif hasattr(tag, 'text'):
-                            return str(tag.text[0]) if tag.text else None
-                        else:
-                            return str(tag)
-            except (AttributeError, TypeError, IndexError, KeyError):
-                continue
-        return None
-    
-    def _get_custom_tag(self, tags, tag_name):
-        """Get custom TXXX tag value
-        
-        Args:
-            tags: Audio tags object
-            tag_name: Name of the custom tag (e.g., 'LAO:TAGS')
-            
-        Returns:
-            String value or None
-        """
-        try:
-            # For ID3v2 TXXX frames
-            if hasattr(tags, 'getall'):
-                txxx_frames = tags.getall('TXXX')
-                for frame in txxx_frames:
-                    if hasattr(frame, 'desc') and str(frame.desc) == tag_name:
-                        if hasattr(frame, 'text') and frame.text:
-                            return str(frame.text[0])
-            
-            # For other formats, try direct access
-            if hasattr(tags, 'get'):
-                tag = tags.get(tag_name)
-                if tag:
-                    if isinstance(tag, list):
-                        return str(tag[0]) if tag else None
-                    return str(tag)
+            self.cache.update_track_duration(file_path, duration_seconds)
         except Exception:
+            # Cache failures shouldn't break playback.
             pass
-        
-        return None
+    
     
     def search_tracks(self, tracks, artist=None, duration_min=None, duration_max=None, 
                      tags=None, title=None):

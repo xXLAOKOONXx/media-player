@@ -594,6 +594,32 @@ def play():
     if playlist_path:
         result = playback_controller.load_playlist(playlist_path)
         if result:
+            # Best-effort: ensure duration is present for the selected track.
+            # This runs on both Windows and Unix (mutagen only) and can also
+            # backfill the SQLite cache when the track exists there.
+            try:
+                if 0 <= track_index < len(playback_controller.current_playlist):
+                    track = playback_controller.current_playlist[track_index]
+                    duration_val = track.get('duration')
+
+                    has_duration = False
+                    if isinstance(duration_val, (int, float)):
+                        has_duration = True
+                    elif isinstance(duration_val, str):
+                        try:
+                            float(duration_val)
+                            has_duration = True
+                        except ValueError:
+                            has_duration = False
+
+                    if not has_duration and track.get('path'):
+                        computed = music_manager.compute_duration_seconds(track['path'])
+                        if computed is not None:
+                            track['duration'] = computed
+                            music_manager.backfill_cached_duration(track['path'], computed)
+            except Exception:
+                pass
+
             playback_controller.play(track_index)
             return jsonify({'status': 'playing', 'track_index': track_index})
     else:
