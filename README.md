@@ -429,7 +429,13 @@ media-player/
 │   ├── library_manager.py  # Playlist and library management
 │   ├── sound_effects_manager.py # Sound effects management
 │   ├── playback_controller.py # Audio playback control
-│   └── requirements.txt    # Python dependencies
+│   ├── requirements.txt    # Python dependencies
+│   └── tests/              # Pytest test suite
+│       ├── conftest.py     # Test fixtures
+│       ├── test_api.py     # API endpoint tests
+│       ├── test_crossfade.py # Crossfade tests
+│       ├── test_music.py   # Music management tests
+│       └── test_e2e.py     # End-to-end tests
 ├── frontend/               # React frontend
 │   ├── src/
 │   │   ├── components/    # React components
@@ -441,8 +447,37 @@ media-player/
 │   │   ├── App.tsx        # Main App component
 │   │   └── index.tsx      # Entry point
 │   └── package.json       # npm dependencies
-└── docs/                   # Documentation
+├── docs/                   # Documentation
+│   └── TESTING.md         # Testing guide
+├── scripts/                # Utility scripts
+│   └── generate_screenshots.py # UI screenshot generator
+├── examples/
+│   └── example_tracks/    # Test audio files
+├── run_tests.sh           # Test runner (Unix/Linux/macOS)
+└── run_tests.bat          # Test runner (Windows)
 ```
+
+### Testing
+
+The project includes a comprehensive test suite. See [docs/TESTING.md](docs/TESTING.md) for full details.
+
+**Quick start:**
+```bash
+# Unix/Linux/macOS
+./run_tests.sh
+
+# Windows
+run_tests.bat
+
+# Or with pytest directly
+cd backend
+pytest tests/
+```
+
+**Test categories:**
+- Unit tests: `test_crossfade.py`, `test_music.py`
+- API tests: `test_api.py` (requires running server)
+- End-to-end tests: `test_e2e.py` (requires running server)
 
 ### API Endpoints
 
