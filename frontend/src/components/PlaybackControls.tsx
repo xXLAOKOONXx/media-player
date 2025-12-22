@@ -81,6 +81,16 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
     }
   };
 
+  const handleVolumeDecrease = () => {
+    const newVolume = Math.max(0, volume - 1);
+    handleVolumeChange(newVolume);
+  };
+
+  const handleVolumeIncrease = () => {
+    const newVolume = Math.min(100, volume + 1);
+    handleVolumeChange(newVolume);
+  };
+
   const handleShuffle = async () => {
     const newShuffleState = !status?.shuffle;
     try {
@@ -182,6 +192,14 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
       <div className="volume-control">
         <span className="material-icons volume-icon">volume_up</span>
+        <button 
+          className="volume-btn" 
+          onClick={handleVolumeDecrease}
+          disabled={volume === 0}
+          title="Decrease volume by 1%"
+        >
+          <span className="material-icons">remove</span>
+        </button>
         <input
           type="range"
           min="0"
@@ -190,6 +208,14 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
           onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
           className="volume-slider"
         />
+        <button 
+          className="volume-btn" 
+          onClick={handleVolumeIncrease}
+          disabled={volume === 100}
+          title="Increase volume by 1%"
+        >
+          <span className="material-icons">add</span>
+        </button>
         <span className="volume-value">{volume}%</span>
       </div>
     </div>
