@@ -389,14 +389,21 @@ class PlaybackController:
                     try:
                         # Load only the first N milliseconds of the audio file
                         audio = AudioSegment.from_file(next_track_path)
+                        
+                        # Validate audio duration
+                        actual_duration = len(audio)
+                        if actual_duration < extract_duration_ms:
+                            logger.info(f"Audio file is shorter ({actual_duration}ms) than extract duration, using full file")
+                            extract_duration_ms = actual_duration
+                        
                         partial_audio = audio[:extract_duration_ms]
                         
-                        # Export to temporary WAV file
-                        temp_fd, temp_path = tempfile.mkstemp(suffix='.wav', prefix='crossfade_')
-                        os.close(temp_fd)  # Close file descriptor, we'll use the path
+                        # Use NamedTemporaryFile for better security
+                        with tempfile.NamedTemporaryFile(mode='wb', suffix='.wav', prefix='crossfade_', delete=False) as temp_file:
+                            temp_path = temp_file.name
                         
                         partial_audio.export(temp_path, format='wav')
-                        logger.info(f"Exported {len(partial_audio)}ms snippet to temp file")
+                        logger.info(f"Exported {len(partial_audio)}ms (actual) snippet to temp file")
                         
                         # Load the partial audio as a pygame Sound
                         next_sound = pygame.mixer.Sound(temp_path)
@@ -411,8 +418,8 @@ class PlaybackController:
                             # Clean up temp file if not used
                             try:
                                 os.remove(temp_path)
-                            except:
-                                pass
+                            except OSError as e:
+                                logger.warning(f"Failed to remove temp file: {e}")
                         
                     except Exception as e:
                         logger.warning(f"Partial loading with pydub failed: {e}")
