@@ -922,7 +922,7 @@ const MusicManager = () => {
                           </div>
                         ) : '-'}
                       </td>
-                      <td>
+                      <td data-label="Actions">
                         <button
                           onClick={() => {
                             setTrackToAdd(track);
