@@ -851,6 +851,33 @@ class PlaybackController:
                     
                     logger.info("Both tracks now playing - performing simultaneous fade")
                     
+                    # Pre-load full track in background during crossfade to avoid audible gap
+                    full_track_loaded = Event()
+                    full_track_load_error = [None]  # Use list to allow modification in thread
+                    
+                    def preload_full_track():
+                        """Load full track into pygame.music during crossfade"""
+                        try:
+                            # Small delay to let crossfade start smoothly
+                            time.sleep(0.5)
+                            logger.info("Pre-loading full track during crossfade to prevent gap")
+                            
+                            # Stop current music (old track should be nearly faded out)
+                            pygame.mixer.music.stop()
+                            
+                            # Load the full next track
+                            pygame.mixer.music.load(next_track_path)
+                            logger.debug("Full track loaded into pygame.music")
+                            full_track_loaded.set()
+                        except Exception as e:
+                            logger.error(f"Error pre-loading full track: {e}")
+                            full_track_load_error[0] = e
+                            full_track_loaded.set()
+                    
+                    # Start background loading thread
+                    preload_thread = Thread(target=preload_full_track, daemon=True)
+                    preload_thread.start()
+                    
                     # Gradually fade out current track and fade in next track
                     for i in range(steps):
                         if not self.is_crossfading:
@@ -874,9 +901,18 @@ class PlaybackController:
                         
                         time.sleep(step_duration)
                     
-                    # Crossfade complete - stop old track and switch to music player for new track
-                    pygame.mixer.music.stop()
+                    # Crossfade complete - stop channel with partial audio
                     next_channel.stop()
+                    
+                    # Wait for full track to be loaded (should already be done)
+                    logger.debug("Waiting for full track to finish loading...")
+                    full_track_loaded.wait(timeout=5.0)  # Wait up to 5 seconds
+                    
+                    if full_track_load_error[0]:
+                        # If pre-loading failed, load now (may cause brief gap)
+                        logger.warning("Pre-loading failed, loading full track now")
+                        pygame.mixer.music.stop()
+                        pygame.mixer.music.load(next_track_path)
                     
                     # Now play the next track normally via mixer.music
                     self.current_track_index = next_track_index
@@ -887,8 +923,7 @@ class PlaybackController:
                     # Calculate how much of the next track we already played
                     played_duration = time.time() - next_start_time
                     
-                    # Load and play from current position
-                    pygame.mixer.music.load(next_track_path)
+                    # Play from current position (track is already loaded)
                     start_pos = (self.track_custom_start or 0) + played_duration
                     pygame.mixer.music.play(start=start_pos)
                     pygame.mixer.music.set_volume(self.volume)
