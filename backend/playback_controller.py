@@ -334,9 +334,11 @@ class PlaybackController:
         self.next_track_queued = False
     
     def _reset_preload_state(self):
-        """Reset pre-load state"""
+        """Reset pre-load state and cleanup background thread"""
         self.preloaded_sound = None
         self.preloaded_track_index = None
+        # Note: preload_thread is daemon, so it will automatically cleanup
+        # We don't need to explicitly join() as it may block and we want quick cleanup
     
     def _preload_next_track(self, next_track_index, next_track_path):
         """Pre-load next track in background to reduce CPU spike during crossfade
@@ -348,12 +350,18 @@ class PlaybackController:
         if not self.audio_available:
             return
         
+        # Check if a preload thread is already running
+        if self.preload_thread is not None and self.preload_thread.is_alive():
+            logger.debug("Pre-load already in progress, skipping")
+            return
+        
         def load_in_background():
             try:
                 logger.info(f"Pre-loading next track in background: {Path(next_track_path).name}")
                 next_sound = pygame.mixer.Sound(next_track_path)
                 
                 # Only store if we haven't moved to another track
+                # Use the track index that was set when we started loading
                 if self.is_playing and self.preloaded_track_index == next_track_index:
                     self.preloaded_sound = next_sound
                     logger.info(f"Successfully pre-loaded next track (size: {next_sound.get_length():.2f}s)")
@@ -713,11 +721,15 @@ class PlaybackController:
                     # Get current volume for fade calculations
                     current_volume = pygame.mixer.music.get_volume()
                     
+                    # Capture pre-loaded sound reference atomically to avoid race condition
+                    preloaded_sound_ref = self.preloaded_sound
+                    preloaded_index_ref = self.preloaded_track_index
+                    
                     # Try to use pre-loaded sound if available
                     next_sound = None
-                    if self.preloaded_sound is not None and self.preloaded_track_index == next_track_index:
+                    if preloaded_sound_ref is not None and preloaded_index_ref == next_track_index:
                         logger.info("Using pre-loaded next track (reduces CPU spike)")
-                        next_sound = self.preloaded_sound
+                        next_sound = preloaded_sound_ref
                     
                     # Load next track as Sound object for simultaneous playback
                     if next_sound is None:
