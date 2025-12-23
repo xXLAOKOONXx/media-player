@@ -334,11 +334,10 @@ class PlaybackController:
         self.next_track_queued = False
     
     def _reset_preload_state(self):
-        """Reset pre-load state and cleanup background thread"""
+        """Reset pre-load state and clear thread reference"""
         self.preloaded_sound = None
         self.preloaded_track_index = None
-        # Note: preload_thread is daemon, so it will automatically cleanup
-        # We don't need to explicitly join() as it may block and we want quick cleanup
+        self.preload_thread = None  # Clear reference for garbage collection
     
     def _preload_next_track(self, next_track_index, next_track_path):
         """Pre-load next track in background to reduce CPU spike during crossfade
@@ -618,7 +617,10 @@ class PlaybackController:
                 preload_start_time = effective_end_time - ((fade_start_before_end_ms + self.PRELOAD_BEFORE_CROSSFADE_MS) / 1000.0)
                 
                 # Pre-load next track early to spread CPU load
-                if current_position >= preload_start_time and self.preloaded_track_index is None:
+                # Check both index and thread status to prevent duplicate preloads
+                if (current_position >= preload_start_time and 
+                    self.preloaded_track_index is None and
+                    (self.preload_thread is None or not self.preload_thread.is_alive())):
                     # Determine next track to pre-load
                     if self.repeat_mode == 'one':
                         # Don't pre-load in repeat one mode
@@ -638,6 +640,7 @@ class PlaybackController:
                         
                         # Check if next file exists
                         if os.path.exists(next_track_path):
+                            # Set index first to prevent race condition
                             self.preloaded_track_index = next_track_index
                             self._preload_next_track(next_track_index, next_track_path)
                 
