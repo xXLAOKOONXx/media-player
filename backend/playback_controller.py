@@ -10,6 +10,13 @@ except ImportError:
     PYGAME_AVAILABLE = False
     print("Warning: pygame not available, running in simulation mode")
 
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except ImportError:
+    PYDUB_AVAILABLE = False
+    print("Warning: pydub not available, partial loading disabled")
+
 import os
 from pathlib import Path
 from threading import Thread, Event
@@ -18,6 +25,7 @@ import random
 import copy
 import logging
 import re
+import tempfile
 
 from audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
 
@@ -126,6 +134,7 @@ class PlaybackController:
         self.preloaded_sound = None
         self.preloaded_track_index = None
         self.preload_thread = None
+        self.preloaded_temp_file = None  # Track temp file for cleanup
         
         # Track timing state
         self.track_start_time = None  # System time when track started
@@ -338,9 +347,21 @@ class PlaybackController:
         self.preloaded_sound = None
         self.preloaded_track_index = None
         self.preload_thread = None  # Clear reference for garbage collection
+        
+        # Clean up temporary file if exists
+        if self.preloaded_temp_file and os.path.exists(self.preloaded_temp_file):
+            try:
+                os.remove(self.preloaded_temp_file)
+                logger.debug(f"Cleaned up temporary file: {self.preloaded_temp_file}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up temp file: {e}")
+        self.preloaded_temp_file = None
     
     def _preload_next_track(self, next_track_index, next_track_path):
-        """Pre-load next track in background to reduce CPU spike during crossfade
+        """Pre-load only the first few seconds of next track to reduce CPU spike
+        
+        Uses pydub to extract just the crossfade duration + 1 second buffer.
+        This significantly reduces memory usage and loading time.
         
         Args:
             next_track_index: Index of the track to pre-load
@@ -356,19 +377,60 @@ class PlaybackController:
         
         def load_in_background():
             try:
-                logger.info(f"Pre-loading next track in background: {Path(next_track_path).name}")
-                next_sound = pygame.mixer.Sound(next_track_path)
+                # Calculate how many seconds we need to extract
+                fade_duration_ms = self.crossfade_config.get('duration_ms', 3000)
+                # Extract crossfade duration + 1 second buffer
+                extract_duration_ms = fade_duration_ms + 1000
                 
-                # Only store if we haven't moved to another track
-                # Use the track index that was set when we started loading
-                if self.is_playing and self.preloaded_track_index == next_track_index:
-                    self.preloaded_sound = next_sound
-                    logger.info(f"Successfully pre-loaded next track (size: {next_sound.get_length():.2f}s)")
+                logger.info(f"Partial loading first {extract_duration_ms}ms of: {Path(next_track_path).name}")
+                
+                # Try partial loading with pydub
+                if PYDUB_AVAILABLE:
+                    try:
+                        # Load only the first N milliseconds of the audio file
+                        audio = AudioSegment.from_file(next_track_path)
+                        partial_audio = audio[:extract_duration_ms]
+                        
+                        # Export to temporary WAV file
+                        temp_fd, temp_path = tempfile.mkstemp(suffix='.wav', prefix='crossfade_')
+                        os.close(temp_fd)  # Close file descriptor, we'll use the path
+                        
+                        partial_audio.export(temp_path, format='wav')
+                        logger.info(f"Exported {len(partial_audio)}ms snippet to temp file")
+                        
+                        # Load the partial audio as a pygame Sound
+                        next_sound = pygame.mixer.Sound(temp_path)
+                        
+                        # Only store if we haven't moved to another track
+                        if self.is_playing and self.preloaded_track_index == next_track_index:
+                            self.preloaded_sound = next_sound
+                            self.preloaded_temp_file = temp_path
+                            logger.info(f"Successfully pre-loaded partial track ({next_sound.get_length():.2f}s snippet)")
+                        else:
+                            logger.debug("Track changed during pre-load, discarding")
+                            # Clean up temp file if not used
+                            try:
+                                os.remove(temp_path)
+                            except:
+                                pass
+                        
+                    except Exception as e:
+                        logger.warning(f"Partial loading with pydub failed: {e}")
+                        # Fall back to loading full file
+                        next_sound = pygame.mixer.Sound(next_track_path)
+                        if self.is_playing and self.preloaded_track_index == next_track_index:
+                            self.preloaded_sound = next_sound
+                            logger.info(f"Fell back to full file loading (size: {next_sound.get_length():.2f}s)")
                 else:
-                    logger.debug("Track changed during pre-load, discarding pre-loaded sound")
+                    # pydub not available, load full file
+                    logger.info("pydub not available, loading full file")
+                    next_sound = pygame.mixer.Sound(next_track_path)
+                    if self.is_playing and self.preloaded_track_index == next_track_index:
+                        self.preloaded_sound = next_sound
+                        logger.info(f"Pre-loaded full track (size: {next_sound.get_length():.2f}s)")
                     
             except pygame.error as e:
-                logger.info(f"Cannot pre-load track as Sound (possibly too large): {e}")
+                logger.info(f"Cannot pre-load track as Sound: {e}")
                 # This is not critical - crossfade will fall back to queue method
             except Exception as e:
                 logger.warning(f"Error pre-loading track: {e}")
