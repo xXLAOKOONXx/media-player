@@ -668,6 +668,8 @@
     border-radius: 8px;
     padding: 12px;
     background-color: #2a2a2a;
+    position: relative;
+    padding-right: 40px;
   }
 
   .tracks-list tbody tr:hover {
@@ -685,11 +687,6 @@
     position: absolute;
     top: 12px;
     right: 12px;
-  }
-
-  .tracks-list tbody tr {
-    position: relative;
-    padding-right: 40px;
   }
 
   .tracks-list td::before {
