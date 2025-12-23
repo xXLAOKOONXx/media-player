@@ -80,6 +80,7 @@ class PlaybackController:
     CROSSFADE_VOLUME_STEPS = 100  # Number of volume adjustment steps during crossfade
     CROSSFADE_LOG_FREQUENCY = 20  # Log every Nth step (100/20 = 5 log entries)
     FADEOUT_BUFFER_SECONDS = 0.5  # Buffer time to ensure fadeout and queue transition complete
+    PRELOAD_BEFORE_CROSSFADE_MS = 15000  # Pre-load next track 15 seconds before crossfade starts
     
     def __init__(self, crossfade_config=None):
         # Initialize pygame mixer
@@ -120,6 +121,11 @@ class PlaybackController:
         self.crossfade_start_time = None
         self.next_track_queued = False
         self.crossfade_thread = None
+        
+        # Pre-loaded next track for smoother crossfade (reduces CPU spike)
+        self.preloaded_sound = None
+        self.preloaded_track_index = None
+        self.preload_thread = None
         
         # Track timing state
         self.track_start_time = None  # System time when track started
@@ -327,6 +333,45 @@ class PlaybackController:
         self.is_crossfading = False
         self.next_track_queued = False
     
+    def _reset_preload_state(self):
+        """Reset pre-load state"""
+        self.preloaded_sound = None
+        self.preloaded_track_index = None
+    
+    def _preload_next_track(self, next_track_index, next_track_path):
+        """Pre-load next track in background to reduce CPU spike during crossfade
+        
+        Args:
+            next_track_index: Index of the track to pre-load
+            next_track_path: Path to the audio file to pre-load
+        """
+        if not self.audio_available:
+            return
+        
+        def load_in_background():
+            try:
+                logger.info(f"Pre-loading next track in background: {Path(next_track_path).name}")
+                next_sound = pygame.mixer.Sound(next_track_path)
+                
+                # Only store if we haven't moved to another track
+                if self.is_playing and self.preloaded_track_index == next_track_index:
+                    self.preloaded_sound = next_sound
+                    logger.info(f"Successfully pre-loaded next track (size: {next_sound.get_length():.2f}s)")
+                else:
+                    logger.debug("Track changed during pre-load, discarding pre-loaded sound")
+                    
+            except pygame.error as e:
+                logger.info(f"Cannot pre-load track as Sound (possibly too large): {e}")
+                # This is not critical - crossfade will fall back to queue method
+            except Exception as e:
+                logger.warning(f"Error pre-loading track: {e}")
+        
+        # Start background loading thread
+        self.preload_thread = Thread(target=load_in_background)
+        self.preload_thread.daemon = True
+        self.preload_thread.start()
+
+    
     def play(self, track_index=None):
         """Play a track from the current playlist"""
         if track_index is not None:
@@ -372,6 +417,7 @@ class PlaybackController:
             self.pause_time = None
             self.total_pause_duration = 0
             self._reset_crossfade_state()
+            self._reset_preload_state()
             
             # Start monitoring thread
             if self.monitor_thread is None or not self.monitor_thread.is_alive():
@@ -413,6 +459,7 @@ class PlaybackController:
             pygame.mixer.music.stop()
         self.is_playing = False
         self.is_paused = False
+        self._reset_preload_state()
     
     def next(self):
         """Skip to next track"""
@@ -559,6 +606,33 @@ class PlaybackController:
                 fade_start_before_end_ms = self.crossfade_config.get('fade_out_start_before_end_ms', 5000)
                 fade_start_time = effective_end_time - (fade_start_before_end_ms / 1000.0)
                 
+                # Calculate when to pre-load next track (earlier than crossfade)
+                preload_start_time = effective_end_time - ((fade_start_before_end_ms + self.PRELOAD_BEFORE_CROSSFADE_MS) / 1000.0)
+                
+                # Pre-load next track early to spread CPU load
+                if current_position >= preload_start_time and self.preloaded_track_index is None:
+                    # Determine next track to pre-load
+                    if self.repeat_mode == 'one':
+                        # Don't pre-load in repeat one mode
+                        pass
+                    else:
+                        next_track_index = self.current_track_index + 1
+                        
+                        if next_track_index >= len(self.current_playlist):
+                            if self.repeat_mode == 'all':
+                                next_track_index = 0
+                            else:
+                                # No next track to pre-load
+                                return
+                        
+                        next_track = self.current_playlist[next_track_index]
+                        next_track_path = next_track['path']
+                        
+                        # Check if next file exists
+                        if os.path.exists(next_track_path):
+                            self.preloaded_track_index = next_track_index
+                            self._preload_next_track(next_track_index, next_track_path)
+                
                 # Start crossfade if we've reached the fade start time
                 if current_position >= fade_start_time and not self.next_track_queued:
                     crossfade_duration_ms = self.crossfade_config.get('duration_ms', 3000)
@@ -608,7 +682,6 @@ class PlaybackController:
             fade_duration_seconds = fade_duration_ms / 1000.0
             
             logger.info(f"Starting crossfade: {fade_duration_ms}ms overlap between tracks")
-            logger.info(f"Loading next track into memory for overlap playback")
             
             # Helper function to update state after fallback fade completes
             def create_fallback_update(delay_seconds):
@@ -631,6 +704,7 @@ class PlaybackController:
                         
                         pygame.mixer.music.set_volume(self.volume)
                     self._reset_crossfade_state()
+                    self._reset_preload_state()
                 return update_state_after_fade
             
             # Start a thread to handle the crossfade
@@ -639,9 +713,24 @@ class PlaybackController:
                     # Get current volume for fade calculations
                     current_volume = pygame.mixer.music.get_volume()
                     
+                    # Try to use pre-loaded sound if available
+                    next_sound = None
+                    if self.preloaded_sound is not None and self.preloaded_track_index == next_track_index:
+                        logger.info("Using pre-loaded next track (reduces CPU spike)")
+                        next_sound = self.preloaded_sound
+                    
                     # Load next track as Sound object for simultaneous playback
-                    try:
-                        next_sound = pygame.mixer.Sound(next_track_path)
+                    if next_sound is None:
+                        try:
+                            logger.info(f"Loading next track into memory for overlap playback")
+                            next_sound = pygame.mixer.Sound(next_track_path)
+                            logger.info(f"Successfully loaded next track as Sound object (size: {next_sound.get_length():.2f}s)")
+                        except pygame.error as e:
+                            logger.warning(f"Cannot load track as Sound (possibly too large): {e}")
+                            next_sound = None
+                    
+                    # Check if we have a sound to work with
+                    if next_sound is not None:
                         next_channel = pygame.mixer.find_channel()
                         
                         if next_channel is None:
@@ -654,18 +743,13 @@ class PlaybackController:
                             update_func = create_fallback_update(fade_duration_seconds)
                             Thread(target=update_func, daemon=True).start()
                             return
-                        
-                        logger.info(f"Successfully loaded next track as Sound object (size: {next_sound.get_length():.2f}s)")
-                        
-                    except pygame.error as e:
-                        logger.warning(f"Cannot load track as Sound (possibly too large): {e}")
+                    else:
+                        # Could not load as Sound object, use fallback queue method
                         logger.info("Falling back to simple queue-based crossfade")
-                        # Fallback: use simple queue with fadeout
                         pygame.mixer.music.queue(next_track_path)
                         pygame.mixer.music.fadeout(fade_duration_ms)
                         
                         # Schedule state update after fade completes
-                        # Buffer ensures fadeout and queue transition complete
                         update_func = create_fallback_update(fade_duration_seconds + self.FADEOUT_BUFFER_SECONDS)
                         Thread(target=update_func, daemon=True).start()
                         return
@@ -733,10 +817,12 @@ class PlaybackController:
                     logger.info(f"Crossfade complete - now playing: {next_track_obj.get('title', 'Unknown')}")
                     
                     self._reset_crossfade_state()
+                    self._reset_preload_state()
                     
                 except Exception as e:
                     logger.error(f"Error in crossfade execution: {e}", exc_info=True)
                     self._reset_crossfade_state()
+                    self._reset_preload_state()
                     # Restore volume in case of error
                     if self.audio_available:
                         pygame.mixer.music.set_volume(self.volume)
