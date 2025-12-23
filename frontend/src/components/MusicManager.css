@@ -584,3 +584,225 @@
   font-style: italic;
   font-size: 15px;
 }
+
+/* ===== RESPONSIVE DESIGN FOR MOBILE ===== */
+
+/* Tablet and smaller devices */
+@media (max-width: 768px) {
+  .music-manager {
+    padding: 15px;
+  }
+
+  .music-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .music-header h2 {
+    font-size: 24px;
+  }
+
+  .music-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .music-actions button {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 18px;
+    font-size: 15px;
+  }
+
+  .playlist-folder-info {
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .music-folders li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .music-folders .folder-info {
+    width: 100%;
+  }
+
+  .music-folders .folder-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .search-filters {
+    padding: 15px;
+  }
+
+  .search-filters .filter-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-filters button {
+    width: 100%;
+  }
+
+  /* Convert table to card layout on mobile */
+  .tracks-list table {
+    display: block;
+  }
+
+  .tracks-list thead {
+    display: none;
+  }
+
+  .tracks-list tbody {
+    display: block;
+  }
+
+  .tracks-list tbody tr {
+    display: block;
+    margin-bottom: 15px;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #2a2a2a;
+  }
+
+  .tracks-list tbody tr:hover {
+    background-color: #333333;
+  }
+
+  .tracks-list td {
+    display: block;
+    text-align: left;
+    border-bottom: none;
+    padding: 8px 0;
+  }
+
+  .tracks-list td:first-child {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+
+  .tracks-list tbody tr {
+    position: relative;
+    padding-right: 40px;
+  }
+
+  .tracks-list td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #a0a0a0;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tracks-list td:first-child::before,
+  .tracks-list td:last-child::before {
+    display: none;
+  }
+
+  .tracks-list td:last-child {
+    margin-top: 10px;
+  }
+
+  .tracks-list td button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 20px;
+    max-height: 90vh;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  .browse-results {
+    max-height: 200px;
+  }
+
+  .path-input-group {
+    flex-direction: column;
+  }
+
+  .path-input-group button {
+    width: 100%;
+  }
+
+  .tracks-header {
+    padding: 12px;
+  }
+
+  .loading-container {
+    padding: 40px 20px;
+  }
+
+  .empty-message {
+    padding: 40px 20px;
+    font-size: 14px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .music-manager {
+    padding: 10px;
+  }
+
+  .music-header h2 {
+    font-size: 20px;
+  }
+
+  .music-actions button {
+    padding: 14px 18px;
+    font-size: 14px;
+  }
+
+  .music-folders .folder-info .material-icons {
+    font-size: 28px;
+  }
+
+  .music-folders .folder-name {
+    font-size: 14px;
+  }
+
+  .music-folders .folder-path {
+    font-size: 11px;
+    word-break: break-all;
+  }
+
+  .search-filters {
+    padding: 12px;
+  }
+
+  .search-filters h4 {
+    font-size: 14px;
+  }
+
+  .search-filters input {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .modal-content {
+    padding: 15px;
+  }
+
+  .modal-content h3 {
+    font-size: 18px;
+  }
+}

@@ -909,11 +909,11 @@ const MusicManager = () => {
                           onChange={() => toggleTrackSelection(track.path)}
                         />
                       </td>
-                      <td>{track.title || track.name}</td>
-                      <td>{track.artist || '-'}</td>
-                      <td>{track.album || '-'}</td>
-                      <td>{formatDuration(track.duration)}</td>
-                      <td>
+                      <td data-label="Title">{track.title || track.name}</td>
+                      <td data-label="Artist">{track.artist || '-'}</td>
+                      <td data-label="Album">{track.album || '-'}</td>
+                      <td data-label="Duration">{formatDuration(track.duration)}</td>
+                      <td data-label="Tags">
                         {track.tags && track.tags.length > 0 ? (
                           <div className="tags">
                             {track.tags.map((tag, i) => (
