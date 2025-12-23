@@ -89,6 +89,7 @@ class PlaybackController:
     CROSSFADE_LOG_FREQUENCY = 20  # Log every Nth step (100/20 = 5 log entries)
     FADEOUT_BUFFER_SECONDS = 0.5  # Buffer time to ensure fadeout and queue transition complete
     PRELOAD_BEFORE_CROSSFADE_MS = 15000  # Pre-load next track 15 seconds before crossfade starts
+    FULL_TRACK_LOAD_TIMEOUT = 5.0  # Max seconds to wait for full track to load during crossfade
     
     def __init__(self, crossfade_config=None):
         # Initialize pygame mixer
@@ -853,16 +854,21 @@ class PlaybackController:
                     
                     # Pre-load full track in background during crossfade to avoid audible gap
                     full_track_loaded = Event()
-                    full_track_load_error = [None]  # Use list to allow modification in thread
+                    
+                    # Use a simple dict for thread-safe error tracking
+                    preload_state = {'error': None}
                     
                     def preload_full_track():
                         """Load full track into pygame.music during crossfade"""
                         try:
-                            # Small delay to let crossfade start smoothly
-                            time.sleep(0.5)
+                            # Wait for crossfade to be mostly complete before loading
+                            # This gives time for the old track to fade out
+                            wait_time = fade_duration_seconds * 0.7  # Wait for 70% of crossfade
+                            time.sleep(wait_time)
+                            
                             logger.info("Pre-loading full track during crossfade to prevent gap")
                             
-                            # Stop current music (old track should be nearly faded out)
+                            # Stop current music (old track should be faded out by now)
                             pygame.mixer.music.stop()
                             
                             # Load the full next track
@@ -871,7 +877,7 @@ class PlaybackController:
                             full_track_loaded.set()
                         except Exception as e:
                             logger.error(f"Error pre-loading full track: {e}")
-                            full_track_load_error[0] = e
+                            preload_state['error'] = e
                             full_track_loaded.set()
                     
                     # Start background loading thread
@@ -906,9 +912,9 @@ class PlaybackController:
                     
                     # Wait for full track to be loaded (should already be done)
                     logger.debug("Waiting for full track to finish loading...")
-                    full_track_loaded.wait(timeout=5.0)  # Wait up to 5 seconds
+                    full_track_loaded.wait(timeout=self.FULL_TRACK_LOAD_TIMEOUT)
                     
-                    if full_track_load_error[0]:
+                    if preload_state['error']:
                         # If pre-loading failed, load now (may cause brief gap)
                         logger.warning("Pre-loading failed, loading full track now")
                         pygame.mixer.music.stop()
