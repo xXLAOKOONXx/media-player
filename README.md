@@ -605,7 +605,9 @@ This project is open source and available under the MIT License.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a Pull Request.
+
+**Important:** All new features must include responsive design for mobile devices. See the [Responsive Design Requirements](CONTRIBUTING.md#responsive-design-requirements) section in our contributing guidelines.
 
 ## 📧 Support
 
