@@ -63,6 +63,12 @@ function VideoPage() {
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<number>(0);
   const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState<number>(-1);
+  const [showAddFolderForm, setShowAddFolderForm] = useState(false);
+  const [newFolder, setNewFolder] = useState({
+    name: '',
+    path: '',
+    recursive: false
+  });
 
   useEffect(() => {
     // Poll playback status
@@ -203,6 +209,34 @@ function VideoPage() {
     }
   };
 
+  const handleAddFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newFolder.name || !newFolder.path) {
+      alert('Please provide both folder name and path');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFolder)
+      });
+
+      if (response.ok) {
+        setShowAddFolderForm(false);
+        setNewFolder({ name: '', path: '', recursive: false });
+        loadVideoFolders();
+      } else {
+        alert('Failed to add video folder');
+      }
+    } catch (err) {
+      console.error('Error adding video folder:', err);
+      alert('Error adding video folder');
+    }
+  };
+
   return (
     <div className="video-page">
       <nav className="tabs">
@@ -294,59 +328,136 @@ function VideoPage() {
         {activeTab === 'playlists' && (
           <div className="playlists-view">
             <h2>Video Playlists</h2>
-            <div className="playlist-list">
-              {playlists.map((playlist, index) => (
-                <div key={index} className="playlist-item">
-                  <span>{playlist.name}</span>
-                  <button onClick={() => playPlaylist(playlist.path)}>
-                    <span className="material-icons">play_arrow</span>
-                  </button>
-                </div>
-              ))}
-            </div>
+            {playlists.length === 0 ? (
+              <div className="empty-state">
+                <span className="material-icons" style={{ fontSize: '48px' }}>playlist_play</span>
+                <p>No video playlists found</p>
+                <p>Configure a video playlist folder in the settings or add .m3u playlist files to your configured folder</p>
+              </div>
+            ) : (
+              <div className="playlist-list">
+                {playlists.map((playlist, index) => (
+                  <div key={index} className="playlist-item">
+                    <span>{playlist.name}</span>
+                    <button onClick={() => playPlaylist(playlist.path)}>
+                      <span className="material-icons">play_arrow</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'library' && (
           <div className="library-view">
-            <h2>Video Library</h2>
-            
-            <div className="folders-section">
-              <h3>Folders</h3>
-              <div className="folder-list">
-                {videoFolders.map((folder) => (
-                  <button
-                    key={folder.id}
-                    className={selectedFolder === folder.id ? 'active' : ''}
-                    onClick={() => setSelectedFolder(folder.id)}
-                  >
-                    {folder.name}
-                  </button>
-                ))}
-              </div>
+            <div className="library-header">
+              <h2>Video Library</h2>
+              <button className="btn btn-primary" onClick={() => setShowAddFolderForm(true)}>
+                <span className="material-icons">add</span>
+                Add Video Folder
+              </button>
             </div>
-
-            {selectedFolder && (
-              <div className="videos-section">
-                <h3>Videos</h3>
-                <div className="video-list">
-                  {videos.map((video, index) => (
-                    <div key={index} className="video-item">
-                      <div className="video-info">
-                        <h4>{video.title || video.name}</h4>
-                        {video.duration && <span>{Math.floor(video.duration / 60)}:{String(Math.floor(video.duration % 60)).padStart(2, '0')}</span>}
-                      </div>
-                      <button onClick={() => playVideo(video.path)}>
-                        <span className="material-icons">play_arrow</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            
+            {videoFolders.length === 0 ? (
+              <div className="empty-state">
+                <span className="material-icons" style={{ fontSize: '48px' }}>video_library</span>
+                <p>No video folders configured</p>
+                <p>Click "Add Video Folder" to get started</p>
               </div>
+            ) : (
+              <>
+                <div className="folders-section">
+                  <h3>Folders</h3>
+                  <div className="folder-list">
+                    {videoFolders.map((folder) => (
+                      <button
+                        key={folder.id}
+                        className={selectedFolder === folder.id ? 'active' : ''}
+                        onClick={() => setSelectedFolder(folder.id)}
+                      >
+                        {folder.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedFolder && (
+                  <div className="videos-section">
+                    <h3>Videos</h3>
+                    {videos.length === 0 ? (
+                      <div className="empty-state">
+                        <span className="material-icons" style={{ fontSize: '36px' }}>movie</span>
+                        <p>No videos found in this folder</p>
+                      </div>
+                    ) : (
+                      <div className="video-list">
+                        {videos.map((video, index) => (
+                          <div key={index} className="video-item">
+                            <div className="video-info">
+                              <h4>{video.title || video.name}</h4>
+                              {video.duration && <span>{Math.floor(video.duration / 60)}:{String(Math.floor(video.duration % 60)).padStart(2, '0')}</span>}
+                            </div>
+                            <button onClick={() => playVideo(video.path)}>
+                              <span className="material-icons">play_arrow</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
       </main>
+
+      {showAddFolderForm && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add Video Folder</h3>
+            <form onSubmit={handleAddFolder}>
+              <div className="form-group">
+                <label>Folder Name:</label>
+                <input
+                  type="text"
+                  value={newFolder.name}
+                  onChange={(e) => setNewFolder({ ...newFolder, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Folder Path:</label>
+                <input
+                  type="text"
+                  value={newFolder.path}
+                  onChange={(e) => setNewFolder({ ...newFolder, path: e.target.value })}
+                  placeholder="/path/to/videos"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newFolder.recursive}
+                    onChange={(e) => setNewFolder({ ...newFolder, recursive: e.target.checked })}
+                  />
+                  Scan subdirectories recursively
+                </label>
+              </div>
+
+              <div className="modal-actions">
+                <button type="submit" className="btn btn-primary">Add Folder</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddFolderForm(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
