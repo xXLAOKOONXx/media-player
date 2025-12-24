@@ -1,3 +1,4 @@
 flask==3.0.0
 pygame==2.6.1
 mutagen==1.47.0
+python-vlc==3.0.20123

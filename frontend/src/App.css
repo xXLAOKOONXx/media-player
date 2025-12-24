@@ -2,6 +2,8 @@
   min-height: 100vh;
   background-color: #414141;
   color: #dfdfdf;
+  display: flex;
+  flex-direction: column;
 }
 
 .App-header {
@@ -20,6 +22,40 @@
 .App-header h1 .material-icons {
   vertical-align: middle;
   margin-right: 0.5rem;
+}
+
+.main-nav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.main-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #606060;
+  color: #dfdfdf;
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.main-nav a:hover {
+  background-color: #4a5568;
+}
+
+.main-nav a.active {
+  background-color: #9d9d9d;
+  color: #414141;
+  font-weight: bold;
+}
+
+.main-nav .material-icons {
+  font-size: 20px;
 }
 
 .tabs {
@@ -52,11 +88,13 @@
 
 /* Mobile responsive tabs */
 @media (max-width: 768px) {
+  .main-nav,
   .tabs {
     flex-direction: column;
     width: 100%;
   }
   
+  .main-nav a,
   .tabs button {
     width: 100%;
     padding: 1rem;
@@ -69,9 +107,9 @@
 }
 
 .App-main {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 768px) {
