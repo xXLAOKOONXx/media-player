@@ -25,19 +25,36 @@ interface Playlist {
 
 interface AudioTrack {
   index: number;
-  language?: string;
-  codec?: string;
+  description?: string;
 }
 
 interface SubtitleTrack {
   index: number;
-  language?: string;
-  codec?: string;
+  description?: string;
+}
+
+interface PlaybackStatus {
+  state: string;
+  current_index?: number;
+  playlist_length?: number;
+  volume?: number;
+  audio_tracks?: AudioTrack[];
+  subtitle_tracks?: SubtitleTrack[];
+  current_audio_track?: number;
+  current_subtitle_track?: number;
+  current_track?: {
+    path: string;
+    name: string;
+    title: string;
+  };
+  position?: number;
+  time?: number;
+  length?: number;
 }
 
 function VideoPage() {
   const [activeTab, setActiveTab] = useState<'player' | 'library' | 'playlists'>('player');
-  const [playbackStatus, setPlaybackStatus] = useState<any>(null);
+  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus | null>(null);
   const [videoFolders, setVideoFolders] = useState<VideoFolder[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
@@ -250,7 +267,7 @@ function VideoPage() {
                 >
                   {audioTracks.map((track) => (
                     <option key={track.index} value={track.index}>
-                      Track {track.index + 1} {track.language && `(${track.language})`}
+                      {track.description || `Track ${track.index + 1}`}
                     </option>
                   ))}
                 </select>
@@ -265,7 +282,7 @@ function VideoPage() {
                   <option value={-1}>None</option>
                   {subtitleTracks.map((track) => (
                     <option key={track.index} value={track.index}>
-                      Track {track.index + 1} {track.language && `(${track.language})`}
+                      {track.description || `Track ${track.index + 1}`}
                     </option>
                   ))}
                 </select>

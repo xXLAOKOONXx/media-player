@@ -277,8 +277,8 @@ class VideoPlaybackController:
                 status['position'] = self.player.get_position()
                 status['time'] = self.player.get_time()
                 status['length'] = self.player.get_length()
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Error getting playback position: {e}")
         
         return status
     
