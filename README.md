@@ -1,9 +1,10 @@
 # Media Player
 
-A comprehensive media player system designed for Raspberry Pi with network storage support, web-based control interface, and playlist management.
+A comprehensive media player system designed for Raspberry Pi with network storage support, web-based control interface, and playlist management for both audio and video content.
 
 ## 🎯 Features
 
+### Audio Features
 - **Network Storage Management**: Configure SMB/CIFS and NFS network storage locations
 - **Playlist Management**: Organize your media files into playlist folders
 - **Playlist Support**: Play M3U and M3U8 playlist files
@@ -12,7 +13,6 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - Support for MP3, WAV, OGG, FLAC, M4A, and AAC formats
   - Click-to-play interface for instant sound effect playback
   - Plays simultaneously alongside music tracks
-- **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Advanced Playback Controls**: 
   - Play, pause, stop, skip tracks, and adjust volume
   - Shuffle mode for randomized playback
@@ -22,9 +22,24 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - **Proper crossfade with overlap**: Simultaneous fade-out/fade-in between tracks
   - Visual crossfade indicators
 - **Smart Duration Detection**: Automatically extracts accurate track duration from audio files using mutagen
+- **Music Library**: Browse and manage your music collection with metadata
+
+### Video Features
+- **Video Library Management**: Organize and browse video collections
+- **Video Playback**: Play video files on the server device
+  - Support for MP4, MKV, AVI, MOV, WMV, FLV, WebM, and M4V formats
+  - Video playlist support
+  - Playback controls (play, pause, stop, next, previous)
+- **Advanced Video Controls**:
+  - Multiple audio track selection
+  - Subtitle track selection with option to disable
+  - Volume control
+
+### General Features
+- **Web-Based Control**: Modern React-based UI accessible from any device on your network with separate pages for audio and video
 - **Real-Time Status**: See what's currently playing in real-time
 - **Performance Monitoring**: Comprehensive logging for monitoring playback performance
-- **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
+- **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio/video output
 
 ## 📋 Table of Contents
 
@@ -43,10 +58,12 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 graph TB
     A[Web Browser] -->|HTTP| B[React Frontend]
     B -->|REST API| C[Flask Backend]
-    C -->|Controls| D[Pygame Audio]
+    C -->|Controls Audio| D[Pygame Audio]
+    C -->|Controls Video| V[VLC Video]
     C -->|Manages| E[Network Storage]
     C -->|Reads| F[M3U Playlists]
-    D -->|HDMI Audio| G[Audio Receiver]
+    D -->|HDMI Audio| G[Audio/Video Receiver]
+    V -->|HDMI Video| G
     E -->|Mounts| H[SMB/NFS Shares]
     F -->|Located in| E
     
@@ -54,6 +71,7 @@ graph TB
     style B fill:#764ba2
     style C fill:#f093fb
     style D fill:#4facfe
+    style V fill:#9d50bb
     style G fill:#43e97b
 ```
 
@@ -62,16 +80,23 @@ graph TB
 ```mermaid
 graph LR
     subgraph Frontend
-        A[App.tsx] --> B[StorageManager]
-        A --> C[PlaylistManager]
-        A --> D[PlaybackControls]
-        A --> E[NowPlaying]
+        A[App.tsx] --> AP[AudioPage]
+        A --> VP[VideoPage]
+        AP --> B[StorageManager]
+        AP --> C[PlaylistManager]
+        AP --> D[PlaybackControls]
+        AP --> E[NowPlaying]
+        AP --> M[MusicManager]
+        VP --> VL[VideoLibrary]
+        VP --> VPC[VideoPlaybackControls]
     end
     
     subgraph Backend
         F[app.py] --> G[StorageManager]
         F --> H[LibraryManager]
         F --> I[PlaybackController]
+        F --> VM[VideoManager]
+        F --> VPC2[VideoPlaybackController]
     end
     
     B -.API.-> F
@@ -90,13 +115,15 @@ graph LR
 - Python 3.8 or higher
 - Node.js 14 or higher
 - npm or yarn
+- VLC media player (for video playback support)
 
 ### For Raspberry Pi Deployment
 
 - Raspberry Pi (3 or newer recommended)
 - Raspberry Pi OS (formerly Raspbian)
-- HDMI cable connected to audio receiver
+- HDMI cable connected to audio/video receiver
 - Network connection (WiFi or Ethernet)
+- VLC media player installed (for video playback)
 
 ## 🚀 Installation
 
@@ -128,7 +155,23 @@ graph LR
    
    See [UV Setup Guide](docs/UV_SETUP.md) for more details.
 
-3. **Build and start the application**
+3. **Install VLC (for video playback)**
+   
+   **Ubuntu/Debian:**
+   ```bash
+   sudo apt-get update
+   sudo apt-get install vlc
+   ```
+   
+   **macOS:**
+   ```bash
+   brew install vlc
+   ```
+   
+   **Windows:**
+   Download and install from [VLC official website](https://www.videolan.org/vlc/)
+
+4. **Build and start the application**
    ```bash
    # If you used start-dev.sh, it already built the frontend
    # Otherwise, build frontend manually:
@@ -143,8 +186,10 @@ graph LR
    
    The application will run on `http://localhost:5000`
 
-4. **Access the application**
+5. **Access the application**
    Open your web browser and navigate to `http://localhost:5000`
+   - Click on "Audio" to access the audio player (default view)
+   - Click on "Video" to access the video player
 
 ### Development Mode (Frontend Hot Reload)
 
