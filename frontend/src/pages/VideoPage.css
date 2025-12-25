@@ -41,7 +41,7 @@
 }
 
 .video-actions button:hover {
-  background-color: #5568d3;
+  background-color: #5a616e;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(107, 114, 128, 0.5);
 }
@@ -487,7 +487,7 @@
 }
 
 .path-input-group button:hover {
-  background-color: #5568d3;
+  background-color: #5a616e;
 }
 
 .browse-results {
@@ -540,7 +540,7 @@
 }
 
 .browse-results button:hover {
-  background-color: #5568d3;
+  background-color: #5a616e;
 }
 
 .form-actions {
@@ -564,7 +564,7 @@
 }
 
 .form-actions button[type="submit"]:hover {
-  background-color: #5568d3;
+  background-color: #5a616e;
 }
 
 .form-actions button[type="button"] {
