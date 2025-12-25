@@ -30,8 +30,8 @@
 }
 
 .tabs button.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  background: #6b7280;
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
 }
 
 .page-content {
