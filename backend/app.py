@@ -858,6 +858,37 @@ def get_video_folder_videos(folder_id):
     videos = video_manager.get_video_files(folder['path'], folder.get('recursive', False))
     return jsonify(videos)
 
+@app.route('/api/video/folders/<int:folder_id>', methods=['PUT'])
+def update_video_folder(folder_id):
+    """Update a video folder's name"""
+    data = request.json
+    config = load_config()
+    folders = config.get('video_folders', [])
+    
+    folder = next((f for f in folders if f['id'] == folder_id), None)
+    if not folder:
+        return jsonify({'error': 'Folder not found'}), 404
+    
+    folder['name'] = data.get('name', folder['name'])
+    save_config(config)
+    return jsonify(folder)
+
+@app.route('/api/video/folders/<int:folder_id>', methods=['DELETE'])
+def delete_video_folder(folder_id):
+    """Delete a video folder"""
+    config = load_config()
+    folders = config.get('video_folders', [])
+    
+    config['video_folders'] = [f for f in folders if f['id'] != folder_id]
+    save_config(config)
+    return jsonify({'success': True})
+
+@app.route('/api/video/folders/<int:folder_id>/refresh', methods=['POST'])
+def refresh_video_folder(folder_id):
+    """Refresh a video folder (re-scan files)"""
+    # For now, just return success - the frontend will reload the videos
+    return jsonify({'success': True})
+
 @app.route('/api/video/playlists', methods=['GET'])
 def get_video_playlists():
     """Get all video playlists"""
@@ -869,6 +900,64 @@ def get_video_playlists():
     
     playlists = video_manager.get_playlists(playlist_folder)
     return jsonify(playlists)
+
+@app.route('/api/video/playlists/folder', methods=['GET'])
+def get_video_playlists_folder():
+    """Get the configured video playlists folder path"""
+    config = load_config()
+    path = config.get('video_playlist_folder_path', '')
+    return jsonify({'path': path})
+
+@app.route('/api/video/playlists/folder', methods=['POST'])
+def set_video_playlists_folder():
+    """Set the video playlists folder path"""
+    data = request.json
+    path = data.get('path', '')
+    
+    config = load_config()
+    config['video_playlist_folder_path'] = path
+    save_config(config)
+    
+    return jsonify({'success': True, 'path': path})
+
+@app.route('/api/video/playlists/create', methods=['POST'])
+def create_video_playlist():
+    """Create a new video playlist"""
+    data = request.json
+    playlist_name = data.get('playlist_name')
+    videos = data.get('videos', [])
+    
+    if not playlist_name:
+        return jsonify({'error': 'playlist_name is required'}), 400
+    
+    config = load_config()
+    playlist_folder = config.get('video_playlist_folder_path')
+    
+    if not playlist_folder:
+        return jsonify({'error': 'Playlist folder not configured'}), 400
+    
+    # Create playlist folder if it doesn't exist
+    os.makedirs(playlist_folder, exist_ok=True)
+    
+    # Build playlist path
+    playlist_path = os.path.join(playlist_folder, f"{playlist_name}.m3u")
+    
+    # Write playlist file
+    try:
+        with open(playlist_path, 'w', encoding='utf-8') as f:
+            f.write('#EXTM3U\n')
+            for video in videos:
+                # Write video path (relative to playlist folder if possible)
+                video_path = video.get('path', '')
+                f.write(f'{video_path}\n')
+        
+        return jsonify({
+            'success': True,
+            'playlist_path': playlist_path,
+            'playlist_name': playlist_name
+        }), 201
+    except Exception as e:
+        return jsonify({'error': f'Failed to create playlist: {str(e)}'}), 500
 
 # Video Playback APIs
 @app.route('/api/video/playback/play', methods=['POST'])
@@ -950,6 +1039,51 @@ def get_video_status():
 def get_video_tracks():
     """Get current video playlist tracks"""
     return jsonify(video_playback_controller.get_playlist_tracks())
+
+@app.route('/api/video/playback/add-tracks', methods=['POST'])
+def add_videos_to_current_playlist():
+    """Add videos to the current playing playlist"""
+    data = request.json
+    video_paths = data.get('track_paths', [])
+    
+    if not video_paths:
+        return jsonify({'error': 'No videos provided'}), 400
+    
+    # Validate that all video files exist
+    valid_videos = []
+    for video_path in video_paths:
+        if not os.path.exists(video_path):
+            print(f"Warning: Skipping non-existent video: {video_path}")
+            continue
+
+        video_obj = {
+            'path': video_path,
+            'name': os.path.basename(video_path),
+            'title': os.path.splitext(os.path.basename(video_path))[0]
+        }
+        valid_videos.append(video_obj)
+    
+    if not valid_videos:
+        return jsonify({'error': 'No valid videos found'}), 400
+    
+    # Add videos to current playlist
+    current_videos = video_playback_controller.get_playlist_tracks()
+    
+    # Get existing video paths to avoid duplicates
+    existing_paths = {video['path'] for video in current_videos}
+    
+    # Add only new videos
+    videos_added = 0
+    for video in valid_videos:
+        if video['path'] not in existing_paths:
+            video_playback_controller.current_playlist.append(video)
+            videos_added += 1
+    
+    return jsonify({
+        'success': True,
+        'tracks_added': videos_added,
+        'total_tracks': len(video_playback_controller.current_playlist)
+    })
 
 # Serve React frontend
 @app.route('/', defaults={'path': ''})
