@@ -409,6 +409,13 @@ function VideoPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatTime = (seconds: number) => {
+    if (!seconds || seconds < 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleAddToCurrentPlaylist = async () => {
     if (selectedVideos.size === 0) {
       alert('Please select at least one video');
@@ -490,31 +497,56 @@ function VideoPage() {
       <main className="page-content">
         {activeTab === 'player' && (
           <div className="player-view">
+            <div className="server-playback-notice">
+              <span className="material-icons">info</span>
+              <p>Video is playing on the server device. Use this page to control playback remotely.</p>
+            </div>
+
             <div className="now-playing">
               <h2>Now Playing</h2>
               {playbackStatus?.current_track ? (
                 <div className="track-info">
                   <h3>{playbackStatus.current_track.title || playbackStatus.current_track.name}</h3>
-                  <p>Status: {playbackStatus.state}</p>
+                  <p className="status-text">Status: {playbackStatus.state}</p>
+                  {playbackStatus.playlist_length && (
+                    <p className="playlist-info">Track {(playbackStatus.current_index || 0) + 1} of {playbackStatus.playlist_length}</p>
+                  )}
                 </div>
               ) : (
                 <p>No video playing</p>
               )}
             </div>
 
+            {playbackStatus?.current_track && (
+              <div className="timeline-section">
+                <div className="time-display">
+                  <span className="current-time">{formatTime(playbackStatus.time || 0)}</span>
+                  <span className="duration">{formatTime(playbackStatus.length || 0)}</span>
+                </div>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ 
+                      width: `${playbackStatus.position ? playbackStatus.position * 100 : 0}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
             <div className="playback-controls">
-              <button onClick={handlePrevious}>
+              <button onClick={handlePrevious} title="Previous">
                 <span className="material-icons">skip_previous</span>
               </button>
-              <button onClick={handlePause}>
+              <button onClick={handlePause} title={playbackStatus?.state === 'playing' ? 'Pause' : 'Play'}>
                 <span className="material-icons">
                   {playbackStatus?.state === 'playing' ? 'pause' : 'play_arrow'}
                 </span>
               </button>
-              <button onClick={handleStop}>
+              <button onClick={handleStop} title="Stop">
                 <span className="material-icons">stop</span>
               </button>
-              <button onClick={handleNext}>
+              <button onClick={handleNext} title="Next">
                 <span className="material-icons">skip_next</span>
               </button>
             </div>
@@ -525,12 +557,17 @@ function VideoPage() {
                 <select 
                   value={selectedAudioTrack} 
                   onChange={(e) => handleAudioTrackChange(Number(e.target.value))}
+                  disabled={!audioTracks.length}
                 >
-                  {audioTracks.map((track) => (
-                    <option key={track.index} value={track.index}>
-                      {track.description || `Track ${track.index + 1}`}
-                    </option>
-                  ))}
+                  {audioTracks.length === 0 ? (
+                    <option>No audio tracks available</option>
+                  ) : (
+                    audioTracks.map((track) => (
+                      <option key={track.index} value={track.index}>
+                        {track.description || `Track ${track.index + 1}`}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
