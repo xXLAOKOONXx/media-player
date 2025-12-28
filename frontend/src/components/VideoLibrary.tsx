@@ -105,7 +105,7 @@ const VideoLibrary = () => {
 
   const loadPlaylistFolder = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/video/libraries/playlists-folder`);
+      const response = await fetch(`${API_BASE_URL}/api/video/playlists-folder`);
       const data = await response.json();
       setPlaylistFolder(data.path || '');
     } catch (err) {
@@ -294,7 +294,7 @@ const VideoLibrary = () => {
   const handleSetPlaylistFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/video/libraries/playlists-folder`, {
+      await fetch(`${API_BASE_URL}/api/video/playlists-folder`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: playlistFolder })
@@ -373,7 +373,7 @@ const VideoLibrary = () => {
         selectedVideos.has(t.path)
       );
 
-      const response = await fetch(`${API_BASE_URL}/api/video/libraries/playlists/create`, {
+      const response = await fetch(`${API_BASE_URL}/api/video/playlists/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -407,11 +407,11 @@ const VideoLibrary = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/video/libraries/playlists/${selectedPlaylist}/add-track`,
+        `${API_BASE_URL}/api/video/playlists/${selectedPlaylist}/add-video`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ track: videoToAdd })
+          body: JSON.stringify({ video: videoToAdd })
         }
       );
 
@@ -422,7 +422,7 @@ const VideoLibrary = () => {
         setVideoToAdd(null);
       } else {
         const error = await response.json();
-        alert(`Failed to add track: ${error.error}`);
+        alert(`Failed to add video: ${error.error}`);
       }
     } catch (err) {
       console.error('Error adding track to playlist:', err);
