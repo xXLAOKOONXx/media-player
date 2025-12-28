@@ -18,6 +18,7 @@ from music_manager import MusicManager
 from audio_metadata import display_title, read_audio_metadata
 from video_playback_controller import VideoPlaybackController
 from video_manager import VideoManager
+from database_manager import DatabaseManager
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -41,30 +42,56 @@ music_manager = MusicManager(use_cache=True)
 video_manager = VideoManager(use_cache=True)
 video_playback_controller = VideoPlaybackController()
 
-# Configuration
+# Initialize unified database
+db = DatabaseManager()
+
+# Legacy config file support (for migration)
 CONFIG_FILE = 'config.json'
 
-def load_config():
-    """Load configuration from file"""
+def migrate_config_to_db():
+    """Migrate existing config.json to database if it exists"""
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
-    return {
-        'network_storages': [],
-        'libraries': [],
-        'crossfade': {
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                old_config = json.load(f)
+            
+            # Migrate each config section
+            for key, value in old_config.items():
+                db.set_config(key, value)
+            
+            # Rename the old config file as backup
+            backup_file = f"{CONFIG_FILE}.migrated"
+            if not os.path.exists(backup_file):
+                os.rename(CONFIG_FILE, backup_file)
+                print(f"Migrated config.json to database. Old file backed up as {backup_file}")
+        except Exception as e:
+            print(f"Warning: Failed to migrate config.json: {e}")
+
+def load_config():
+    """Load configuration from database"""
+    config = db.get_all_config()
+    
+    # Provide defaults if not set
+    if not config.get('network_storages'):
+        config['network_storages'] = []
+    if not config.get('libraries'):
+        config['libraries'] = []
+    if not config.get('crossfade'):
+        config['crossfade'] = {
             'enabled': True,
             'duration_ms': 3000,
             'fade_out_start_before_end_ms': 5000
         }
-    }
+    
+    return config
 
 def save_config(config):
-    """Save configuration to file"""
-    # Note: In production, consider encrypting sensitive data like passwords
-    # or using environment variables and secure credential storage
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=2)
+    """Save configuration to database"""
+    for key, value in config.items():
+        db.set_config(key, value)
+
+# Migrate old config if needed
+migrate_config_to_db()
 
 # Load configuration and initialize playback controller with crossfade settings
 config = load_config()
