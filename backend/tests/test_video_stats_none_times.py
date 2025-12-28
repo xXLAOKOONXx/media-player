@@ -9,8 +9,8 @@ class DummyStats:
     def is_initialized(self):
         return True
 
-    def record_media_stat(self, folder_path, username):
-        self.calls.append((folder_path, username))
+    def record_media_stat(self, file_path, username):
+        self.calls.append((file_path, username))
         return True
 
 
@@ -42,4 +42,7 @@ def test_stats_check_handles_none_times(tmp_path):
     controller._check_and_record_stats()
 
     assert controller.stats_recorded is True
-    assert controller.stats_manager.calls and controller.stats_manager.calls[0][1] == "alice"
+    assert controller.stats_manager.calls
+    # Path should be the full file path now
+    assert controller.stats_manager.calls[0][0] == str(video_path)
+    assert controller.stats_manager.calls[0][1] == "alice"
