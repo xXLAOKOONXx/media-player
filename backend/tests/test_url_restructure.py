@@ -70,25 +70,6 @@ class TestAudioAPIRoutes:
         assert isinstance(data["tracks"], list), "Tracks should be a list"
 
 
-class TestBackwardCompatibility:
-    """Test that old API routes still work for backward compatibility."""
-
-    def test_old_playback_status(self, api_available):
-        """Test the old playback status endpoint still works."""
-        response = requests.get(f"{API_BASE}/api/playback/status")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-
-    def test_old_playlists_endpoint(self, api_available):
-        """Test the old playlists endpoint still works."""
-        response = requests.get(f"{API_BASE}/api/playlists")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-
-    def test_old_storage_endpoint(self, api_available):
-        """Test the old storage endpoint still works."""
-        response = requests.get(f"{API_BASE}/api/storage")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-
-
 class TestFrontendRoutes:
     """Test frontend URL routes."""
 
@@ -98,6 +79,19 @@ class TestFrontendRoutes:
         # Should either redirect or serve index.html (200)
         assert response.status_code in [200, 301, 302, 303, 307, 308], \
             f"Expected redirect or 200, got {response.status_code}"
+
+    def test_old_api_routes_return_404(self, api_available):
+        """Test that old /api/* routes (without /audio/) return 404."""
+        # Test a few old routes to ensure they're removed
+        old_routes = [
+            f"{API_BASE}/api/playback/status",
+            f"{API_BASE}/api/playlists",
+            f"{API_BASE}/api/storage"
+        ]
+        
+        for route in old_routes:
+            response = requests.get(route)
+            assert response.status_code == 404, f"Old route {route} should return 404, got {response.status_code}"
 
     def test_audio_player_route(self, api_available):
         """Test that /audio/player route serves the app."""
