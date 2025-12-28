@@ -43,7 +43,7 @@ const SoundEffectsManager = () => {
 
   const loadSoundEffectsFolders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/soundeffects`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/soundeffects`);
       const data = await response.json();
       setSoundEffectsFolders(data);
     } catch (err) {
@@ -53,7 +53,7 @@ const SoundEffectsManager = () => {
 
   const loadAudioFiles = async (folderId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/soundeffects/${folderId}/files`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/soundeffects/${folderId}/files`);
       const data = await response.json();
       setAudioFiles(data);
     } catch (err) {
@@ -79,7 +79,7 @@ const SoundEffectsManager = () => {
   const handleAddFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/soundeffects`, {
+      await fetch(`${API_BASE_URL}/api/audio/soundeffects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFolder)
@@ -97,7 +97,7 @@ const SoundEffectsManager = () => {
       return;
     }
     try {
-      await fetch(`${API_BASE_URL}/api/soundeffects/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/soundeffects/${folderId}`, {
         method: 'DELETE'
       });
       if (selectedFolder === folderId) {
@@ -122,7 +122,7 @@ const SoundEffectsManager = () => {
       return;
     }
     try {
-      await fetch(`${API_BASE_URL}/api/soundeffects/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/soundeffects/${folderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName })
@@ -143,7 +143,7 @@ const SoundEffectsManager = () => {
 
   const handlePlaySoundEffect = async (soundPath: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/soundeffects/play`, {
+      await fetch(`${API_BASE_URL}/api/audio/soundeffects/play`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sound_path: soundPath })

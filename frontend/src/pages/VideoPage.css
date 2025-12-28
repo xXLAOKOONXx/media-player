@@ -1,0 +1,32 @@
+.video-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 2rem;
+}
+
+.under-construction {
+  text-align: center;
+  padding: 3rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.construction-icon {
+  font-size: 80px;
+  color: #ffa726;
+  margin-bottom: 1rem;
+}
+
+.under-construction h2 {
+  margin: 1rem 0;
+  color: #fff;
+  font-size: 2rem;
+}
+
+.under-construction p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+}

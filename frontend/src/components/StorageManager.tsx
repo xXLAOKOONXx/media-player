@@ -32,7 +32,7 @@ const StorageManager = () => {
 
   const loadStorages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/storage`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/storage`);
       const data = await response.json();
       setStorages(data);
     } catch (err) {
@@ -43,7 +43,7 @@ const StorageManager = () => {
   const handleAddStorage = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/storage`, {
+      await fetch(`${API_BASE_URL}/api/audio/storage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newStorage)
@@ -70,7 +70,7 @@ const StorageManager = () => {
     }
     
     try {
-      await fetch(`${API_BASE_URL}/api/storage/${id}`, {
+      await fetch(`${API_BASE_URL}/api/audio/storage/${id}`, {
         method: 'DELETE'
       });
       loadStorages();
