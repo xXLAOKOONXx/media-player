@@ -42,8 +42,9 @@ function App() {
           <Route path="/audio/*" element={<AudioPage />} />
           <Route path="/audio" element={<Navigate to="/audio/player" replace />} />
           
-          {/* Video route */}
-          <Route path="/video" element={<VideoPage />} />
+          {/* Video routes */}
+          <Route path="/video/*" element={<VideoPage />} />
+          <Route path="/video" element={<Navigate to="/video/player" replace />} />
           
           {/* Catch-all redirect to audio player */}
           <Route path="*" element={<Navigate to="/audio/player" replace />} />
