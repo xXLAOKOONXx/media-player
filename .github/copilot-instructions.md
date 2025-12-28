@@ -14,10 +14,4 @@ The Markdown files in `docs/requirements/` describe the **current implemented UI
 
 ## UI Guidance
 
-The folder `docs/ui-guidance/` contains guidance on setting up and styling UI elements:
-
-- **Color Scheme**: Use white, gray, and black as default colors with blueish-gray as accent (`docs/ui-guidance/colors.md`)
-- **Dark Mode**: Dark mode is the default and only theme (`docs/ui-guidance/dark-mode.md`)
-- **Icons**: Use Material Icons, preferring icons over text labels when possible (`docs/ui-guidance/icons.md`)
-
 When adding or modifying UI components, follow the guidelines in `docs/ui-guidance/` to maintain consistency.
