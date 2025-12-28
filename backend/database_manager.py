@@ -8,6 +8,7 @@ Manages a single SQLite database for all media player data including:
 
 import sqlite3
 import json
+import os
 import platform
 from datetime import datetime
 from pathlib import Path
@@ -16,14 +17,15 @@ from pathlib import Path
 class DatabaseManager:
     """Manages unified SQLite database for all media player data"""
     
-    def __init__(self, db_path='media_player.db'):
+    def __init__(self, db_path='media_player.db', timeout=5.0):
         self.db_path = db_path
+        self.timeout = timeout
         self.device_name = platform.node()  # Get computer hostname
         self._init_database()
     
     def _init_database(self):
         """Initialize the SQLite database with all required tables"""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=self.timeout)
         cursor = conn.cursor()
         
         # Configuration table (device-specific)
@@ -111,10 +113,14 @@ class DatabaseManager:
         conn.commit()
         conn.close()
     
+    def _get_connection(self):
+        """Get a database connection with configured timeout"""
+        return sqlite3.connect(self.db_path, timeout=self.timeout)
+    
     # Configuration methods
     def get_config(self, key, default=None):
         """Get configuration value for this device"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -133,7 +139,7 @@ class DatabaseManager:
     
     def set_config(self, key, value):
         """Set configuration value for this device"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         value_str = json.dumps(value) if not isinstance(value, str) else value
@@ -151,7 +157,7 @@ class DatabaseManager:
     
     def get_all_config(self):
         """Get all configuration for this device"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -173,7 +179,7 @@ class DatabaseManager:
     # Music folder methods
     def register_music_folder(self, folder_id, path, recursive):
         """Register a music folder in the database"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         recursive_int = 1 if recursive else 0
@@ -212,7 +218,7 @@ class DatabaseManager:
     
     def cache_music_tracks(self, folder_id, tracks):
         """Cache music track metadata for a folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -256,7 +262,7 @@ class DatabaseManager:
     
     def get_cached_music_tracks(self, folder_id):
         """Retrieve cached music tracks for a folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -301,7 +307,7 @@ class DatabaseManager:
     
     def invalidate_music_folder(self, folder_id):
         """Invalidate cache for a specific music folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -318,7 +324,7 @@ class DatabaseManager:
     
     def update_music_track_duration(self, file_path, duration):
         """Update cached duration for a single music track"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -331,7 +337,7 @@ class DatabaseManager:
     
     def get_music_cache_stats(self):
         """Get music cache statistics"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -363,7 +369,7 @@ class DatabaseManager:
     # Video folder methods
     def register_video_folder(self, folder_id, path, recursive):
         """Register a video folder in the database"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         recursive_int = 1 if recursive else 0
@@ -402,7 +408,7 @@ class DatabaseManager:
     
     def cache_videos(self, folder_id, videos):
         """Cache video metadata for a folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -443,7 +449,7 @@ class DatabaseManager:
     
     def get_cached_videos(self, folder_id):
         """Retrieve cached videos for a folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -471,7 +477,6 @@ class DatabaseManager:
         
         videos = []
         for row in rows:
-            import os
             video = {
                 'path': row[0],
                 'name': row[1],
@@ -486,7 +491,7 @@ class DatabaseManager:
     
     def invalidate_video_folder(self, folder_id):
         """Invalidate cache for a specific video folder"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -503,7 +508,7 @@ class DatabaseManager:
     
     def update_video_duration(self, file_path, duration):
         """Update cached duration for a single video"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -516,7 +521,7 @@ class DatabaseManager:
     
     def get_video_cache_stats(self):
         """Get video cache statistics"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -547,7 +552,7 @@ class DatabaseManager:
     
     def clear_all_cache(self):
         """Clear all cached data for this device"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute('DELETE FROM music_tracks WHERE device_name = ?', (self.device_name,))
