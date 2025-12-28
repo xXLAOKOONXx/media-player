@@ -25,6 +25,7 @@ from pathlib import Path
 import random
 import copy
 import logging
+import time
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
@@ -85,7 +86,7 @@ class VideoPlaybackController:
     DEFAULT_VOLUME = 50  # Volume as integer 0-100
     DURATION_DETECTION_TIMEOUT = 2  # Seconds to wait for duration during playback
     
-    def __init__(self, video_config=None):
+    def __init__(self, video_config=None, stats_manager=None):
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
@@ -111,6 +112,12 @@ class VideoPlaybackController:
         # MPV player instance
         self.player = None
         self.video_available = False
+        
+        # Stats tracking
+        self.stats_manager = stats_manager
+        self.current_username = None  # Set by app when playback starts
+        self.stats_recorded = False  # Track if stats have been recorded for current track
+        self.track_start_time = None  # System time when track started
         
         # Initialize mpv if available
         if MPV_AVAILABLE:
@@ -165,6 +172,8 @@ class VideoPlaybackController:
         def time_observer(_name, value):
             if value is not None:
                 self.current_position = value
+                # Check if we should record stats
+                self._check_and_record_stats()
         
         @self.player.event_callback('end-file')
         def end_file_callback(_event):
@@ -389,6 +398,8 @@ class VideoPlaybackController:
                 
                 self.is_playing = True
                 self.is_paused = False
+                self.stats_recorded = False  # Reset stats flag for new video
+                self.track_start_time = None  # Will be set when time-pos updates
                 
                 # Try to get duration from MPV if not already available
                 if current_track.get('duration') is None:
@@ -413,6 +424,59 @@ class VideoPlaybackController:
             self.is_paused = False
             logger.info(f"Video playback state updated (no player available)")
             return True
+    
+    def _check_and_record_stats(self):
+        """Check if playback has reached the threshold for recording stats"""
+        if self.stats_recorded or not self.stats_manager or not self.current_username:
+            return
+        
+        if not self.stats_manager.is_initialized():
+            return
+        
+        if not self.current_playlist or self.current_track_index >= len(self.current_playlist):
+            return
+        
+        current_track = self.current_playlist[self.current_track_index]
+        video_path = current_track.get('path')
+        
+        if not video_path:
+            return
+        
+        # Set track start time on first position update
+        if self.track_start_time is None and self.current_position > 0:
+            self.track_start_time = time.time() - self.current_position
+        
+        if not self.track_start_time:
+            return
+        
+        # Get video duration
+        duration = current_track.get('duration')
+        if duration is None or duration <= 0:
+            return
+        
+        # Calculate elapsed playback time
+        elapsed = self.current_position
+        
+        # Determine the effective duration considering custom start/end times
+        effective_start = current_track.get('start_time', 0)
+        effective_end = current_track.get('end_time', duration)
+        effective_duration = effective_end - effective_start
+        
+        if effective_duration <= 0:
+            return
+        
+        # Calculate thresholds: 50% or 5 minutes (300 seconds), whichever is smaller
+        threshold = min(effective_duration * 0.5, 300.0)
+        
+        if elapsed >= threshold:
+            # Record the stat
+            try:
+                folder_path = os.path.dirname(video_path)
+                if self.stats_manager.record_media_stat(folder_path, self.current_username):
+                    self.stats_recorded = True
+                    logger.info(f"Recorded stats for {video_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
+            except Exception as e:
+                logger.error(f"Failed to record stats: {e}")
     
     def pause(self):
         """Pause playback"""

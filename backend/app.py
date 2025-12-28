@@ -41,6 +41,7 @@ from video_playback_controller import VideoPlaybackController
 from video_manager import VideoManager
 from database_manager import DatabaseManager
 from user_manager import UserManager, require_admin, require_auth
+from stats_manager import StatsManager
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -131,13 +132,20 @@ crossfade_config = config.get('crossfade', {
     'duration_ms': 3000,
     'fade_out_start_before_end_ms': 5000
 })
-playback_controller = PlaybackController(crossfade_config=crossfade_config)
+
+# Initialize stats manager with configured stats folder
+stats_folder = config.get('stats_folder', '')
+stats_manager = StatsManager(stats_folder if stats_folder else None)
+
+# Initialize playback controllers with stats manager
+playback_controller = PlaybackController(crossfade_config=crossfade_config, stats_manager=stats_manager)
 
 # Initialize video playback controller with video settings
 video_config = config.get('video', {
     'fullscreen': True,
     'preferred_screen': None
 })
+video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager)
 video_playback_controller = VideoPlaybackController(video_config=video_config)
 
 # Authentication APIs
@@ -847,6 +855,12 @@ def play():
     playlist_path = data.get('playlist_path')
     track_index = data.get('track_index', 0)
     
+    # Get current user from session (if available)
+    session_id = request.cookies.get('session_id')
+    user = user_manager.get_user_from_session(session_id)
+    if user:
+        playback_controller.current_username = user['username']
+    
     if playlist_path:
         result = playback_controller.load_playlist(playlist_path)
         if result:
@@ -1045,7 +1059,8 @@ def get_settings():
             'video': config.get('video', {
                 'fullscreen': True,
                 'preferred_screen': None
-            })
+            }),
+            'stats_folder': config.get('stats_folder', '')
         }
         
         return jsonify(settings)
@@ -1104,13 +1119,29 @@ def update_settings():
             # Apply video settings to video playback controller
             video_playback_controller.update_video_config(video_data)
         
+        # Update stats folder if provided
+        if 'stats_folder' in data:
+            stats_folder = data['stats_folder']
+            
+            # Validate stats_folder input
+            if not isinstance(stats_folder, str):
+                return jsonify({'error': 'stats_folder must be a string'}), 400
+            
+            # Update config
+            config['stats_folder'] = stats_folder
+            
+            # Update stats manager with new folder
+            stats_manager.set_stats_folder(stats_folder if stats_folder else None)
+        
         # Save config
         save_config(config)
         
         # Return updated settings
         settings = {
             'crossfade': config.get('crossfade', {}),
-            'video': config.get('video', {})
+            'video': config.get('video', {}),
+            'stats_folder': config.get('stats_folder', '')
+        }
         }
         
         return jsonify(settings)
@@ -1373,6 +1404,12 @@ def add_video_to_playlist(playlist_name):
 def video_play():
     """Start or resume video playback"""
     data = request.json
+    
+    # Get current user from session (if available)
+    session_id = request.cookies.get('session_id')
+    user = user_manager.get_user_from_session(session_id)
+    if user:
+        video_playback_controller.current_username = user['username']
     
     playlist_path = data.get('playlist_path')
     track_index = data.get('track_index', 0)
