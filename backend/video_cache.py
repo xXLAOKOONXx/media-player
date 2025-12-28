@@ -15,7 +15,8 @@ from database_manager import DatabaseManager
 class VideoCache:
     """Manages SQLite cache for video metadata"""
     
-    def __init__(self, db_path='media_player.db'):
+    def __init__(self, db_path=None):
+        # Default to the unified app-data database path used across the backend.
         self.db = DatabaseManager(db_path)
     
 

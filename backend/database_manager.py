@@ -11,6 +11,7 @@ import json
 import os
 import platform
 import sys
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -106,6 +107,7 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 folder_id INTEGER NOT NULL,
+                media_id TEXT,
                 file_path TEXT NOT NULL UNIQUE,
                 file_name TEXT NOT NULL,
                 file_size INTEGER,
@@ -117,6 +119,7 @@ class DatabaseManager:
                 artist TEXT,
                 thumbnail BLOB,
                 thumbnail_mime_type TEXT,
+                thumbnail_url TEXT,
                 description TEXT,
                 premiere_date TEXT,
                 user_rating REAL,
@@ -156,6 +159,8 @@ class DatabaseManager:
             'artist': 'TEXT',
             'thumbnail': 'BLOB',
             'thumbnail_mime_type': 'TEXT',
+            'thumbnail_url': 'TEXT',
+            'media_id': 'TEXT',
             'description': 'TEXT',
             'premiere_date': 'TEXT',
             'user_rating': 'REAL'
@@ -180,12 +185,29 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     # Column might already exist in some edge cases
                     pass
+
+        # Backfill media_id for existing rows (helps after upgrades)
+        if 'media_id' in (existing_columns | set(new_columns.keys())):
+            try:
+                cursor.execute('SELECT file_path FROM videos WHERE media_id IS NULL OR media_id = ""')
+                paths_to_backfill = [row[0] for row in cursor.fetchall() if row and row[0]]
+                for file_path in paths_to_backfill:
+                    normalized_path = os.path.normpath(file_path)
+                    media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+                    cursor.execute(
+                        'UPDATE videos SET media_id = ? WHERE file_path = ? AND (media_id IS NULL OR media_id = "")',
+                        (media_id, normalized_path),
+                    )
+            except sqlite3.OperationalError:
+                # In case the column isn't actually present (corrupt/partial migrations), ignore.
+                pass
         
         # Create indexes for faster lookups
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_folder ON music_tracks (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_path ON music_tracks (file_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_folder ON videos (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_path ON videos (file_path)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_media_id ON videos (media_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at)')
         
@@ -494,9 +516,12 @@ class DatabaseManager:
         rows = []
         for video in videos:
             last_modified = video.get('modified') or video.get('last_modified')
+            normalized_path = os.path.normpath(video['path'])
+            media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
             rows.append((
                 folder_id,
-                video['path'],
+                media_id,
+                normalized_path,
                 video['name'],
                 video.get('size', 0),
                 video.get('title'),
@@ -507,6 +532,7 @@ class DatabaseManager:
                 video.get('artist'),
                 video.get('thumbnail'),  # Binary data
                 video.get('thumbnail_mime_type'),
+                video.get('thumbnail_url'),
                 video.get('description'),
                 video.get('premiere_date'),
                 video.get('user_rating'),
@@ -514,10 +540,10 @@ class DatabaseManager:
         
         cursor.executemany('''
             INSERT INTO videos
-            (folder_id, file_path, file_name, file_size, title, duration,
+            (folder_id, media_id, file_path, file_name, file_size, title, duration,
              last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
-             description, premiere_date, user_rating)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             thumbnail_url, description, premiere_date, user_rating)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', rows)
         
         conn.commit()
@@ -539,8 +565,8 @@ class DatabaseManager:
             return None
         
         cursor.execute('''
-            SELECT file_path, file_name, file_size, title, duration, last_modified,
-                   tags, artist, thumbnail, thumbnail_mime_type, description, premiere_date, user_rating
+            SELECT media_id, file_path, file_name, file_size, title, duration, last_modified,
+                   tags, artist, thumbnail, thumbnail_mime_type, thumbnail_url, description, premiere_date, user_rating
             FROM videos
             WHERE folder_id = ?
             ORDER BY title, file_name
@@ -555,18 +581,20 @@ class DatabaseManager:
         videos = []
         for row in rows:
             video = {
-                'path': row[0],
-                'name': row[1],
-                'size': row[2],
-                'title': row[3] or os.path.splitext(row[1])[0],
-                'duration': row[4],
-                'modified': row[5],
-                'tags': json.loads(row[6]) if row[6] else [],
-                'artist': row[7],
-                'has_thumbnail': row[8] is not None,  # Boolean flag instead of binary data
-                'description': row[10],
-                'premiere_date': row[11],
-                'user_rating': row[12]
+                'media_id': row[0],
+                'path': row[1],
+                'name': row[2],
+                'size': row[3],
+                'title': row[4] or os.path.splitext(row[2])[0],
+                'duration': row[5],
+                'modified': row[6],
+                'tags': json.loads(row[7]) if row[7] else [],
+                'artist': row[8],
+                'has_thumbnail': row[9] is not None,  # Boolean flag instead of binary data
+                'thumbnail_url': row[11],
+                'description': row[12],
+                'premiere_date': row[13],
+                'user_rating': row[14]
             }
             videos.append(video)
         
@@ -578,18 +606,47 @@ class DatabaseManager:
         Returns:
             Tuple of (thumbnail_data, mime_type) or (None, None) if not found
         """
+        normalized_path = os.path.normpath(file_path)
         conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
             'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE file_path = ?',
-            (file_path,)
+            (normalized_path,)
         )
         result = cursor.fetchone()
         conn.close()
         
         if result and result[0]:
-            return result[0], result[1]
+            thumbnail_blob = result[0]
+            if isinstance(thumbnail_blob, memoryview):
+                thumbnail_blob = thumbnail_blob.tobytes()
+            if isinstance(thumbnail_blob, (bytes, bytearray)):
+                return bytes(thumbnail_blob), result[1]
+        return None, None
+
+    def get_video_thumbnail_by_media_id(self, media_id: str):
+        """Get thumbnail data for a specific video by its stable media_id.
+
+        Returns:
+            Tuple of (thumbnail_data, mime_type) or (None, None) if not found
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE media_id = ?',
+            (media_id,)
+        )
+        result = cursor.fetchone()
+        conn.close()
+
+        if result and result[0]:
+            thumbnail_blob = result[0]
+            if isinstance(thumbnail_blob, memoryview):
+                thumbnail_blob = thumbnail_blob.tobytes()
+            if isinstance(thumbnail_blob, (bytes, bytearray)):
+                return bytes(thumbnail_blob), result[1]
         return None, None
     
     def invalidate_video_folder(self, folder_id):

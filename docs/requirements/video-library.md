@@ -167,6 +167,7 @@ Buttons:
 
 Per library, when not editing:
 - **Refresh** (icon `refresh`, tooltip "Refresh library")
+  - POST `/api/video/libraries/{libraryId}/refresh`
   - Reloads videos for the selected library or all libraries if in global search.
 - **Edit** (icon `edit`)
   - Enters inline edit mode and pre-fills name.
@@ -200,6 +201,17 @@ Button:
 
 Filtering behavior:
 - Title filter matches substring against `video.title` or `video.name`.
+
+### Thumbnails
+
+Videos may have an associated thumbnail image.
+
+- The video list response includes `has_thumbnail: boolean`.
+- The video list response includes `has_thumbnail: boolean` and `media_id: string`.
+- When `has_thumbnail` is true, the UI should fetch the image via `GET /api/video/thumbnail/by-id/{media_id}`.
+- Fallback: `POST /api/video/thumbnail` with `{ "video_path": "<absolute path>" }`.
+- (Optional/legacy) `GET /api/video/thumbnail/<video_path>` may also be supported, but URL-encoding absolute paths can be fragile on some platforms.
+- The thumbnail image is served directly as an `image/*` response (not JSON) and is read from the backend cache/database.
 
 ### Selection controls
 

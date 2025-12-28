@@ -11,6 +11,7 @@ import sys
 import logging
 from pathlib import Path
 from io import BytesIO
+import re
 
 
 def _configure_logging() -> None:
@@ -1221,6 +1222,36 @@ def delete_video_library(library_id):
     
     return '', 204
 
+
+@app.route('/api/video/libraries/<int:library_id>/refresh', methods=['POST'])
+@require_auth(user_manager)
+def refresh_video_library(library_id):
+    """Refresh/rescan a video library and update cache.
+
+    This endpoint exists primarily for the Video Library UI "Refresh" action.
+    """
+    config = load_config()
+    libraries = config.get('video_libraries', [])
+    library = next((lib for lib in libraries if lib['id'] == library_id), None)
+
+    if not library:
+        return jsonify({'error': 'Video library not found'}), 404
+
+    # Force refresh - invalidate cache and rescan
+    video_manager.invalidate_cache(library_id)
+    videos = video_manager.get_video_files(
+        library['path'],
+        library.get('recursive', False),
+        folder_id=library_id,
+        force_refresh=True,
+    )
+
+    return jsonify({
+        'success': True,
+        'library_id': library_id,
+        'video_count': len(videos),
+    })
+
 @app.route('/api/video/libraries/<int:library_id>/videos', methods=['GET'])
 def get_library_videos(library_id):
     """Get all videos in a library"""
@@ -1524,8 +1555,8 @@ def add_video_tracks():
 @app.route('/api/video/stream/<path:video_path>')
 def stream_video(video_path):
     """Stream a video file"""
-    # Decode the video path
-    video_path = '/' + video_path  # Add leading slash for absolute path
+    # Decode/normalize the video path from the URL
+    video_path = _normalize_media_path_from_url(video_path)
     
     if not os.path.exists(video_path):
         return jsonify({'error': 'Video not found'}), 404
@@ -1538,11 +1569,11 @@ def stream_video(video_path):
 @app.route('/api/video/thumbnail/<path:video_path>')
 def get_video_thumbnail(video_path):
     """Get thumbnail for a video file"""
-    # Decode the video path
-    video_path = '/' + video_path  # Add leading slash for absolute path
+    # Decode/normalize the video path from the URL
+    video_path = _normalize_media_path_from_url(video_path)
     
     # Get thumbnail from database
-    thumbnail_data, mime_type = db_manager.get_video_thumbnail(video_path)
+    thumbnail_data, mime_type = db.get_video_thumbnail(video_path)
     
     if thumbnail_data is None:
         return jsonify({'error': 'Thumbnail not found'}), 404
@@ -1553,6 +1584,83 @@ def get_video_thumbnail(video_path):
         mimetype=mime_type or 'image/jpeg',
         as_attachment=False
     )
+
+
+@app.route('/api/video/thumbnail', methods=['POST'])
+@require_auth(user_manager)
+def get_video_thumbnail_from_body():
+    """Get thumbnail for a video file (path provided in request body).
+
+    Expects JSON: { "video_path": "..." }
+    Returns: image bytes with an image/* mimetype.
+    """
+    data = request.get_json(silent=True) or {}
+    video_path = data.get('video_path') or data.get('path')
+    if not video_path or not isinstance(video_path, str):
+        return jsonify({'error': 'video_path is required'}), 400
+
+    normalized = _normalize_media_path_from_url(video_path)
+    thumbnail_data, mime_type = db.get_video_thumbnail(normalized)
+
+    if thumbnail_data is None:
+        return jsonify({'error': 'Thumbnail not found'}), 404
+
+    return send_file(
+        BytesIO(thumbnail_data),
+        mimetype=mime_type or 'image/jpeg',
+        as_attachment=False
+    )
+
+
+@app.route('/api/video/thumbnail/by-id/<string:media_id>', methods=['GET'])
+@require_auth(user_manager)
+def get_video_thumbnail_by_id(media_id: str):
+    """Get thumbnail for a video file by its stable cache identifier."""
+    thumbnail_data, mime_type = db.get_video_thumbnail_by_media_id(media_id)
+
+    if thumbnail_data is None:
+        return jsonify({'error': 'Thumbnail not found'}), 404
+
+    return send_file(
+        BytesIO(thumbnail_data),
+        mimetype=mime_type or 'image/jpeg',
+        as_attachment=False
+    )
+
+
+def _normalize_media_path_from_url(video_path: str) -> str:
+    """Normalize a media path coming from a Flask <path:...> URL segment.
+
+    This backend historically prefixed '/' to rebuild absolute POSIX paths.
+    On Windows, paths are typically drive-letter based (e.g. 'C:/...'), and
+    prefixing '/' breaks os.path.exists(). This helper supports:
+    - POSIX absolute paths without leading slash in the route (linux/mac)
+    - Windows drive paths like 'C:/Users/...'
+    - MSYS-style paths like 'C/Users/...'
+    """
+    candidate = video_path
+
+    # Windows drive path already (C:/..., C:\...)
+    if re.match(r'^[A-Za-z]:[\\/]', candidate):
+        return os.path.normpath(candidate)
+
+    # Only apply MSYS-style conversions on Windows.
+    if os.name == 'nt':
+        # MSYS-style drive path (C/Users/...) -> C:/Users/...
+        m = re.match(r'^([A-Za-z])/(.+)$', candidate)
+        if m:
+            return os.path.normpath(f"{m.group(1).upper()}:/{m.group(2)}")
+
+        # MSYS-style absolute drive path (/C/Users/...) -> C:/Users/...
+        m2 = re.match(r'^/([A-Za-z])/(.+)$', candidate)
+        if m2:
+            return os.path.normpath(f"{m2.group(1).upper()}:/{m2.group(2)}")
+
+    # POSIX absolute path segments lose the leading '/', add it back.
+    if not candidate.startswith('/'):
+        candidate = '/' + candidate
+
+    return os.path.normpath(candidate)
 
 # Browse filesystem
 @app.route('/api/browse', methods=['POST'])

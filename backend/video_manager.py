@@ -5,6 +5,7 @@ Handles video library management with metadata extraction from files and NFO fil
 
 import os
 from pathlib import Path
+import hashlib
 
 from video_cache import VideoCache
 from video_metadata import read_video_metadata
@@ -37,15 +38,16 @@ class VideoManager:
         Returns:
             List of dicts with file information
         """
-        # Try to use cache if available
-        if self.cache and folder_id is not None and not force_refresh:
-            # Register folder in cache
+        # Cache handling
+        if self.cache and folder_id is not None:
+            # Always register the folder so cache_videos has a folder row to update.
             self.cache.register_folder(folder_id, path, recursive)
-            
-            # Try to get from cache
-            cached_videos = self.cache.get_cached_videos(folder_id)
-            if cached_videos is not None:
-                return cached_videos
+
+            # If not forcing refresh, try to serve from cache.
+            if not force_refresh:
+                cached_videos = self.cache.get_cached_videos(folder_id)
+                if cached_videos is not None:
+                    return cached_videos
         
         # Cache miss or force refresh - scan filesystem
         video_files = self._scan_video_files(path, recursive)
@@ -58,7 +60,41 @@ class VideoManager:
                 # Log error but don't fail the request
                 print(f"Warning: Failed to cache videos for folder {folder_id}: {e}")
         
-        return video_files
+        return [self._sanitize_video_for_api(v) for v in video_files]
+
+    @staticmethod
+    def _sanitize_video_for_api(video: dict) -> dict:
+        """Return a JSON-safe video dict.
+
+        - Never include raw thumbnail bytes in API responses.
+        - Provide `has_thumbnail` boolean for UI.
+        - Preserve `thumbnail_url` (from NFO) if present.
+        """
+        sanitized = dict(video)
+
+        # Provide stable cache identifier even when returning fresh scan results.
+        video_path = sanitized.get('path')
+        if isinstance(video_path, str) and video_path:
+            normalized_path = os.path.normpath(video_path)
+            sanitized['media_id'] = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+
+        # If cache already provided `has_thumbnail`, trust it.
+        has_thumbnail = sanitized.get('has_thumbnail')
+
+        thumbnail_value = sanitized.pop('thumbnail', None)
+        sanitized.pop('thumbnail_mime_type', None)
+
+        if isinstance(thumbnail_value, (bytes, bytearray, memoryview)):
+            has_thumbnail = True
+        elif isinstance(thumbnail_value, str):
+            # Backward compatibility: older metadata used `thumbnail` for NFO URL.
+            sanitized.setdefault('thumbnail_url', thumbnail_value)
+
+        if has_thumbnail is None:
+            has_thumbnail = False
+
+        sanitized['has_thumbnail'] = bool(has_thumbnail)
+        return sanitized
     
     def _scan_video_files(self, path, recursive=False):
         """Scan filesystem for video files
