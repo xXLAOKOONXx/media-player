@@ -46,21 +46,34 @@ def get_video_duration(video_path):
             data = json.loads(result.stdout)
             if 'format' in data and 'duration' in data['format']:
                 return float(data['format']['duration'])
-    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception) as e:
-        logger.debug(f"ffprobe failed for {video_path}: {e}")
+    except subprocess.TimeoutExpired as e:
+        logger.debug(f"ffprobe timeout for {video_path}: {e}")
+    except FileNotFoundError:
+        logger.debug(f"ffprobe not found, skipping ffprobe for {video_path}")
+    except json.JSONDecodeError as e:
+        logger.debug(f"ffprobe JSON decode error for {video_path}: {e}")
+    except (ValueError, KeyError) as e:
+        logger.debug(f"ffprobe data parsing error for {video_path}: {e}")
     
     # Fallback: Try using MPV in a temporary instance
     if MPV_AVAILABLE:
+        temp_player = None
         try:
             temp_player = mpv.MPV(video=False, audio=False)
             temp_player.play(video_path)
             temp_player.wait_until_playing()
             duration = temp_player.duration
-            temp_player.terminate()
             if duration:
                 return float(duration)
         except Exception as e:
+            # Catch all MPV exceptions as they can vary
             logger.debug(f"MPV duration extraction failed for {video_path}: {e}")
+        finally:
+            if temp_player:
+                try:
+                    temp_player.terminate()
+                except Exception:
+                    pass  # Ignore cleanup errors
     
     return None
 
@@ -70,6 +83,7 @@ class VideoPlaybackController:
     
     # Default configuration
     DEFAULT_VOLUME = 50  # Volume as integer 0-100
+    DURATION_DETECTION_TIMEOUT = 2  # Seconds to wait for duration during playback
     
     def __init__(self):
         self.current_playlist = []
@@ -291,7 +305,7 @@ class VideoPlaybackController:
                 if current_track.get('duration') is None:
                     try:
                         # Wait a moment for video to load
-                        self.player.wait_until_playing(timeout=2)
+                        self.player.wait_until_playing(timeout=self.DURATION_DETECTION_TIMEOUT)
                         if self.player.duration:
                             current_track['duration'] = float(self.player.duration)
                             logger.info(f"Got duration from MPV: {current_track['duration']}s")
