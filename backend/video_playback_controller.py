@@ -16,11 +16,53 @@ from pathlib import Path
 import random
 import copy
 import logging
+import subprocess
+import json
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
 if not logger.handlers:
     logger.setLevel(logging.INFO)
+
+
+def get_video_duration(video_path):
+    """Get video duration using ffprobe or fallback methods
+    
+    Returns duration in seconds as a float, or None if unable to determine
+    """
+    if not os.path.exists(video_path):
+        return None
+    
+    # Try using ffprobe (most reliable)
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', 
+             '-of', 'json', video_path],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            if 'format' in data and 'duration' in data['format']:
+                return float(data['format']['duration'])
+    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception) as e:
+        logger.debug(f"ffprobe failed for {video_path}: {e}")
+    
+    # Fallback: Try using MPV in a temporary instance
+    if MPV_AVAILABLE:
+        try:
+            temp_player = mpv.MPV(video=False, audio=False)
+            temp_player.play(video_path)
+            temp_player.wait_until_playing()
+            duration = temp_player.duration
+            temp_player.terminate()
+            if duration:
+                return float(duration)
+        except Exception as e:
+            logger.debug(f"MPV duration extraction failed for {video_path}: {e}")
+    
+    return None
 
 
 class VideoPlaybackController:
@@ -143,9 +185,13 @@ class VideoPlaybackController:
                             track_path = os.path.join(playlist_dir, line)
                         
                         if os.path.exists(track_path):
+                            # Get video duration
+                            duration = get_video_duration(track_path)
+                            
                             tracks.append({
                                 'path': track_path,
                                 'title': os.path.basename(track_path),
+                                'duration': duration,
                                 'start_time': None,
                                 'end_time': None
                             })
@@ -172,9 +218,13 @@ class VideoPlaybackController:
         
         for path in track_paths:
             if os.path.exists(path):
+                # Get video duration
+                duration = get_video_duration(path)
+                
                 self.current_playlist.append({
                     'path': path,
                     'title': os.path.basename(path),
+                    'duration': duration,
                     'start_time': None,
                     'end_time': None
                 })
@@ -236,6 +286,18 @@ class VideoPlaybackController:
                 
                 self.is_playing = True
                 self.is_paused = False
+                
+                # Try to get duration from MPV if not already available
+                if current_track.get('duration') is None:
+                    try:
+                        # Wait a moment for video to load
+                        self.player.wait_until_playing(timeout=2)
+                        if self.player.duration:
+                            current_track['duration'] = float(self.player.duration)
+                            logger.info(f"Got duration from MPV: {current_track['duration']}s")
+                    except Exception as e:
+                        logger.debug(f"Could not get duration from MPV: {e}")
+                
                 logger.info(f"Playing video {self.current_track_index + 1}/{len(self.current_playlist)}: {video_path}")
                 return True
             except Exception as e:
