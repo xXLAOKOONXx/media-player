@@ -306,7 +306,7 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
               </label>
               <p className="setting-description">
                 Folder where the media-player-stats.db file will be stored. 
-                Leave empty to disable statistics recording.
+                Leave empty to use the default location (backend directory).
               </p>
             </div>
           </div>

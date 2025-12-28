@@ -134,8 +134,12 @@ crossfade_config = config.get('crossfade', {
 })
 
 # Initialize stats manager with configured stats folder
+# Default to backend directory (location of executable) if not configured
 stats_folder = config.get('stats_folder', '')
-stats_manager = StatsManager(stats_folder if stats_folder else None)
+if not stats_folder:
+    # Use the directory where app.py is located as default
+    stats_folder = os.path.dirname(os.path.abspath(__file__))
+stats_manager = StatsManager(stats_folder)
 
 # Initialize playback controllers with stats manager
 playback_controller = PlaybackController(crossfade_config=crossfade_config, stats_manager=stats_manager)
