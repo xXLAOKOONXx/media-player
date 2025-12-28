@@ -107,7 +107,7 @@ If the workflow fails:
 1. Check the workflow logs for error messages
 2. Verify that `backend/media-player.spec` exists
 3. Ensure frontend builds successfully (check `backend/static/` folder)
-4. Review the [Bundling Guide](../docs/BUNDLING.md) for detailed requirements
+4. Review the [Bundling Guide](../docs/technical/bundling.md) for detailed requirements
 
 ## Future Workflows
 
