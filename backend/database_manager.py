@@ -149,6 +149,7 @@ class DatabaseManager:
         cursor.execute("PRAGMA table_info(videos)")
         existing_columns = {row[1] for row in cursor.fetchall()}
         
+        # Define new columns with their types (hardcoded for safety)
         new_columns = {
             'tags': 'TEXT',
             'artist': 'TEXT',
@@ -158,9 +159,21 @@ class DatabaseManager:
             'user_rating': 'REAL'
         }
         
+        # Allowed column types for validation
+        allowed_types = {'TEXT', 'REAL', 'INTEGER'}
+        
         for column_name, column_type in new_columns.items():
             if column_name not in existing_columns:
+                # Validate column type is allowed
+                if column_type not in allowed_types:
+                    continue
+                
+                # Column name validation - ensure it only contains alphanumeric and underscore
+                if not column_name.replace('_', '').isalnum():
+                    continue
+                
                 try:
+                    # Safe to use f-string here as both values come from our controlled dictionary
                     cursor.execute(f'ALTER TABLE videos ADD COLUMN {column_name} {column_type}')
                 except sqlite3.OperationalError:
                     # Column might already exist in some edge cases

@@ -53,7 +53,7 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
         
         # Iterate through all child elements
         for element in root:
-            tag_name = element.tag.lower()
+            tag_name = element.tag  # Keep original case
             text_value = element.text
             
             if text_value is None or not text_value.strip():
@@ -61,10 +61,10 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
             
             text_value = text_value.strip()
             
-            # Map NFO fields to our metadata fields
-            if tag_name in NFO_FIELD_MAP:
-                field_name = NFO_FIELD_MAP[tag_name]
-                
+            # Map NFO fields to our metadata fields (check both original case and lowercase)
+            field_name = NFO_FIELD_MAP.get(tag_name) or NFO_FIELD_MAP.get(tag_name.lower())
+            
+            if field_name:
                 # Special handling for different field types
                 if field_name == 'user_rating':
                     try:
@@ -81,18 +81,6 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
                         metadata[field_name] = [text_value]
                 else:
                     metadata[field_name] = text_value
-            
-            # Direct mapping for fields not in the map
-            elif tag_name == 'title' and 'title' not in metadata:
-                metadata['title'] = text_value
-            elif tag_name == 'artist' and 'artist' not in metadata:
-                metadata['artist'] = text_value
-            elif tag_name == 'premiered' and 'premiere_date' not in metadata:
-                metadata['premiere_date'] = text_value
-            elif tag_name == 'plot' and 'description' not in metadata:
-                metadata['description'] = text_value
-            elif tag_name == 'thumb' and 'thumbnail' not in metadata:
-                metadata['thumbnail'] = text_value
         
     except ET.ParseError as e:
         # Failed to parse XML, return empty metadata
