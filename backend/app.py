@@ -3,13 +3,14 @@ Media Player Backend
 Main Flask application for media player control
 """
 
-from flask import Flask, jsonify, request, send_from_directory, make_response
+from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
 from werkzeug.utils import secure_filename
 import os
 import json
 import sys
 import logging
 from pathlib import Path
+from io import BytesIO
 
 
 def _configure_logging() -> None:
@@ -1533,6 +1534,25 @@ def stream_video(video_path):
     directory = os.path.dirname(video_path)
     filename = os.path.basename(video_path)
     return send_from_directory(directory, filename)
+
+@app.route('/api/video/thumbnail/<path:video_path>')
+def get_video_thumbnail(video_path):
+    """Get thumbnail for a video file"""
+    # Decode the video path
+    video_path = '/' + video_path  # Add leading slash for absolute path
+    
+    # Get thumbnail from database
+    thumbnail_data, mime_type = db_manager.get_video_thumbnail(video_path)
+    
+    if thumbnail_data is None:
+        return jsonify({'error': 'Thumbnail not found'}), 404
+    
+    # Return the image data
+    return send_file(
+        BytesIO(thumbnail_data),
+        mimetype=mime_type or 'image/jpeg',
+        as_attachment=False
+    )
 
 # Browse filesystem
 @app.route('/api/browse', methods=['POST'])

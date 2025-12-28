@@ -115,7 +115,8 @@ class DatabaseManager:
                 cached_at REAL NOT NULL,
                 tags TEXT,
                 artist TEXT,
-                thumbnail TEXT,
+                thumbnail BLOB,
+                thumbnail_mime_type TEXT,
                 description TEXT,
                 premiere_date TEXT,
                 user_rating REAL,
@@ -153,14 +154,15 @@ class DatabaseManager:
         new_columns = {
             'tags': 'TEXT',
             'artist': 'TEXT',
-            'thumbnail': 'TEXT',
+            'thumbnail': 'BLOB',
+            'thumbnail_mime_type': 'TEXT',
             'description': 'TEXT',
             'premiere_date': 'TEXT',
             'user_rating': 'REAL'
         }
         
         # Allowed column types for validation
-        allowed_types = {'TEXT', 'REAL', 'INTEGER'}
+        allowed_types = {'TEXT', 'REAL', 'INTEGER', 'BLOB'}
         
         for column_name, column_type in new_columns.items():
             if column_name not in existing_columns:
@@ -503,7 +505,8 @@ class DatabaseManager:
                 current_time,
                 json.dumps(video.get('tags', [])),
                 video.get('artist'),
-                video.get('thumbnail'),
+                video.get('thumbnail'),  # Binary data
+                video.get('thumbnail_mime_type'),
                 video.get('description'),
                 video.get('premiere_date'),
                 video.get('user_rating'),
@@ -512,9 +515,9 @@ class DatabaseManager:
         cursor.executemany('''
             INSERT INTO videos
             (folder_id, file_path, file_name, file_size, title, duration,
-             last_modified, cached_at, tags, artist, thumbnail, description,
-             premiere_date, user_rating)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
+             description, premiere_date, user_rating)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', rows)
         
         conn.commit()
@@ -537,7 +540,7 @@ class DatabaseManager:
         
         cursor.execute('''
             SELECT file_path, file_name, file_size, title, duration, last_modified,
-                   tags, artist, thumbnail, description, premiere_date, user_rating
+                   tags, artist, thumbnail, thumbnail_mime_type, description, premiere_date, user_rating
             FROM videos
             WHERE folder_id = ?
             ORDER BY title, file_name
@@ -560,14 +563,34 @@ class DatabaseManager:
                 'modified': row[5],
                 'tags': json.loads(row[6]) if row[6] else [],
                 'artist': row[7],
-                'thumbnail': row[8],
-                'description': row[9],
-                'premiere_date': row[10],
-                'user_rating': row[11]
+                'has_thumbnail': row[8] is not None,  # Boolean flag instead of binary data
+                'description': row[10],
+                'premiere_date': row[11],
+                'user_rating': row[12]
             }
             videos.append(video)
         
         return videos
+    
+    def get_video_thumbnail(self, file_path):
+        """Get thumbnail data for a specific video by file path
+        
+        Returns:
+            Tuple of (thumbnail_data, mime_type) or (None, None) if not found
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE file_path = ?',
+            (file_path,)
+        )
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result and result[0]:
+            return result[0], result[1]
+        return None, None
     
     def invalidate_video_folder(self, folder_id):
         """Invalidate cache for a specific video folder"""

@@ -100,7 +100,8 @@ class VideoManager:
                     metadata = read_video_metadata(
                         full_path,
                         include_duration=True,
-                        check_nfo=True
+                        check_nfo=True,
+                        include_thumbnail=True
                     )
                     # Merge metadata, keeping existing values if not in metadata
                     for key, value in metadata.items():
