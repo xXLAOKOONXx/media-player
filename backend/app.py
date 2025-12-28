@@ -1142,7 +1142,6 @@ def update_settings():
             'video': config.get('video', {}),
             'stats_folder': config.get('stats_folder', '')
         }
-        }
         
         return jsonify(settings)
         
