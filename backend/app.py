@@ -163,8 +163,16 @@ def login():
         'role': user['role']
     }))
     
-    # Set session cookie (httponly for security)
-    response.set_cookie('session_id', session_id, httponly=True, max_age=30*24*60*60, samesite='Lax')
+    # Set session cookie (httponly and secure for security)
+    # secure=True will only work over HTTPS, for development use secure=False or test with HTTPS
+    response.set_cookie(
+        'session_id', 
+        session_id, 
+        httponly=True, 
+        secure=request.is_secure,  # Automatically set secure flag based on connection
+        max_age=30*24*60*60, 
+        samesite='Lax'
+    )
     
     return response
 
@@ -175,7 +183,13 @@ def logout():
     user_manager.logout(session_id)
     
     response = make_response(jsonify({'message': 'Logged out successfully'}))
-    response.set_cookie('session_id', '', expires=0)
+    response.set_cookie(
+        'session_id', 
+        '', 
+        expires=0,
+        httponly=True,
+        secure=request.is_secure
+    )
     
     return response
 
