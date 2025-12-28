@@ -1,5 +1,7 @@
 # Storage View Requirements
 
+URL: `/audio/storage`
+
 Source component:
 - `frontend/src/components/StorageManager.tsx`
 
@@ -9,7 +11,7 @@ Allows configuring and deleting network storage locations (SMB/CIFS or NFS).
 
 ## Data loading
 
-- On mount, fetch `/api/storage` and render the list of configured storages.
+- On mount, fetch `/api/audio/storage` and render the list of configured storages.
 
 ## Add Storage toggle
 
@@ -19,7 +21,7 @@ Button:
 ## Add Storage form
 
 Form submission:
-- POST `/api/storage` with the full `newStorage` object.
+- POST `/api/audio/storage` with the full `newStorage` object.
 - On success:
   - Reset the form values to defaults.
   - Hide the form.
@@ -55,7 +57,7 @@ Per storage entry:
 Button:
 - **Delete**
   - Prompts confirmation: “Are you sure you want to delete this storage?”
-  - If confirmed: DELETE `/api/storage/{id}`.
+  - If confirmed: DELETE `/api/audio/storage/{id}`.
   - On success: reload storage list.
 
 ## Error handling

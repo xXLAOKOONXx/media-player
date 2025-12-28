@@ -1,5 +1,7 @@
 # Playlists View Requirements
 
+URL: `/audio/playlists`
+
 Source component:
 - `frontend/src/components/PlaylistManager.tsx`
 
@@ -11,7 +13,7 @@ Manages “playlist folder” entries, browses for a folder path, lists playlist
 
 ### Initial load
 
-- On mount, fetch `/api/playlists` to load the list of configured playlist folders.
+- On mount, fetch `/api/audio/playlists` to load the list of configured playlist folders.
 
 ### Add Playlist Folder toggle
 
@@ -30,7 +32,7 @@ Buttons:
   - Calls POST `/api/browse` with JSON `{ "path": <current path input or '/'> }`.
   - Shows browse results when items are returned.
 - **Add Playlist Folder** (submit)
-  - POST `/api/playlists` with JSON `{ name, path, type: 'playlist' }`.
+  - POST `/api/audio/playlists` with JSON `{ name, path, type: 'playlist' }`.
   - On success:
     - Clear the form state.
     - Hide the form.
@@ -48,7 +50,7 @@ Empty state:
 - If no playlist folders exist, show “No playlist folders configured”.
 
 Selecting a folder:
-- Clicking a folder row selects it and triggers load of playlists via GET `/api/playlists/{folderId}/files`.
+- Clicking a folder row selects it and triggers load of playlists via GET `/api/audio/playlists/{folderId}/files`.
 
 Folder actions (per folder)
 
@@ -61,7 +63,7 @@ Rename mode controls:
 - Text input prefilled with current name.
 - **Save**
   - Validates name is non-empty; otherwise `alert('Name cannot be empty')`.
-  - PUT `/api/playlists/{folderId}` with JSON `{ "name": <editName> }`.
+  - PUT `/api/audio/playlists/{folderId}` with JSON `{ "name": <editName> }`.
   - On success: exit rename mode and reload folder list.
 - **Cancel**
   - Exits rename mode with no changes.
@@ -69,7 +71,7 @@ Rename mode controls:
 #### Delete
 
 - Trash button (🗑️) prompts `confirm('Are you sure you want to delete this playlist folder?')`.
-- If confirmed: DELETE `/api/playlists/{folderId}`.
+- If confirmed: DELETE `/api/audio/playlists/{folderId}`.
 - If the deleted folder was selected, clear selection and the playlists list.
 - On failure: `alert('Error deleting playlist folder')`.
 
@@ -79,7 +81,7 @@ Visibility:
 - Only shown when a folder is selected.
 
 Behavior:
-- Lists playlist files returned from GET `/api/playlists/{folderId}/files`.
+- Lists playlist files returned from GET `/api/audio/playlists/{folderId}/files`.
 
 Empty state:
 - “No playlists found in this folder”.
@@ -87,6 +89,6 @@ Empty state:
 Per playlist row:
 - Display playlist name + full path.
 - Button: **Play**
-  - POST `/api/playback/play` with JSON `{ "playlist_path": <playlist.path>, "track_index": 0 }`.
+  - POST `/api/audio/playback/play` with JSON `{ "playlist_path": <playlist.path>, "track_index": 0 }`.
   - On success: `alert('Playlist started!')`.
   - On failure: `alert('Error playing playlist')`.
