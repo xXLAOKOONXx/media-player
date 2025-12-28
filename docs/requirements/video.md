@@ -89,6 +89,7 @@ Video playback uses **server-side rendering with MPV player** (similar to audio 
    - `/api/video/libraries/*` - Library management
    - `/api/video/playlists/*` - Playlist management
    - `/api/video/playback/*` - Playback control
+   - `/api/video/thumbnail/<path:video_path>` - Returns cached thumbnail image data
 
 ### Supported Video Formats
 

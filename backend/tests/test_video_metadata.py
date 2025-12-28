@@ -99,7 +99,7 @@ class TestNFOParsing:
             metadata = parse_nfo_file(nfo_path)
             
             assert metadata['title'] == 'Movie with Thumbnail'
-            assert metadata['thumbnail'] == 'https://example.com/poster.jpg'
+            assert metadata['thumbnail_url'] == 'https://example.com/poster.jpg'
         finally:
             os.unlink(nfo_path)
     

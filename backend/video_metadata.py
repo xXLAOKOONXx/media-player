@@ -29,7 +29,9 @@ NFO_FIELD_MAP = {
     'artist': 'artist',
     'premiered': 'premiere_date',
     'plot': 'description',
-    'thumb': 'thumbnail',
+    # NFO <thumb> is typically a URL or path reference, not raw image bytes.
+    # Store it separately so we don't mix types with the cached thumbnail blob.
+    'thumb': 'thumbnail_url',
 }
 
 
@@ -140,15 +142,10 @@ def read_video_metadata(
         
         if os.path.exists(nfo_path):
             nfo_metadata = parse_nfo_file(nfo_path)
-            # NFO metadata takes precedence for text fields, but not thumbnail
-            # (we prefer actual image data over URLs)
+            # NFO metadata takes precedence for text fields.
+            # Actual thumbnail image bytes are handled separately via poster file / embedded artwork.
             for key, value in nfo_metadata.items():
-                if key == 'thumbnail':
-                    # Only use NFO thumbnail if we don't have image data already
-                    if 'thumbnail' not in metadata:
-                        metadata[key] = value
-                else:
-                    metadata[key] = value
+                metadata[key] = value
     
     return metadata
 

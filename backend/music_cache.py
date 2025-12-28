@@ -16,7 +16,8 @@ from database_manager import DatabaseManager
 class MusicCache:
     """Manages SQLite cache for music metadata"""
     
-    def __init__(self, db_path='media_player.db'):
+    def __init__(self, db_path=None):
+        # Default to the unified app-data database path used across the backend.
         self.db = DatabaseManager(db_path)
     
 
