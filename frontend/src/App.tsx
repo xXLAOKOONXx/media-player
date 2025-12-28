@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import type { User } from './types';
 import './App.css';
 import AudioPage from './pages/AudioPage';
 import VideoPage from './pages/VideoPage';
 import Login from './components/Login';
 
 const API_BASE_URL = '';
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-}
 
 interface AppHeaderProps {
   user: User | null;

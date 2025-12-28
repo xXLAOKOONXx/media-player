@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import './UserManagement.css';
 
 const API_BASE_URL = '';
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-  created_at: number;
-}
 
 interface UserManagementProps {
   currentUser: User | null;

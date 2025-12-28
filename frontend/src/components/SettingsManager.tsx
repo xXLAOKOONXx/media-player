@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import UserManagement from './UserManagement';
 import './SettingsManager.css';
 
@@ -14,12 +15,6 @@ interface Settings {
     fullscreen: boolean;
     preferred_screen: number | string | null;
   };
-}
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
 }
 
 interface SettingsManagerProps {
