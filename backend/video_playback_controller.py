@@ -27,6 +27,8 @@ import copy
 import logging
 import time
 
+from services.basic_file_operation import get_actual_path_with_correct_case
+
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
 if not logger.handlers:
@@ -121,6 +123,9 @@ class VideoPlaybackController:
         self.pause_start_time = None  # System time when paused
         self.total_pause_duration = 0  # Total time spent paused
         
+        # Flag to prevent end-file event handling during manual operations
+        self._manual_track_change = False
+        
         # Initialize mpv if available
         if MPV_AVAILABLE:
             self._initialize_mpv_player()
@@ -180,8 +185,14 @@ class VideoPlaybackController:
         @self.player.event_callback('end-file')
         def end_file_callback(_event):
             # _event parameter intentionally unused
-            logger.info("Video ended, playing next")
-            self._handle_video_end()
+            # Only handle video end if this wasn't a manual track change
+            if not self._manual_track_change:
+                logger.info("Video ended, playing next")
+                self._handle_video_end()
+            else:
+                logger.debug("Ignoring end-file event during manual track change")
+                # Reset the flag after ignoring the event
+                self._manual_track_change = False
     
     def _initialize_mpv_player(self):
         """Initialize or reinitialize the MPV player with current config"""
@@ -490,7 +501,9 @@ class VideoPlaybackController:
         if elapsed >= threshold:
             # Record the stat
             try:
-                folder_path = os.path.dirname(os.path.abspath(video_path))
+                # Get the full path with correct casing
+                actual_path = get_actual_path_with_correct_case(video_path)
+                folder_path = os.path.dirname(actual_path)
                 if self.stats_manager.record_media_stat(folder_path, self.current_username):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {video_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
@@ -515,6 +528,9 @@ class VideoPlaybackController:
         """Skip to next track"""
         if not self.current_playlist:
             return False
+        
+        # Set flag to prevent end-file event from triggering during manual skip
+        self._manual_track_change = True
         
         if self.current_track_index < len(self.current_playlist) - 1:
             self.current_track_index += 1
@@ -541,6 +557,9 @@ class VideoPlaybackController:
         """Skip to previous track"""
         if not self.current_playlist:
             return False
+        
+        # Set flag to prevent end-file event from triggering during manual skip
+        self._manual_track_change = True
         
         if self.current_track_index > 0:
             self.current_track_index -= 1
