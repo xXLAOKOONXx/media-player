@@ -57,7 +57,7 @@ This guide covers deploying the Media Player application in different environmen
 
 ### Full Setup
 
-Follow the [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md) for complete instructions.
+Follow the [Raspberry Pi Setup Guide](raspberry-pi.md) for complete instructions.
 
 ### Quick Deployment
 
@@ -545,7 +545,7 @@ sudo systemctl status mediaplayer
 
 ## Additional Resources
 
-- [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md)
-- [Architecture Documentation](ARCHITECTURE.md)
-- [API Documentation](API.md)
-- [Main README](../README.md)
+- [Raspberry Pi Setup Guide](raspberry-pi.md)
+- [Architecture Documentation](../technical/architecture.md)
+- [API Documentation](../technical/api.md)
+- [Main README](../../README.md)

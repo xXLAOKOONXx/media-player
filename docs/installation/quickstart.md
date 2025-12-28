@@ -228,12 +228,12 @@ hostname -I
 
 ## Next Steps
 
-- 📖 Read the full [README](../README.md)
-- 🏗️ Learn about the [Architecture](ARCHITECTURE.md)
-- 🍓 Follow the complete [Raspberry Pi Setup Guide](RASPBERRY_PI_SETUP.md)
-- 🚀 Check out [Deployment options](DEPLOYMENT.md)
-- 🔒 Review [Security considerations](SECURITY.md)
-- 📡 Explore the [API documentation](API.md)
+- 📖 Read the full [README](../../README.md)
+- 🏗️ Learn about the [Architecture](../technical/architecture.md)
+- 🍓 Follow the complete [Raspberry Pi Setup Guide](raspberry-pi.md)
+- 🚀 Check out [Deployment options](deployment.md)
+- 🔒 Review [Security considerations](../technical/security.md)
+- 📡 Explore the [API documentation](../technical/api.md)
 
 ## Need Help?
 

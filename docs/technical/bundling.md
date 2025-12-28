@@ -379,6 +379,6 @@ For production distribution:
 ## See Also
 
 - [Main README](../README.md)
-- [Deployment Guide](DEPLOYMENT.md)
-- [Raspberry Pi Setup](RASPBERRY_PI_SETUP.md)
+- [Deployment Guide](../installation/deployment.md)
+- [Raspberry Pi Setup](../installation/raspberry-pi.md)
 - [PyInstaller Documentation](https://pyinstaller.org/)
