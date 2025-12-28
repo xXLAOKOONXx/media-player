@@ -114,42 +114,60 @@ class VideoPlaybackController:
         
         # Initialize mpv if available
         if MPV_AVAILABLE:
-            try:
-                # Build MPV initialization parameters
-                mpv_params = {
-                    'input_default_bindings': True,
-                    'input_vo_keyboard': True,
-                    'osc': True,  # On-screen controller
-                    'ytdl': False,  # Don't use youtube-dl
-                    'fullscreen': self.video_config.get('fullscreen', True),
-                }
-                
-                # Add screen selection if specified
-                preferred_screen = self.video_config.get('preferred_screen')
-                if preferred_screen is not None:
-                    # MPV uses 'screen' property to specify which screen to use
-                    mpv_params['screen'] = preferred_screen
-                
-                self.player = mpv.MPV(**mpv_params)
-                # Set up event handlers
-                @self.player.property_observer('time-pos')
-                def time_observer(_name, value):
-                    if value is not None:
-                        self.current_position = value
-                
-                @self.player.event_callback('end-file')
-                def end_file_callback(_event):
-                    # _event parameter intentionally unused
-                    logger.info("Video ended, playing next")
-                    self._handle_video_end()
-                
-                self.video_available = True
-                logger.info("MPV player initialized successfully")
-            except Exception as e:
-                logger.warning(f"Video player initialization failed: {e}")
-                print(f"Running in no-video mode: {e}")
+            self._initialize_mpv_player()
         else:
             logger.warning("python-mpv not installed, running in no-video mode")
+    
+    def _build_mpv_params(self):
+        """Build MPV initialization parameters from current config
+        
+        Returns:
+            Dictionary of MPV initialization parameters
+        """
+        mpv_params = {
+            'input_default_bindings': True,
+            'input_vo_keyboard': True,
+            'osc': True,  # On-screen controller
+            'ytdl': False,  # Don't use youtube-dl
+            'fullscreen': self.video_config.get('fullscreen', True),
+        }
+        
+        # Add screen selection if specified
+        preferred_screen = self.video_config.get('preferred_screen')
+        if preferred_screen is not None:
+            # MPV uses 'screen' property to specify which screen to use
+            mpv_params['screen'] = preferred_screen
+        
+        return mpv_params
+    
+    def _setup_mpv_event_handlers(self):
+        """Setup event handlers for MPV player"""
+        if not self.player:
+            return
+        
+        @self.player.property_observer('time-pos')
+        def time_observer(_name, value):
+            if value is not None:
+                self.current_position = value
+        
+        @self.player.event_callback('end-file')
+        def end_file_callback(_event):
+            # _event parameter intentionally unused
+            logger.info("Video ended, playing next")
+            self._handle_video_end()
+    
+    def _initialize_mpv_player(self):
+        """Initialize or reinitialize the MPV player with current config"""
+        try:
+            mpv_params = self._build_mpv_params()
+            self.player = mpv.MPV(**mpv_params)
+            self._setup_mpv_event_handlers()
+            self.video_available = True
+            logger.info("MPV player initialized successfully")
+        except Exception as e:
+            logger.warning(f"Video player initialization failed: {e}")
+            print(f"Running in no-video mode: {e}")
+            self.video_available = False
     
     def __del__(self):
         """Cleanup MPV player on deletion
@@ -210,44 +228,13 @@ class VideoPlaybackController:
                     except Exception as e:
                         logger.debug(f"Error terminating player during config update: {e}")
                 
-                # Reinitialize with new settings
-                try:
-                    mpv_params = {
-                        'input_default_bindings': True,
-                        'input_vo_keyboard': True,
-                        'osc': True,
-                        'ytdl': False,
-                        'fullscreen': self.video_config.get('fullscreen', True),
-                    }
-                    
-                    preferred_screen = self.video_config.get('preferred_screen')
-                    if preferred_screen is not None:
-                        mpv_params['screen'] = preferred_screen
-                    
-                    self.player = mpv.MPV(**mpv_params)
-                    
-                    # Re-setup event handlers
-                    @self.player.property_observer('time-pos')
-                    def time_observer(_name, value):
-                        if value is not None:
-                            self.current_position = value
-                    
-                    @self.player.event_callback('end-file')
-                    def end_file_callback(_event):
-                        logger.info("Video ended, playing next")
-                        self._handle_video_end()
-                    
-                    self.video_available = True
-                    logger.info("MPV player reinitialized with new settings")
-                    
-                    # Resume playback if it was playing before
-                    if was_playing and self.current_playlist:
-                        self.current_track_index = current_index
-                        self.play()
-                        
-                except Exception as e:
-                    logger.error(f"Failed to reinitialize MPV player: {e}")
-                    self.video_available = False
+                # Reinitialize with new settings using helper method
+                self._initialize_mpv_player()
+                
+                # Resume playback if it was playing before
+                if was_playing and self.current_playlist and self.video_available:
+                    self.current_track_index = current_index
+                    self.play()
     
     def get_video_config(self):
         """Get current video configuration"""
