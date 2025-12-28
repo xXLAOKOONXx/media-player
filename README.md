@@ -350,15 +350,64 @@ The video player supports the following formats (via HTML5 video):
 
 #### Video Playback Configuration
 
-Unlike audio playback which uses pygame on the server, video playback is handled entirely in the browser:
+The media player supports **server-side video playback** using the MPV player, similar to how audio uses pygame. Videos play on the server's display output (HDMI/monitor), making it ideal for Raspberry Pi setups connected to TVs.
 
-- **No server-side configuration needed**: Videos are streamed directly to the browser using standard HTTP
-- **Client-side rendering**: The browser's native HTML5 video player handles all decoding and rendering
-- **Network considerations**: Ensure good network bandwidth between the server and client for smooth playback
-- **Storage recommendations**: 
-  - Store videos on fast storage (local disk or high-speed network storage)
-  - Use commonly supported codecs for best browser compatibility
-  - Consider transcoding to web-friendly formats if playback issues occur
+##### Server-side Playback Setup (Recommended for Raspberry Pi)
+
+**Prerequisites:**
+1. **Install MPV player**:
+   ```bash
+   # On Raspberry Pi / Debian / Ubuntu
+   sudo apt install mpv libmpv2
+   
+   # On macOS
+   brew install mpv
+   
+   # On Fedora / RedHat
+   sudo dnf install mpv mpv-libs
+   ```
+
+2. **Install Python MPV bindings**:
+   ```bash
+   cd backend
+   pip install python-mpv
+   # Or if using uv:
+   uv pip install python-mpv
+   ```
+
+**Features:**
+- Videos play on the server's display output (HDMI to TV/monitor)
+- Full hardware acceleration support (important for Raspberry Pi)
+- Proper volume control
+- Seek support
+- Automatic next track on video end
+- Respects repeat and shuffle modes
+
+**Configuration:**
+- No additional configuration needed after installing mpv
+- Videos automatically play on the default display
+- Volume is controlled through the server's audio output
+- Works seamlessly with HDMI audio/video output
+
+**Fallback Mode:**
+If python-mpv is not installed, the system falls back to state-only mode where:
+- Playlist management still works
+- API endpoints function normally
+- Videos can only be played client-side in the browser
+- No server-side video output
+
+##### Client-side Playback Alternative
+
+For systems without MPV or when remote viewing is needed:
+- Videos are streamed to the browser via HTTP
+- Browser's native HTML5 video player handles decoding
+- Works on any device with a modern web browser
+- Network bandwidth requirements apply
+
+**Storage recommendations** (for both modes):
+- Store videos on fast storage (local disk or high-speed network storage)
+- Use commonly supported codecs (H.264/AAC in MP4 container)
+- Ensure proper file permissions for the backend to access videos
 
 ### 7. Crossfade Configuration
 

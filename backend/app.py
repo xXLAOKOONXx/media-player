@@ -1067,7 +1067,7 @@ def video_volume():
     """Set video volume"""
     data = request.json
     volume = data.get('volume', 50)
-    video_playback_controller.set_volume(volume / 100)
+    video_playback_controller.set_volume(volume)
     return jsonify({'volume': volume})
 
 @app.route('/api/video/playback/shuffle', methods=['POST'])

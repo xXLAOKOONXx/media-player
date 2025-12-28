@@ -56,15 +56,18 @@ Features:
 
 ## Video Playback Implementation
 
-Video playback is handled client-side in the browser using HTML5 video elements. The backend provides:
+Video playback uses **server-side rendering with MPV player** (similar to audio with pygame), providing HDMI output for Raspberry Pi setups. Falls back to client-side browser playback if MPV is unavailable.
 
 ### Backend Components
 
 1. **VideoPlaybackController** (`backend/video_playback_controller.py`)
-   - Manages playlist state
-   - Tracks playback status
+   - **Server-side video playback** using MPV player
+   - Manages playlist state and navigation
+   - Tracks playback status and position
    - Handles shuffle and repeat modes
-   - Maintains volume settings
+   - Controls volume and seeking
+   - Auto-plays next video on completion
+   - Falls back to state-only mode if MPV unavailable
 
 2. **VideoManager** (`backend/video_manager.py`)
    - Scans video library folders
@@ -78,34 +81,81 @@ Video playback is handled client-side in the browser using HTML5 video elements.
 
 ### Supported Video Formats
 
-The following video formats are supported (via HTML5 video):
-- MP4 (.mp4, .m4v)
-- WebM (.webm)
-- MKV (.mkv)
+MPV supports a wide range of video formats with hardware acceleration:
+- MP4 (.mp4, .m4v) - Best compatibility
+- MKV (.mkv) - High quality container
 - AVI (.avi)
 - MOV (.mov)
+- WebM (.webm)
 - WMV (.wmv)
 - FLV (.flv)
 - MPEG (.mpg, .mpeg)
-
-Note: Actual playback support depends on browser codec support.
+- And many more formats supported by MPV/ffmpeg
 
 ## Configuration
 
-### Server-side Configuration
+### Server-side Video Playback Setup
 
-Video playback requires no special server configuration as videos are streamed directly to the browser using standard HTTP file serving.
+**Required Software:**
+
+1. **MPV Media Player**
+   ```bash
+   # Raspberry Pi / Debian / Ubuntu
+   sudo apt install mpv libmpv2
+   
+   # macOS
+   brew install mpv
+   
+   # Fedora / RedHat
+   sudo dnf install mpv mpv-libs
+   ```
+
+2. **Python MPV Bindings**
+   ```bash
+   cd backend
+   pip install python-mpv
+   # Or with uv:
+   uv pip install python-mpv
+   ```
+
+**Hardware Requirements:**
+- Display connected via HDMI or other video output
+- Audio output (HDMI audio or separate audio device)
+- For Raspberry Pi: GPU memory allocation of at least 128MB recommended
+
+**Features:**
+- Videos play on server's display (HDMI to TV/monitor)
+- Hardware-accelerated decoding (critical for Raspberry Pi performance)
+- Full volume and seek control
+- Automatic playlist navigation
+- Respects repeat (off/all/one) and shuffle modes
+
+**Raspberry Pi Optimization:**
+- MPV automatically uses hardware video decoding on Raspberry Pi
+- Works with H.264/H.265 hardware acceleration
+- Configure GPU memory in `/boot/config.txt`: `gpu_mem=256`
+
+**Fallback Mode:**
+If python-mpv is not installed:
+- System operates in state-only mode
+- Playlist and library management still functional
+- Videos can be played client-side via browser
+- No server display output
+
+### Storage Configuration
 
 For optimal performance:
-1. Ensure video files are stored on fast storage (local disk or high-speed network storage)
-2. Use commonly supported codecs (H.264/AAC for MP4) for best browser compatibility
-3. Consider transcoding videos to web-friendly formats if playback issues occur
+1. Store videos on fast storage (local disk or high-speed network storage)
+2. Use commonly supported codecs (H.264/AAC in MP4 container)
+3. Ensure proper file permissions for backend access
+4. For network storage, ensure sufficient bandwidth
 
-### Client-side Requirements
+### Client-side Requirements (Fallback Mode Only)
 
+If MPV is not available, videos can play in the browser:
 - Modern web browser with HTML5 video support
-- Sufficient bandwidth for video streaming
-- Recommended: Hardware video decoding support for 1080p+ content
+- Sufficient network bandwidth for streaming
+- Hardware video decoding recommended for HD content
 
 ## Default Routes
 
