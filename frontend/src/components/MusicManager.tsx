@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import './MusicManager.css';
 
 const API_BASE_URL = '';
@@ -34,7 +35,11 @@ interface BrowseItem {
   is_playlist?: boolean;
 }
 
-const MusicManager = () => {
+interface MusicManagerProps {
+  currentUser?: User;
+}
+
+const MusicManager = ({ currentUser }: MusicManagerProps) => {
   const [musicFolders, setMusicFolders] = useState<MusicFolder[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
@@ -443,24 +448,30 @@ const MusicManager = () => {
       <div className="music-header">
         <h2>Music Library</h2>
         <div className="music-actions">
-          <button onClick={() => setShowPlaylistFolderForm(true)}>
-            <span className="material-icons">folder</span>
-            Configure Playlist Folder
-          </button>
-          <button onClick={() => setShowAddForm(true)}>
-            <span className="material-icons">add</span>
-            Add Music Folder
-          </button>
+          {currentUser?.role === 'admin' && (
+            <>
+              <button onClick={() => setShowPlaylistFolderForm(true)}>
+                <span className="material-icons">folder</span>
+                Configure Playlist Folder
+              </button>
+              <button onClick={() => setShowAddForm(true)}>
+                <span className="material-icons">add</span>
+                Add Music Folder
+              </button>
+            </>
+          )}
           <button onClick={handleGlobalSearch} className="search-all-button">
             <span className="material-icons">search</span>
             Search All Folders
           </button>
           {selectedTracks.size > 0 && (
             <>
-              <button onClick={() => setShowCreatePlaylistForm(true)}>
-                <span className="material-icons">playlist_add</span>
-                Create Playlist ({selectedTracks.size})
-              </button>
+              {currentUser?.role === 'admin' && (
+                <button onClick={() => setShowCreatePlaylistForm(true)}>
+                  <span className="material-icons">playlist_add</span>
+                  Create Playlist ({selectedTracks.size})
+                </button>
+              )}
               <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
                 <span className="material-icons">queue_music</span>
                 Add to Current Playlist ({selectedTracks.size})
@@ -787,17 +798,21 @@ const MusicManager = () => {
                           >
                             <span className="material-icons">refresh</span>
                           </button>
-                          <button
-                            onClick={() => {
-                              setEditingFolder(folder.id);
-                              setEditName(folder.name);
-                            }}
-                          >
-                            <span className="material-icons">edit</span>
-                          </button>
-                          <button onClick={() => handleDeleteFolder(folder.id)}>
-                            <span className="material-icons">delete</span>
-                          </button>
+                          {currentUser?.role === 'admin' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingFolder(folder.id);
+                                  setEditName(folder.name);
+                                }}
+                              >
+                                <span className="material-icons">edit</span>
+                              </button>
+                              <button onClick={() => handleDeleteFolder(folder.id)}>
+                                <span className="material-icons">delete</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}
