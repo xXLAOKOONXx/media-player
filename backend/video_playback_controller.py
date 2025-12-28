@@ -25,6 +25,10 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
+# Constants for duration extraction
+FFPROBE_TIMEOUT = 5  # Seconds to wait for ffprobe to complete
+
+
 def get_video_duration(video_path):
     """Get video duration using ffprobe or fallback methods
     
@@ -40,7 +44,7 @@ def get_video_duration(video_path):
              '-of', 'json', video_path],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=FFPROBE_TIMEOUT
         )
         if result.returncode == 0:
             data = json.loads(result.stdout)
@@ -66,14 +70,16 @@ def get_video_duration(video_path):
             if duration:
                 return float(duration)
         except Exception as e:
-            # Catch all MPV exceptions as they can vary
+            # MPV can raise various exceptions depending on the error
+            # (MPVError, SystemError, etc.). Catch all to ensure robustness.
             logger.debug(f"MPV duration extraction failed for {video_path}: {e}")
         finally:
             if temp_player:
                 try:
                     temp_player.terminate()
                 except Exception:
-                    pass  # Ignore cleanup errors
+                    # Ignore all cleanup errors
+                    pass
     
     return None
 
@@ -310,6 +316,7 @@ class VideoPlaybackController:
                             current_track['duration'] = float(self.player.duration)
                             logger.info(f"Got duration from MPV: {current_track['duration']}s")
                     except Exception as e:
+                        # MPV operations can raise various exceptions
                         logger.debug(f"Could not get duration from MPV: {e}")
                 
                 logger.info(f"Playing video {self.current_track_index + 1}/{len(self.current_playlist)}: {video_path}")
