@@ -64,24 +64,28 @@ function VideoPage({ currentUser }: VideoPageProps) {
         >
           Player
         </button>
-        <button 
-          className={activeTab === 'playlists' ? 'active' : ''} 
-          onClick={() => handleTabChange('playlists')}
-        >
-          Playlists
-        </button>
-        <button 
-          className={activeTab === 'library' ? 'active' : ''} 
-          onClick={() => handleTabChange('library')}
-        >
-          Library
-        </button>
-        <button 
-          className={activeTab === 'settings' ? 'active' : ''} 
-          onClick={() => handleTabChange('settings')}
-        >
-          Settings
-        </button>
+        {currentUser.role === 'admin' && (
+          <>
+            <button 
+              className={activeTab === 'playlists' ? 'active' : ''} 
+              onClick={() => handleTabChange('playlists')}
+            >
+              Playlists
+            </button>
+            <button 
+              className={activeTab === 'library' ? 'active' : ''} 
+              onClick={() => handleTabChange('library')}
+            >
+              Library
+            </button>
+            <button 
+              className={activeTab === 'settings' ? 'active' : ''} 
+              onClick={() => handleTabChange('settings')}
+            >
+              Settings
+            </button>
+          </>
+        )}
       </nav>
 
       <main className="video-main">
@@ -92,15 +96,15 @@ function VideoPage({ currentUser }: VideoPageProps) {
           </div>
         )}
         
-        {activeTab === 'playlists' && (
+        {currentUser.role === 'admin' && activeTab === 'playlists' && (
           <VideoPlaylistManager />
         )}
         
-        {activeTab === 'library' && (
+        {currentUser.role === 'admin' && activeTab === 'library' && (
           <VideoLibrary />
         )}
         
-        {activeTab === 'settings' && (
+        {currentUser.role === 'admin' && activeTab === 'settings' && (
           <SettingsManager currentUser={currentUser} />
         )}
       </main>

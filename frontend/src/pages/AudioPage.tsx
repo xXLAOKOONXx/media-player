@@ -65,30 +65,34 @@ function AudioPage({ currentUser }: AudioPageProps) {
         >
           Player
         </button>
-        <button 
-          className={activeTab === 'playlists' ? 'active' : ''} 
-          onClick={() => handleTabChange('playlists')}
-        >
-          Playlists
-        </button>
-        <button 
-          className={activeTab === 'music' ? 'active' : ''} 
-          onClick={() => handleTabChange('music')}
-        >
-          Music
-        </button>
-        <button 
-          className={activeTab === 'soundeffects' ? 'active' : ''} 
-          onClick={() => handleTabChange('soundeffects')}
-        >
-          Sound Effects
-        </button>
-        <button 
-          className={activeTab === 'settings' ? 'active' : ''} 
-          onClick={() => handleTabChange('settings')}
-        >
-          Settings
-        </button>
+        {currentUser.role === 'admin' && (
+          <>
+            <button 
+              className={activeTab === 'playlists' ? 'active' : ''} 
+              onClick={() => handleTabChange('playlists')}
+            >
+              Playlists
+            </button>
+            <button 
+              className={activeTab === 'music' ? 'active' : ''} 
+              onClick={() => handleTabChange('music')}
+            >
+              Music
+            </button>
+            <button 
+              className={activeTab === 'soundeffects' ? 'active' : ''} 
+              onClick={() => handleTabChange('soundeffects')}
+            >
+              Sound Effects
+            </button>
+            <button 
+              className={activeTab === 'settings' ? 'active' : ''} 
+              onClick={() => handleTabChange('settings')}
+            >
+              Settings
+            </button>
+          </>
+        )}
       </nav>
 
       <main className="App-main">
@@ -99,19 +103,19 @@ function AudioPage({ currentUser }: AudioPageProps) {
           </div>
         )}
         
-        {activeTab === 'playlists' && (
+        {currentUser.role === 'admin' && activeTab === 'playlists' && (
           <PlaylistManager />
         )}
         
-        {activeTab === 'music' && (
+        {currentUser.role === 'admin' && activeTab === 'music' && (
           <MusicManager />
         )}
         
-        {activeTab === 'soundeffects' && (
+        {currentUser.role === 'admin' && activeTab === 'soundeffects' && (
           <SoundEffectsManager />
         )}
         
-        {activeTab === 'settings' && (
+        {currentUser.role === 'admin' && activeTab === 'settings' && (
           <SettingsManager currentUser={currentUser} />
         )}
       </main>
