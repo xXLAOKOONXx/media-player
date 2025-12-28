@@ -40,7 +40,6 @@ library_manager = LibraryManager()
 sound_effects_manager = SoundEffectsManager()
 music_manager = MusicManager(use_cache=True)
 video_manager = VideoManager(use_cache=True)
-video_playback_controller = VideoPlaybackController()
 
 # Initialize unified database
 db = DatabaseManager()
@@ -106,6 +105,13 @@ crossfade_config = config.get('crossfade', {
     'fade_out_start_before_end_ms': 5000
 })
 playback_controller = PlaybackController(crossfade_config=crossfade_config)
+
+# Initialize video playback controller with video settings
+video_config = config.get('video', {
+    'fullscreen': True,
+    'preferred_screen': None
+})
+video_playback_controller = VideoPlaybackController(video_config=video_config)
 
 # Network Storage Management APIs
 @app.route('/api/audio/storage', methods=['GET'])
@@ -900,7 +906,8 @@ def update_settings():
                 config['video'] = {}
             config['video'].update(video_data)
             
-            # TODO: Apply video settings to video playback controller when available
+            # Apply video settings to video playback controller
+            video_playback_controller.update_video_config(video_data)
         
         # Save config
         save_config(config)
