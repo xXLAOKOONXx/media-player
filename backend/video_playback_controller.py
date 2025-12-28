@@ -7,7 +7,7 @@ Falls back to state-only mode if mpv is not available
 try:
     import mpv
     MPV_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     MPV_AVAILABLE = False
     print("Warning: python-mpv not available, video will only play client-side")
 
