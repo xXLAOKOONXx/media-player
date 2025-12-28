@@ -11,13 +11,20 @@ except ImportError:
     MPV_AVAILABLE = False
     print("Warning: python-mpv not available, video will only play client-side")
 
+try:
+    from mutagen.mp4 import MP4, MP4StreamInfoError
+    MUTAGEN_AVAILABLE = True
+except ImportError:
+    MUTAGEN_AVAILABLE = False
+    MP4 = None
+    MP4StreamInfoError = None
+    print("Warning: mutagen not available for video duration extraction")
+
 import os
 from pathlib import Path
 import random
 import copy
 import logging
-import subprocess
-import json
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
@@ -25,39 +32,26 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
-# Constants for duration extraction
-FFPROBE_TIMEOUT = 5  # Seconds to wait for ffprobe to complete
-
-
 def get_video_duration(video_path):
-    """Get video duration using ffprobe or fallback methods
+    """Get video duration using mutagen or fallback methods
     
     Returns duration in seconds as a float, or None if unable to determine
     """
     if not os.path.exists(video_path):
         return None
     
-    # Try using ffprobe (most reliable)
-    try:
-        result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', 
-             '-of', 'json', video_path],
-            capture_output=True,
-            text=True,
-            timeout=FFPROBE_TIMEOUT
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            if 'format' in data and 'duration' in data['format']:
-                return float(data['format']['duration'])
-    except subprocess.TimeoutExpired as e:
-        logger.debug(f"ffprobe timeout for {video_path}: {e}")
-    except FileNotFoundError:
-        logger.debug(f"ffprobe not found, skipping ffprobe for {video_path}")
-    except json.JSONDecodeError as e:
-        logger.debug(f"ffprobe JSON decode error for {video_path}: {e}")
-    except (ValueError, KeyError) as e:
-        logger.debug(f"ffprobe data parsing error for {video_path}: {e}")
+    # Try using mutagen for MP4 files (most reliable and doesn't require external tools)
+    if MUTAGEN_AVAILABLE:
+        try:
+            video = MP4(video_path)
+            if video.info and hasattr(video.info, 'length'):
+                duration = video.info.length
+                if duration and duration > 0:
+                    return float(duration)
+        except MP4StreamInfoError as e:
+            logger.debug(f"Mutagen MP4 stream error for {video_path}: {e}")
+        except Exception as e:
+            logger.debug(f"Mutagen failed to extract duration from {video_path}: {e}")
     
     # Fallback: Try using MPV in a temporary instance
     if MPV_AVAILABLE:

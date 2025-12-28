@@ -64,7 +64,7 @@ Video playback uses **server-side rendering with MPV player** (similar to audio 
    - **Server-side video playback** using MPV player
    - Opens videos in **fullscreen by default**
    - **Auto-starts playback** when videos are added to playlist
-   - **Extracts video duration** using ffprobe or MPV for timeline display
+   - **Extracts video duration** using mutagen (for MP4) or MPV fallback for timeline display
    - Manages playlist state and navigation
    - Tracks playback status and position
    - Handles shuffle and repeat modes
