@@ -106,9 +106,11 @@ MPV supports a wide range of video formats with hardware acceleration:
 
 ### Server-side Video Playback Setup
 
+> **⚠️ Important:** The **libmpv** library must be installed and available on the server for video playback to work. This is the shared library that python-mpv bindings use to interface with MPV.
+
 **Required Software:**
 
-1. **MPV Media Player**
+1. **MPV Media Player and libmpv library**
    ```bash
    # Raspberry Pi / Debian / Ubuntu
    sudo apt install mpv libmpv2
