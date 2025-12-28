@@ -167,7 +167,7 @@ class VideoPlaybackController:
     
     def add_tracks(self, track_paths):
         """Add tracks to the current playlist and auto-start if not playing"""
-        added_count = 0
+        valid_tracks_added = 0
         was_empty = len(self.current_playlist) == 0
         
         for path in track_paths:
@@ -178,14 +178,14 @@ class VideoPlaybackController:
                     'start_time': None,
                     'end_time': None
                 })
-                added_count += 1
+                valid_tracks_added += 1
         
         if not self.original_playlist:
             self.original_playlist = copy.deepcopy(self.current_playlist)
         
-        # Auto-start playback if playlist was empty and videos were added
-        if was_empty and added_count > 0 and not self.is_playing:
-            logger.info(f"Auto-starting playback after adding {added_count} video(s)")
+        # Auto-start playback if playlist was empty, videos were added, and not currently playing/paused
+        if was_empty and valid_tracks_added > 0 and not self.is_playing and not self.is_paused:
+            logger.info(f"Auto-starting playback after adding {valid_tracks_added} video(s)")
             self.play()
         
         return True
