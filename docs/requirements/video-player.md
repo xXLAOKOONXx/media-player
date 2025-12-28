@@ -34,6 +34,13 @@ When a `current_track` exists:
 - Conditionally show:
   - Custom Range line if either `current_track.start_time` or `current_track.end_time` is not null.
 
+Notes:
+- `current_track.start_time` and `current_track.end_time` can be set either by explicit user edits (track times API) or derived automatically from per-file metadata.
+- For MP4/M4V files, the backend recognizes iTunes freeform tags:
+  - `----:LAO:music-start` (milliseconds) → `current_track.start_time` (seconds)
+  - `----:LAO:music-end` (milliseconds) → `current_track.end_time` (seconds)
+- If `current_track.end_time` is set, the backend auto-advances to the next video when the playback position reaches that end time.
+
 ### Progress + seeking
 
 Controls:

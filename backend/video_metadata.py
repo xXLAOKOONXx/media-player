@@ -17,6 +17,56 @@ except ImportError:
     MP4StreamInfoError = None
 
 
+# Custom MP4 freeform atoms used by this app for per-file trim points.
+# These are iTunes-style freeform tags stored under the '----' atom.
+START_TIME_IN_MS_TAG = '----:LAO:music-start'
+END_TIME_IN_MS_TAG = '----:LAO:music-end'
+
+
+def _coerce_int_ms(value: Any) -> Optional[int]:
+    """Coerce an arbitrary metadata value into an integer milliseconds value."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        try:
+            value = bytes(value).decode('utf-8', errors='ignore')
+        except Exception:
+            return None
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        try:
+            return int(float(s))
+        except ValueError:
+            return None
+    return None
+
+
+def _read_mp4_freeform_ms_tag(video: Any, tag_name: str) -> Optional[int]:
+    """Read a mutagen MP4 freeform tag and parse it as milliseconds.
+
+    Mutagen typically returns a list of MP4FreeForm objects (bytes-like).
+    """
+    try:
+        tags = getattr(video, 'tags', None)
+        if not tags or tag_name not in tags:
+            return None
+
+        raw = tags.get(tag_name)
+        if isinstance(raw, (list, tuple)) and raw:
+            raw = raw[0]
+        return _coerce_int_ms(raw)
+    except Exception:
+        return None
+
+
 # NFO field mappings based on issue description
 NFO_FIELD_MAP = {
     'start_time_in_ms': 'start_time_in_ms',
@@ -81,6 +131,10 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
                         metadata[field_name].append(text_value)
                     else:
                         metadata[field_name] = [text_value]
+                elif field_name in ('start_time_in_ms', 'end_time_in_ms'):
+                    coerced = _coerce_int_ms(text_value)
+                    if coerced is not None:
+                        metadata[field_name] = coerced
                 else:
                     metadata[field_name] = text_value
         
@@ -114,13 +168,22 @@ def read_video_metadata(
     """
     metadata = {}
     
-    # First, try to read from video file itself (MP4 only for now)
-    if MUTAGEN_AVAILABLE and include_duration:
+    # First, try to read from video file itself (MP4/M4V only for now)
+    if MUTAGEN_AVAILABLE:
         ext = Path(file_path).suffix.lower()
-        if ext == '.mp4' or ext == '.m4v':
+        if ext in ('.mp4', '.m4v'):
             try:
                 video = MP4(file_path)
-                if video.info and hasattr(video.info, 'length'):
+
+                # Custom trim points (milliseconds)
+                start_ms = _read_mp4_freeform_ms_tag(video, START_TIME_IN_MS_TAG)
+                end_ms = _read_mp4_freeform_ms_tag(video, END_TIME_IN_MS_TAG)
+                if start_ms is not None:
+                    metadata['start_time_in_ms'] = start_ms
+                if end_ms is not None:
+                    metadata['end_time_in_ms'] = end_ms
+
+                if include_duration and video.info and hasattr(video.info, 'length'):
                     duration = video.info.length
                     if duration and duration > 0:
                         metadata['duration'] = duration
