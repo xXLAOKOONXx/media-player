@@ -13,11 +13,13 @@ The application now uses URL-based navigation:
 - [`/audio/music`](music.md) - Music library
 - [`/audio/soundeffects`](sound-effects.md) - Sound effects
 - [`/audio/storage`](storage.md) - Storage management
+- [`/audio/settings`](settings.md) - Application settings
 
 ### Video Routes
 - [`/video/player`](video-player.md) - Video player view with playback controls
 - [`/video/playlists`](video.md#playlists-tab) - Video playlist management
 - [`/video/library`](video-library.md) - Video library management
+- [`/video/settings`](settings.md) - Application settings
 - [`/video`](video.md) - Video main page (redirects to `/video/player`)
 
 ### Default Routes
