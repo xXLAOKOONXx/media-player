@@ -85,7 +85,7 @@ class VideoPlaybackController:
     DEFAULT_VOLUME = 50  # Volume as integer 0-100
     DURATION_DETECTION_TIMEOUT = 2  # Seconds to wait for duration during playback
     
-    def __init__(self):
+    def __init__(self, video_config=None):
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
@@ -102,6 +102,12 @@ class VideoPlaybackController:
         self.track_custom_start = None  # Custom start time in track (seconds)
         self.track_custom_end = None  # Custom end time in track (seconds)
         
+        # Video configuration
+        self.video_config = video_config or {
+            'fullscreen': True,
+            'preferred_screen': None
+        }
+        
         # MPV player instance
         self.player = None
         self.video_available = False
@@ -109,13 +115,22 @@ class VideoPlaybackController:
         # Initialize mpv if available
         if MPV_AVAILABLE:
             try:
-                self.player = mpv.MPV(
-                    input_default_bindings=True,
-                    input_vo_keyboard=True,
-                    osc=True,  # On-screen controller
-                    ytdl=False,  # Don't use youtube-dl
-                    fullscreen=True,  # Start in fullscreen by default
-                )
+                # Build MPV initialization parameters
+                mpv_params = {
+                    'input_default_bindings': True,
+                    'input_vo_keyboard': True,
+                    'osc': True,  # On-screen controller
+                    'ytdl': False,  # Don't use youtube-dl
+                    'fullscreen': self.video_config.get('fullscreen', True),
+                }
+                
+                # Add screen selection if specified
+                preferred_screen = self.video_config.get('preferred_screen')
+                if preferred_screen is not None:
+                    # MPV uses 'screen' property to specify which screen to use
+                    mpv_params['screen'] = preferred_screen
+                
+                self.player = mpv.MPV(**mpv_params)
                 # Set up event handlers
                 @self.player.property_observer('time-pos')
                 def time_observer(_name, value):
@@ -166,6 +181,77 @@ class VideoPlaybackController:
                 logger.info("Video player cleaned up")
             except Exception as e:
                 logger.error(f"Error cleaning up video player: {e}")
+    
+    def update_video_config(self, config):
+        """Update video configuration settings
+        
+        Note: Changes to screen and fullscreen settings require restarting
+        the MPV player instance to take effect. This method will reinitialize
+        the player if it's available and MPV is installed.
+        
+        Args:
+            config: Dictionary with video configuration options
+                   - fullscreen: boolean
+                   - preferred_screen: int, string, or None
+        """
+        if config:
+            self.video_config.update(config)
+            logger.info(f"Video config updated: {self.video_config}")
+            
+            # Reinitialize MPV player to apply new settings
+            if MPV_AVAILABLE:
+                was_playing = self.is_playing
+                current_index = self.current_track_index
+                
+                # Clean up existing player
+                if self.player:
+                    try:
+                        self.player.terminate()
+                    except Exception as e:
+                        logger.debug(f"Error terminating player during config update: {e}")
+                
+                # Reinitialize with new settings
+                try:
+                    mpv_params = {
+                        'input_default_bindings': True,
+                        'input_vo_keyboard': True,
+                        'osc': True,
+                        'ytdl': False,
+                        'fullscreen': self.video_config.get('fullscreen', True),
+                    }
+                    
+                    preferred_screen = self.video_config.get('preferred_screen')
+                    if preferred_screen is not None:
+                        mpv_params['screen'] = preferred_screen
+                    
+                    self.player = mpv.MPV(**mpv_params)
+                    
+                    # Re-setup event handlers
+                    @self.player.property_observer('time-pos')
+                    def time_observer(_name, value):
+                        if value is not None:
+                            self.current_position = value
+                    
+                    @self.player.event_callback('end-file')
+                    def end_file_callback(_event):
+                        logger.info("Video ended, playing next")
+                        self._handle_video_end()
+                    
+                    self.video_available = True
+                    logger.info("MPV player reinitialized with new settings")
+                    
+                    # Resume playback if it was playing before
+                    if was_playing and self.current_playlist:
+                        self.current_track_index = current_index
+                        self.play()
+                        
+                except Exception as e:
+                    logger.error(f"Failed to reinitialize MPV player: {e}")
+                    self.video_available = False
+    
+    def get_video_config(self):
+        """Get current video configuration"""
+        return self.video_config.copy()
     
     def _handle_video_end(self):
         """Handle video end event"""
