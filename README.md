@@ -352,10 +352,12 @@ The video player supports the following formats (via HTML5 video):
 
 The media player supports **server-side video playback** using the MPV player, similar to how audio uses pygame. Videos play on the server's display output (HDMI/monitor), making it ideal for Raspberry Pi setups connected to TVs.
 
+> **⚠️ Important:** The **libmpv** library must be installed and available on the server for video playback to work. This is the shared library that python-mpv bindings use to interface with MPV.
+
 ##### Server-side Playback Setup (Recommended for Raspberry Pi)
 
 **Prerequisites:**
-1. **Install MPV player**:
+1. **Install MPV player and libmpv library**:
    ```bash
    # On Raspberry Pi / Debian / Ubuntu
    sudo apt install mpv libmpv2
