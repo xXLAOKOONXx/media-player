@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import type { User } from '../types';
 import PlaylistManager from '../components/PlaylistManager';
 import PlaybackControls from '../components/PlaybackControls';
 import NowPlaying from '../components/NowPlaying';
@@ -9,12 +10,6 @@ import SettingsManager from '../components/SettingsManager';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-}
 
 interface AudioPageProps {
   currentUser: User;

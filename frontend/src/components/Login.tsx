@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import './Login.css';
 
 const API_BASE_URL = '';
-
-interface User {
-  id: number;
-  username: string;
-  role: string;
-}
 
 interface LoginProps {
   onLoginSuccess: (user: User) => void;
@@ -91,7 +86,6 @@ function Login({ onLoginSuccess }: LoginProps) {
   };
 
   const selectedUserObj = users.find(u => u.username === selectedUser);
-  const needsPassword = selectedUserObj?.role === 'admin' && password === '';
 
   return (
     <div className="login-container">
