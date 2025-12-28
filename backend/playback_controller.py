@@ -20,6 +20,7 @@ import logging
 import re
 
 from audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
+from services.basic_file_operation import get_actual_path_with_correct_case
 
 # Configure logging for performance monitoring
 # Note: This is a module-level logger. Applications can configure the root logger
@@ -581,7 +582,9 @@ class PlaybackController:
         if elapsed >= threshold:
             # Record the stat
             try:
-                folder_path = os.path.dirname(os.path.abspath(track_path))
+                # Get the full path with correct casing
+                actual_path = get_actual_path_with_correct_case(track_path)
+                folder_path = os.path.dirname(actual_path)
                 if self.stats_manager.record_media_stat(folder_path, self.current_username):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {track_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
