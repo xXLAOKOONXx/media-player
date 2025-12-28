@@ -3,7 +3,7 @@ Media Player Backend
 Main Flask application for media player control
 """
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, make_response
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -40,6 +40,7 @@ from audio_metadata import display_title, read_audio_metadata
 from video_playback_controller import VideoPlaybackController
 from video_manager import VideoManager
 from database_manager import DatabaseManager
+from user_manager import UserManager, require_admin
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -66,6 +67,9 @@ video_manager = VideoManager(use_cache=True)
 
 # Initialize unified database
 db = DatabaseManager()
+
+# Initialize user manager
+user_manager = UserManager(db)
 
 # Legacy config file support (for migration)
 CONFIG_FILE = 'config.json'
@@ -136,6 +140,129 @@ video_config = config.get('video', {
 })
 video_playback_controller = VideoPlaybackController(video_config=video_config)
 
+# Authentication APIs
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """Authenticate a user and create a session"""
+    data = request.json
+    username = data.get('username')
+    password = data.get('password', '')
+    
+    user = user_manager.authenticate(username, password)
+    
+    if not user:
+        return jsonify({'error': 'Invalid username or password'}), 401
+    
+    # Create session
+    session_id = user_manager.create_session(user['id'])
+    
+    # Return user info and set session cookie
+    response = make_response(jsonify({
+        'id': user['id'],
+        'username': user['username'],
+        'role': user['role']
+    }))
+    
+    # Set session cookie (httponly for security)
+    response.set_cookie('session_id', session_id, httponly=True, max_age=30*24*60*60, samesite='Lax')
+    
+    return response
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    """Logout a user by deleting their session"""
+    session_id = request.cookies.get('session_id')
+    user_manager.logout(session_id)
+    
+    response = make_response(jsonify({'message': 'Logged out successfully'}))
+    response.set_cookie('session_id', '', expires=0)
+    
+    return response
+
+@app.route('/api/auth/current-user', methods=['GET'])
+def get_current_user():
+    """Get the current authenticated user"""
+    session_id = request.cookies.get('session_id')
+    user = user_manager.get_user_from_session(session_id)
+    
+    if not user:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    return jsonify({
+        'id': user['id'],
+        'username': user['username'],
+        'role': user['role']
+    })
+
+# User Management APIs (admin only)
+@app.route('/api/users', methods=['GET'])
+@require_admin(user_manager)
+def get_users():
+    """Get all users (admin only)"""
+    users = user_manager.get_all_users()
+    return jsonify(users)
+
+@app.route('/api/users', methods=['POST'])
+@require_admin(user_manager)
+def create_user():
+    """Create a new user (admin only)"""
+    data = request.json
+    username = data.get('username')
+    password = data.get('password', '')
+    role = data.get('role', 'custom')
+    
+    # Validate role
+    if role not in ['admin', 'default', 'custom']:
+        return jsonify({'error': 'Invalid role'}), 400
+    
+    # Don't allow creating additional admin or default users
+    if role in ['admin', 'default']:
+        return jsonify({'error': 'Cannot create additional admin or default users'}), 400
+    
+    user_id = user_manager.create_user(username, password if password else None, role)
+    
+    if user_id is None:
+        return jsonify({'error': 'Username already exists'}), 409
+    
+    return jsonify({'id': user_id, 'username': username, 'role': role}), 201
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@require_admin(user_manager)
+def delete_user(user_id):
+    """Delete a user (admin only)"""
+    # Get user to check if it's a system user
+    user = db.get_user_by_id(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Don't allow deleting admin or default users
+    if user['role'] in ['admin', 'default']:
+        return jsonify({'error': 'Cannot delete system users'}), 400
+    
+    user_manager.delete_user(user_id)
+    return '', 204
+
+@app.route('/api/users/<int:user_id>/password', methods=['PUT'])
+@require_admin(user_manager)
+def update_user_password(user_id):
+    """Update a user's password (admin only)"""
+    data = request.json
+    new_password = data.get('password', '')
+    
+    # Get user to check if it exists
+    user = db.get_user_by_id(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Only allow setting password for admin user
+    if user['role'] != 'admin':
+        return jsonify({'error': 'Can only set password for admin user'}), 400
+    
+    user_manager.update_password(user_id, new_password if new_password else None)
+    return jsonify({'message': 'Password updated successfully'})
+
 # Network Storage Management APIs
 @app.route('/api/audio/storage', methods=['GET'])
 def get_storages():
@@ -144,6 +271,7 @@ def get_storages():
     return jsonify(config.get('network_storages', []))
 
 @app.route('/api/audio/storage', methods=['POST'])
+@require_admin(user_manager)
 def add_storage():
     """Add a new network storage"""
     data = request.json
@@ -168,6 +296,7 @@ def add_storage():
     return jsonify(storage), 201
 
 @app.route('/api/audio/storage/<int:storage_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_storage(storage_id):
     """Delete a network storage"""
     config = load_config()
@@ -183,6 +312,7 @@ def get_playlists():
     return jsonify(config.get('playlists', config.get('libraries', [])))
 
 @app.route('/api/audio/playlists', methods=['POST'])
+@require_admin(user_manager)
 def add_playlist():
     """Add a new playlist folder"""
     data = request.json
@@ -208,6 +338,7 @@ def add_playlist():
     return jsonify(playlist_folder), 201
 
 @app.route('/api/audio/playlists/<int:playlist_id>', methods=['PUT'])
+@require_admin(user_manager)
 def rename_playlist(playlist_id):
     """Rename a playlist folder"""
     data = request.json
@@ -226,6 +357,7 @@ def rename_playlist(playlist_id):
     return jsonify({'error': 'Playlist folder not found'}), 404
 
 @app.route('/api/audio/playlists/<int:playlist_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_playlist(playlist_id):
     """Delete a playlist folder"""
     config = load_config()
@@ -282,6 +414,7 @@ def get_sound_effects_folders():
     return jsonify(config.get('sound_effects', []))
 
 @app.route('/api/audio/soundeffects', methods=['POST'])
+@require_admin(user_manager)
 def add_sound_effects_folder():
     """Add a new sound effects folder"""
     data = request.json
@@ -307,6 +440,7 @@ def add_sound_effects_folder():
     return jsonify(sound_effects_folder), 201
 
 @app.route('/api/audio/soundeffects/<int:folder_id>', methods=['PUT'])
+@require_admin(user_manager)
 def rename_sound_effects_folder(folder_id):
     """Rename a sound effects folder"""
     data = request.json
@@ -323,6 +457,7 @@ def rename_sound_effects_folder(folder_id):
     return jsonify({'error': 'Sound effects folder not found'}), 404
 
 @app.route('/api/audio/soundeffects/<int:folder_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_sound_effects_folder(folder_id):
     """Delete a sound effects folder"""
     config = load_config()
@@ -367,6 +502,7 @@ def get_music_folders():
     return jsonify(config.get('music_folders', []))
 
 @app.route('/api/audio/music', methods=['POST'])
+@require_admin(user_manager)
 def add_music_folder():
     """Add a new music folder"""
     data = request.json
@@ -393,6 +529,7 @@ def add_music_folder():
     return jsonify(music_folder), 201
 
 @app.route('/api/audio/music/<int:folder_id>', methods=['PUT'])
+@require_admin(user_manager)
 def update_music_folder(folder_id):
     """Update a music folder"""
     data = request.json
@@ -411,6 +548,7 @@ def update_music_folder(folder_id):
     return jsonify({'error': 'Music folder not found'}), 404
 
 @app.route('/api/audio/music/<int:folder_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_music_folder(folder_id):
     """Delete a music folder"""
     config = load_config()
@@ -515,6 +653,7 @@ def get_playlists_folder():
     return jsonify({'path': config.get('playlist_folder_path', '')})
 
 @app.route('/api/audio/music/playlists-folder', methods=['PUT'])
+@require_admin(user_manager)
 def set_playlists_folder():
     """Set the playlist folder path"""
     data = request.json
@@ -530,6 +669,7 @@ def set_playlists_folder():
     return jsonify({'path': path})
 
 @app.route('/api/audio/music/playlists/create', methods=['POST'])
+@require_admin(user_manager)
 def create_music_playlist():
     """Create a new M3U playlist from selected tracks"""
     data = request.json
@@ -575,6 +715,7 @@ def create_music_playlist():
         return jsonify({'error': 'Failed to create playlist'}), 500
 
 @app.route('/api/audio/music/playlists/<path:playlist_name>/add-track', methods=['POST'])
+@require_admin(user_manager)
 def add_track_to_music_playlist(playlist_name):
     """Add a track to an existing playlist"""
     data = request.json
@@ -882,6 +1023,7 @@ def get_settings():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/settings', methods=['PUT'])
+@require_admin(user_manager)
 def update_settings():
     """Update application settings"""
     try:
@@ -958,6 +1100,7 @@ def get_video_libraries():
     return jsonify(config.get('video_libraries', []))
 
 @app.route('/api/video/libraries', methods=['POST'])
+@require_admin(user_manager)
 def add_video_library():
     """Add a new video library folder"""
     data = request.json
@@ -983,6 +1126,7 @@ def add_video_library():
     return jsonify(library), 201
 
 @app.route('/api/video/libraries/<int:library_id>', methods=['PUT'])
+@require_admin(user_manager)
 def update_video_library(library_id):
     """Update a video library"""
     data = request.json
@@ -999,6 +1143,7 @@ def update_video_library(library_id):
     return jsonify({'error': 'Video library not found'}), 404
 
 @app.route('/api/video/libraries/<int:library_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_video_library(library_id):
     """Delete a video library"""
     config = load_config()
@@ -1040,6 +1185,7 @@ def get_video_playlists():
     return jsonify(config.get('video_playlists', []))
 
 @app.route('/api/video/playlists', methods=['POST'])
+@require_admin(user_manager)
 def add_video_playlist_folder():
     """Add a new video playlist folder"""
     data = request.json
@@ -1064,6 +1210,7 @@ def add_video_playlist_folder():
     return jsonify(playlist_folder), 201
 
 @app.route('/api/video/playlists/<int:folder_id>', methods=['PUT'])
+@require_admin(user_manager)
 def update_video_playlist_folder(folder_id):
     """Update a video playlist folder"""
     data = request.json
@@ -1080,6 +1227,7 @@ def update_video_playlist_folder(folder_id):
     return jsonify({'error': 'Video playlist folder not found'}), 404
 
 @app.route('/api/video/playlists/<int:folder_id>', methods=['DELETE'])
+@require_admin(user_manager)
 def delete_video_playlist_folder(folder_id):
     """Delete a video playlist folder"""
     config = load_config()
@@ -1108,6 +1256,7 @@ def get_video_playlists_folder():
     return jsonify({'path': config.get('video_playlist_folder_path', '')})
 
 @app.route('/api/video/playlists-folder', methods=['PUT'])
+@require_admin(user_manager)
 def set_video_playlists_folder():
     """Set the video playlist folder path"""
     data = request.json
@@ -1123,6 +1272,7 @@ def set_video_playlists_folder():
     return jsonify({'path': path})
 
 @app.route('/api/video/playlists/create', methods=['POST'])
+@require_admin(user_manager)
 def create_video_playlist():
     """Create a new M3U playlist from selected videos"""
     data = request.json
@@ -1156,6 +1306,7 @@ def create_video_playlist():
         return jsonify({'error': 'Failed to create playlist'}), 500
 
 @app.route('/api/video/playlists/<playlist_name>/add-video', methods=['POST'])
+@require_admin(user_manager)
 def add_video_to_playlist(playlist_name):
     """Add a video to an existing playlist"""
     data = request.json
@@ -1315,6 +1466,7 @@ def stream_video(video_path):
 
 # Browse filesystem
 @app.route('/api/browse', methods=['POST'])
+@require_admin(user_manager)
 def browse_path():
     """Browse filesystem path"""
     data = request.json

@@ -117,14 +117,41 @@ class DatabaseManager:
             )
         ''')
         
+        # Users table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT,
+                role TEXT NOT NULL,
+                created_at REAL NOT NULL
+            )
+        ''')
+        
+        # Sessions table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at REAL NOT NULL,
+                expires_at REAL NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+        
         # Create indexes for faster lookups
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_folder ON music_tracks (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_path ON music_tracks (file_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_folder ON videos (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_path ON videos (file_path)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at)')
         
         conn.commit()
         conn.close()
+        
+        # Initialize default users if they don't exist
+        self._init_default_users()
     
     def _get_connection(self):
         """Get a database connection with configured timeout"""
@@ -549,6 +576,212 @@ class DatabaseManager:
         cursor.execute('DELETE FROM music_folders')
         cursor.execute('DELETE FROM videos')
         cursor.execute('DELETE FROM video_folders')
+        
+        conn.commit()
+        conn.close()
+    
+    # User management methods
+    def _init_default_users(self):
+        """Initialize default admin and default users if they don't exist"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Check if any users exist
+        cursor.execute('SELECT COUNT(*) FROM users')
+        count = cursor.fetchone()[0]
+        
+        if count == 0:
+            # Create default admin user (no password initially)
+            current_time = datetime.now().timestamp()
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?)
+            ''', ('admin', None, 'admin', current_time))
+            
+            # Create default user (no password, restricted rights)
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?)
+            ''', ('default', None, 'default', current_time))
+            
+            conn.commit()
+        
+        conn.close()
+    
+    def create_user(self, username, password_hash, role):
+        """Create a new user"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        current_time = datetime.now().timestamp()
+        
+        try:
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?)
+            ''', (username, password_hash, role, current_time))
+            
+            user_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return user_id
+        except sqlite3.IntegrityError:
+            conn.close()
+            return None
+    
+    def get_user_by_username(self, username):
+        """Get user by username"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, username, password_hash, role, created_at
+            FROM users
+            WHERE username = ?
+        ''', (username,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row[0],
+                'username': row[1],
+                'password_hash': row[2],
+                'role': row[3],
+                'created_at': row[4]
+            }
+        return None
+    
+    def get_user_by_id(self, user_id):
+        """Get user by ID"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, username, password_hash, role, created_at
+            FROM users
+            WHERE id = ?
+        ''', (user_id,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row[0],
+                'username': row[1],
+                'password_hash': row[2],
+                'role': row[3],
+                'created_at': row[4]
+            }
+        return None
+    
+    def get_all_users(self):
+        """Get all users"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, username, role, created_at
+            FROM users
+            ORDER BY username
+        ''')
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        users = []
+        for row in rows:
+            users.append({
+                'id': row[0],
+                'username': row[1],
+                'role': row[2],
+                'created_at': row[3]
+            })
+        
+        return users
+    
+    def update_user_password(self, user_id, password_hash):
+        """Update user password"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE users
+            SET password_hash = ?
+            WHERE id = ?
+        ''', (password_hash, user_id))
+        
+        conn.commit()
+        conn.close()
+    
+    def delete_user(self, user_id):
+        """Delete a user"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+    
+    def create_session(self, session_id, user_id, expires_at):
+        """Create a new session"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        current_time = datetime.now().timestamp()
+        
+        cursor.execute('''
+            INSERT INTO sessions (id, user_id, created_at, expires_at)
+            VALUES (?, ?, ?, ?)
+        ''', (session_id, user_id, current_time, expires_at))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_session(self, session_id):
+        """Get session by ID"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, user_id, created_at, expires_at
+            FROM sessions
+            WHERE id = ?
+        ''', (session_id,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row[0],
+                'user_id': row[1],
+                'created_at': row[2],
+                'expires_at': row[3]
+            }
+        return None
+    
+    def delete_session(self, session_id):
+        """Delete a session"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+        
+        conn.commit()
+        conn.close()
+    
+    def cleanup_expired_sessions(self):
+        """Clean up expired sessions"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        current_time = datetime.now().timestamp()
+        
+        cursor.execute('DELETE FROM sessions WHERE expires_at < ?', (current_time,))
         
         conn.commit()
         conn.close()
