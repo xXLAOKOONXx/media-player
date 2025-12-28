@@ -7,7 +7,28 @@ from flask import Flask, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 import os
 import json
+import sys
+import logging
 from pathlib import Path
+
+
+def _configure_logging() -> None:
+    """Configure root logging once for console output.
+
+    Without this, Python may default to a WARNING-level "last resort" handler,
+    causing INFO logs from module loggers to never show up in the console.
+    """
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        return
+
+    level_name = os.getenv('LOG_LEVEL', 'INFO').upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
 
 # Import modules
 from storage_manager import StorageManager
@@ -26,6 +47,8 @@ from database_manager import DatabaseManager
 # We manually serve assets under /assets/* and use 404 handler for HTML.
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=None)
+
+_configure_logging()
 
 # Validate static folder exists
 if not os.path.exists(static_folder):
