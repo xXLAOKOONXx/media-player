@@ -1,13 +1,92 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './VideoPage.css';
+import VideoLibrary from '../components/VideoLibrary';
+import VideoPlaylistManager from '../components/VideoPlaylistManager';
+import VideoPlayer from '../components/VideoPlayer';
+import VideoPlaybackControls from '../components/VideoPlaybackControls';
+
+// Use relative URL - works for both dev (proxied) and production (same origin)
+const API_BASE_URL = '';
 
 function VideoPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Derive active tab from URL path
+  const getActiveTabFromPath = () => {
+    const path = location.pathname;
+    if (path.includes('/player')) return 'player';
+    if (path.includes('/playlists')) return 'playlists';
+    if (path.includes('/library')) return 'library';
+    return 'player'; // default
+  };
+
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player'>(getActiveTabFromPath());
+  const [playbackStatus, setPlaybackStatus] = useState<any>(null);
+
+  // Sync activeTab with URL changes
+  useEffect(() => {
+    setActiveTab(getActiveTabFromPath());
+  }, [location.pathname]);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    navigate(`/video/${tab}`);
+  };
+
+  useEffect(() => {
+    // Poll playback status
+    const interval = setInterval(() => {
+      fetch(`${API_BASE_URL}/api/video/playback/status`)
+        .then(res => res.json())
+        .then(data => setPlaybackStatus(data))
+        .catch(err => console.error('Error fetching status:', err));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="video-page">
-      <div className="under-construction">
-        <span className="material-icons construction-icon">build</span>
-        <h2>Under Construction</h2>
-        <p>Video player functionality is coming soon!</p>
-      </div>
+      <nav className="tabs">
+        <button 
+          className={activeTab === 'player' ? 'active' : ''} 
+          onClick={() => handleTabChange('player')}
+        >
+          Player
+        </button>
+        <button 
+          className={activeTab === 'playlists' ? 'active' : ''} 
+          onClick={() => handleTabChange('playlists')}
+        >
+          Playlists
+        </button>
+        <button 
+          className={activeTab === 'library' ? 'active' : ''} 
+          onClick={() => handleTabChange('library')}
+        >
+          Library
+        </button>
+      </nav>
+
+      <main className="video-main">
+        {activeTab === 'player' && (
+          <div className="player-view">
+            <VideoPlayer status={playbackStatus} />
+            <VideoPlaybackControls status={playbackStatus} onUpdate={() => {}} />
+          </div>
+        )}
+        
+        {activeTab === 'playlists' && (
+          <VideoPlaylistManager />
+        )}
+        
+        {activeTab === 'library' && (
+          <VideoLibrary />
+        )}
+      </main>
     </div>
   );
 }
