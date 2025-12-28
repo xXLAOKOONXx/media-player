@@ -82,6 +82,11 @@ def load_config():
             'duration_ms': 3000,
             'fade_out_start_before_end_ms': 5000
         }
+    if not config.get('video'):
+        config['video'] = {
+            'fullscreen': True,
+            'preferred_screen': None
+        }
     
     return config
 
@@ -816,6 +821,97 @@ def update_crossfade_config():
         save_config(config)
         
         return jsonify(playback_controller.get_crossfade_config())
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# General Settings APIs
+# ============================================
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Get all application settings"""
+    try:
+        config = load_config()
+        
+        # Provide defaults for all settings
+        settings = {
+            'crossfade': config.get('crossfade', {
+                'enabled': True,
+                'duration_ms': 3000,
+                'fade_out_start_before_end_ms': 5000
+            }),
+            'video': config.get('video', {
+                'fullscreen': True,
+                'preferred_screen': None
+            })
+        }
+        
+        return jsonify(settings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/settings', methods=['PUT'])
+def update_settings():
+    """Update application settings"""
+    try:
+        data = request.json
+        config = load_config()
+        
+        # Update crossfade settings if provided
+        if 'crossfade' in data:
+            crossfade_data = data['crossfade']
+            
+            # Validate crossfade input
+            if 'enabled' in crossfade_data and not isinstance(crossfade_data['enabled'], bool):
+                return jsonify({'error': 'crossfade.enabled must be a boolean'}), 400
+            
+            if 'duration_ms' in crossfade_data:
+                if not isinstance(crossfade_data['duration_ms'], (int, float)) or crossfade_data['duration_ms'] < 0:
+                    return jsonify({'error': 'crossfade.duration_ms must be a positive number'}), 400
+            
+            if 'fade_out_start_before_end_ms' in crossfade_data:
+                if not isinstance(crossfade_data['fade_out_start_before_end_ms'], (int, float)) or crossfade_data['fade_out_start_before_end_ms'] < 0:
+                    return jsonify({'error': 'crossfade.fade_out_start_before_end_ms must be a positive number'}), 400
+            
+            # Update playback controller config
+            playback_controller.update_crossfade_config(crossfade_data)
+            
+            # Update config
+            if 'crossfade' not in config:
+                config['crossfade'] = {}
+            config['crossfade'].update(crossfade_data)
+        
+        # Update video settings if provided
+        if 'video' in data:
+            video_data = data['video']
+            
+            # Validate video input
+            if 'fullscreen' in video_data and not isinstance(video_data['fullscreen'], bool):
+                return jsonify({'error': 'video.fullscreen must be a boolean'}), 400
+            
+            if 'preferred_screen' in video_data:
+                if video_data['preferred_screen'] is not None and not isinstance(video_data['preferred_screen'], (int, str)):
+                    return jsonify({'error': 'video.preferred_screen must be null, a number, or a string'}), 400
+            
+            # Update config
+            if 'video' not in config:
+                config['video'] = {}
+            config['video'].update(video_data)
+            
+            # TODO: Apply video settings to video playback controller when available
+        
+        # Save config
+        save_config(config)
+        
+        # Return updated settings
+        settings = {
+            'crossfade': config.get('crossfade', {}),
+            'video': config.get('video', {})
+        }
+        
+        return jsonify(settings)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
