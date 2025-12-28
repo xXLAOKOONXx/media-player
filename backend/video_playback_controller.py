@@ -26,13 +26,16 @@ if not logger.handlers:
 class VideoPlaybackController:
     """Controls video playback with server-side rendering using mpv"""
     
+    # Default configuration
+    DEFAULT_VOLUME = 50  # Volume as integer 0-100
+    
     def __init__(self):
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
         self.is_playing = False
         self.is_paused = False
-        self.volume = 50  # Volume as integer 0-100
+        self.volume = self.DEFAULT_VOLUME  # Volume as integer 0-100
         self.current_position = 0  # Current playback position in seconds
         
         # Shuffle and repeat modes
@@ -110,8 +113,10 @@ class VideoPlaybackController:
             # Replay current video
             self.play()
         else:
-            # Move to next video
-            self.next_track()
+            # Move to next video (next_track handles end-of-playlist logic)
+            if not self.next_track():
+                # If next_track returns False, we've reached the end
+                logger.info("Playlist completed, stopping playback")
     
     def load_playlist(self, playlist_path, track_index=0):
         """Load a video playlist from an M3U file"""
@@ -421,7 +426,7 @@ class VideoPlaybackController:
             'next_track': next_track,
             'current_track_index': self.current_track_index,
             'playlist_length': len(self.current_playlist),
-            'volume': self.volume,  # Already 0-100
+            'volume': self.volume,  # Volume as integer 0-100
             'shuffle': self.shuffle_enabled,
             'repeat_mode': self.repeat_mode,
             'current_position': self.current_position
