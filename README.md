@@ -4,6 +4,7 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 
 ## 🎯 Features
 
+### Audio Features
 - **Network Storage Management**: Configure SMB/CIFS and NFS network storage locations
 - **Playlist Management**: Organize your media files into playlist folders
 - **Playlist Support**: Play M3U and M3U8 playlist files
@@ -12,7 +13,6 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - Support for MP3, WAV, OGG, FLAC, M4A, and AAC formats
   - Click-to-play interface for instant sound effect playback
   - Plays simultaneously alongside music tracks
-- **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Advanced Playback Controls**: 
   - Play, pause, stop, skip tracks, and adjust volume
   - Shuffle mode for randomized playback
@@ -24,6 +24,25 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 - **Smart Duration Detection**: Automatically extracts accurate track duration from audio files using mutagen
 - **Real-Time Status**: See what's currently playing in real-time
 - **Performance Monitoring**: Comprehensive logging for monitoring playback performance
+
+### Video Features
+- **Video Library Management**: Organize and scan video folders
+  - Support for MP4, MKV, AVI, MOV, WebM, and more
+  - Recursive folder scanning
+  - Search and filter videos
+- **Video Playlist Support**: Create and manage M3U video playlists
+  - Add videos to playlists
+  - Play playlists with shuffle and repeat modes
+- **Video Playback Controls**:
+  - Browser-based HTML5 video playback
+  - Full transport controls (play/pause/stop/next/previous)
+  - Seek to any position
+  - Volume control
+  - Playlist navigation
+- **Client-Side Video Rendering**: Videos play directly in the browser using HTML5 video elements
+
+### General Features
+- **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
 
 ## 📋 Table of Contents
@@ -302,7 +321,46 @@ In the **Player** tab, you can:
 
 Sound effects will play in parallel with music using separate audio channels, allowing you to trigger sound effects without interrupting music playback.
 
-### 6. Crossfade Configuration
+### 6. Video Playback
+
+1. Navigate to the **Video** section in the main navigation
+2. Go to the **Library** tab
+3. Click **+ Add Video Library** to add a video folder
+4. Enter a library name and path to your video folder
+5. Use the **Browse** button to navigate your filesystem
+6. Optionally enable "Scan subfolders recursively" for nested folder structures
+7. Click **Add Library**
+8. Select the library to view available videos
+9. Select videos and create playlists, or add them to the current playback queue
+10. Navigate to the **Player** tab to watch videos with full playback controls
+
+#### Supported Video Formats
+
+The video player supports the following formats (via HTML5 video):
+- MP4 (.mp4, .m4v) - Best compatibility
+- WebM (.webm)
+- MKV (.mkv)
+- AVI (.avi)
+- MOV (.mov)
+- WMV (.wmv)
+- FLV (.flv)
+- MPEG (.mpg, .mpeg)
+
+**Note**: Actual playback support depends on your browser's codec support. For best compatibility, use H.264/AAC encoded MP4 files.
+
+#### Video Playback Configuration
+
+Unlike audio playback which uses pygame on the server, video playback is handled entirely in the browser:
+
+- **No server-side configuration needed**: Videos are streamed directly to the browser using standard HTTP
+- **Client-side rendering**: The browser's native HTML5 video player handles all decoding and rendering
+- **Network considerations**: Ensure good network bandwidth between the server and client for smooth playback
+- **Storage recommendations**: 
+  - Store videos on fast storage (local disk or high-speed network storage)
+  - Use commonly supported codecs for best browser compatibility
+  - Consider transcoding to web-friendly formats if playback issues occur
+
+### 7. Crossfade Configuration
 
 The media player features intelligent crossfading with real overlap between tracks:
 
