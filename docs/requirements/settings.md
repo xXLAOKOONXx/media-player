@@ -143,3 +143,104 @@ The Settings view follows the application's design system:
 - Responsive layout that centers content and limits maximum width
 - Follows dark mode color scheme when applicable
 - Disabled inputs show reduced opacity
+
+## User Management Section (Admin Only)
+
+Visible only when logged in as admin user.
+
+### Existing Users Table
+
+Displays all users in the system:
+
+| Column | Description |
+|--------|-------------|
+| Username | The user's login name |
+| Role | User role (admin, default, or custom) |
+| Actions | Delete button for custom users, "System User" label for admin/default |
+
+- System users (admin, default) cannot be deleted
+- Only custom users can be deleted
+- Delete button confirms before deletion
+
+### Create New User Form
+
+Initially hidden, shown when "+ Create User" button is clicked.
+
+**Fields:**
+1. **Username** (required)
+   - Text input
+   - Must be unique
+   - Cannot be empty
+
+2. **Password** (optional)
+   - Password input
+   - Placeholder: "Leave empty for no password"
+   - User can login without password if left empty
+
+**Actions:**
+- **Create button**: Creates the user with role "custom"
+- **Cancel button**: Hides the form without creating user
+
+**Validation:**
+- Prevents creating additional admin or default users
+- Shows error if username already exists
+- Shows error on server failure
+
+### Admin Password Management
+
+Initially hidden, shown when "Change Admin Password" button is clicked.
+
+**Fields:**
+1. **New Admin Password** (optional)
+   - Password input
+   - Placeholder: "Leave empty to remove password"
+   - Can be set to empty to remove password requirement
+
+**Actions:**
+- **Update Password button**: Updates admin user password
+- **Cancel button**: Hides the form without updating
+
+**Behavior:**
+- Only affects the admin user's password
+- Can set or remove password
+- Changes take effect immediately
+
+### API Endpoints Used
+
+#### GET `/api/users` (admin only)
+Returns list of all users with id, username, and role.
+
+#### POST `/api/users` (admin only)
+Creates a new custom user.
+
+Request:
+```json
+{
+  "username": "john",
+  "password": "optional_password",
+  "role": "custom"
+}
+```
+
+Returns created user or error message.
+
+#### DELETE `/api/users/:id` (admin only)
+Deletes a user by ID. Cannot delete admin or default users.
+
+#### PUT `/api/users/:id/password` (admin only)
+Updates a user's password. Only allowed for admin user.
+
+Request:
+```json
+{
+  "password": "new_password_or_null"
+}
+```
+
+## Access Control
+
+- Settings page is accessible to all authenticated users
+- Video and audio settings sections visible to all users
+- User Management section only visible to admin role
+- Non-admin users cannot see or access user management features
+- All modification endpoints protected by admin-only decorators
