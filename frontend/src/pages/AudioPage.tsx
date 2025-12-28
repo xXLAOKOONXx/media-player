@@ -5,6 +5,7 @@ import PlaybackControls from '../components/PlaybackControls';
 import NowPlaying from '../components/NowPlaying';
 import SoundEffectsManager from '../components/SoundEffectsManager';
 import MusicManager from '../components/MusicManager';
+import SettingsManager from '../components/SettingsManager';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -20,10 +21,11 @@ function AudioPage() {
     if (path.includes('/playlists')) return 'playlists';
     if (path.includes('/music')) return 'music';
     if (path.includes('/soundeffects')) return 'soundeffects';
+    if (path.includes('/settings')) return 'settings';
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'playlists' | 'player' | 'soundeffects' | 'music'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'playlists' | 'player' | 'soundeffects' | 'music' | 'settings'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -76,6 +78,12 @@ function AudioPage() {
         >
           Sound Effects
         </button>
+        <button 
+          className={activeTab === 'settings' ? 'active' : ''} 
+          onClick={() => handleTabChange('settings')}
+        >
+          Settings
+        </button>
       </nav>
 
       <main className="App-main">
@@ -96,6 +104,10 @@ function AudioPage() {
         
         {activeTab === 'soundeffects' && (
           <SoundEffectsManager />
+        )}
+        
+        {activeTab === 'settings' && (
+          <SettingsManager />
         )}
       </main>
     </div>

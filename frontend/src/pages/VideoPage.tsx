@@ -5,6 +5,7 @@ import VideoLibrary from '../components/VideoLibrary';
 import VideoPlaylistManager from '../components/VideoPlaylistManager';
 import VideoPlayer from '../components/VideoPlayer';
 import VideoPlaybackControls from '../components/VideoPlaybackControls';
+import SettingsManager from '../components/SettingsManager';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -19,10 +20,11 @@ function VideoPage() {
     if (path.includes('/player')) return 'player';
     if (path.includes('/playlists')) return 'playlists';
     if (path.includes('/library')) return 'library';
+    if (path.includes('/settings')) return 'settings';
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -69,6 +71,12 @@ function VideoPage() {
         >
           Library
         </button>
+        <button 
+          className={activeTab === 'settings' ? 'active' : ''} 
+          onClick={() => handleTabChange('settings')}
+        >
+          Settings
+        </button>
       </nav>
 
       <main className="video-main">
@@ -85,6 +93,10 @@ function VideoPage() {
         
         {activeTab === 'library' && (
           <VideoLibrary />
+        )}
+        
+        {activeTab === 'settings' && (
+          <SettingsManager />
         )}
       </main>
     </div>
