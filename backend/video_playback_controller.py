@@ -16,8 +16,6 @@ from pathlib import Path
 import random
 import copy
 import logging
-import threading
-import time
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
@@ -48,8 +46,6 @@ class VideoPlaybackController:
         # MPV player instance
         self.player = None
         self.video_available = False
-        self.monitor_thread = None
-        self.stop_monitoring = threading.Event()
         
         # Initialize mpv if available
         if MPV_AVAILABLE:
@@ -78,6 +74,26 @@ class VideoPlaybackController:
                 print(f"Running in no-video mode: {e}")
         else:
             logger.warning("python-mpv not installed, running in no-video mode")
+    
+    def __del__(self):
+        """Cleanup MPV player on deletion"""
+        if self.player:
+            try:
+                self.player.terminate()
+                logger.info("MPV player terminated")
+            except Exception as e:
+                logger.debug(f"Error terminating MPV player: {e}")
+    
+    def cleanup(self):
+        """Explicitly cleanup MPV player resources"""
+        if self.player:
+            try:
+                self.player.terminate()
+                self.player = None
+                self.video_available = False
+                logger.info("Video player cleaned up")
+            except Exception as e:
+                logger.error(f"Error cleaning up video player: {e}")
     
     def _handle_video_end(self):
         """Handle video end event"""
@@ -396,7 +412,7 @@ class VideoPlaybackController:
             'next_track': next_track,
             'current_track_index': self.current_track_index,
             'playlist_length': len(self.current_playlist),
-            'volume': int(self.volume * 100),
+            'volume': self.volume,  # Already 0-100
             'shuffle': self.shuffle_enabled,
             'repeat_mode': self.repeat_mode,
             'current_position': self.current_position
