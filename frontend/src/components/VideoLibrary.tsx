@@ -359,7 +359,7 @@ const VideoLibrary = () => {
     e.preventDefault();
     
     if (selectedVideos.size === 0) {
-      alert('Please select at least one track');
+      alert('Please select at least one video');
       return;
     }
 
@@ -669,7 +669,7 @@ const VideoLibrary = () => {
                   required
                 />
               </div>
-              <p>{selectedVideos.size} track(s) selected</p>
+              <p>{selectedVideos.size} video(s) selected</p>
               <div className="form-actions">
                 <button type="submit">Create Playlist</button>
                 <button
@@ -882,7 +882,7 @@ const VideoLibrary = () => {
                       checked={selectedVideos.size === filteredVideos.length && filteredVideos.length > 0}
                       onChange={toggleSelectAll}
                     />
-                    <span className="select-all-text">Select All ({filteredVideos.length} track(s))</span>
+                    <span className="select-all-text">Select All ({filteredVideos.length} video(s))</span>
                   </label>
                 </div>
               </div>
