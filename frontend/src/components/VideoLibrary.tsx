@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import './VideoLibrary.css';
 
 const API_BASE_URL = '';
@@ -34,7 +35,11 @@ interface BrowseItem {
   is_playlist?: boolean;
 }
 
-const VideoLibrary = () => {
+interface VideoLibraryProps {
+  currentUser?: User;
+}
+
+const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [videoLibraries, setVideoLibraries] = useState<VideoLibrary[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
@@ -442,24 +447,30 @@ const VideoLibrary = () => {
       <div className="music-header">
         <h2>Video Library</h2>
         <div className="music-actions">
-          <button onClick={() => setShowPlaylistFolderForm(true)}>
-            <span className="material-icons">folder</span>
-            Configure Playlist Folder
-          </button>
-          <button onClick={() => setShowAddForm(true)}>
-            <span className="material-icons">add</span>
-            Add Video Library
-          </button>
+          {currentUser?.role === 'admin' && (
+            <>
+              <button onClick={() => setShowPlaylistFolderForm(true)}>
+                <span className="material-icons">folder</span>
+                Configure Playlist Folder
+              </button>
+              <button onClick={() => setShowAddForm(true)}>
+                <span className="material-icons">add</span>
+                Add Video Library
+              </button>
+            </>
+          )}
           <button onClick={handleGlobalSearch} className="search-all-button">
             <span className="material-icons">search</span>
             Search All Folders
           </button>
           {selectedVideos.size > 0 && (
             <>
-              <button onClick={() => setShowCreatePlaylistForm(true)}>
-                <span className="material-icons">playlist_add</span>
-                Create Playlist ({selectedVideos.size})
-              </button>
+              {currentUser?.role === 'admin' && (
+                <button onClick={() => setShowCreatePlaylistForm(true)}>
+                  <span className="material-icons">playlist_add</span>
+                  Create Playlist ({selectedVideos.size})
+                </button>
+              )}
               <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
                 <span className="material-icons">queue_music</span>
                 Add to Current Playlist ({selectedVideos.size})
@@ -786,17 +797,21 @@ const VideoLibrary = () => {
                           >
                             <span className="material-icons">refresh</span>
                           </button>
-                          <button
-                            onClick={() => {
-                              setEditingFolder(folder.id);
-                              setEditName(folder.name);
-                            }}
-                          >
-                            <span className="material-icons">edit</span>
-                          </button>
-                          <button onClick={() => handleDeleteFolder(folder.id)}>
-                            <span className="material-icons">delete</span>
-                          </button>
+                          {currentUser?.role === 'admin' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingFolder(folder.id);
+                                  setEditName(folder.name);
+                                }}
+                              >
+                                <span className="material-icons">edit</span>
+                              </button>
+                              <button onClick={() => handleDeleteFolder(folder.id)}>
+                                <span className="material-icons">delete</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}

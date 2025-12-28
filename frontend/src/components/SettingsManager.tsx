@@ -243,16 +243,18 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
         </div>
       </section>
 
-      {/* Save Button */}
-      <div className="settings-actions">
-        <button
-          className="btn-primary"
-          onClick={saveSettings}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save Settings'}
-        </button>
-      </div>
+      {/* Save Button - Admin Only */}
+      {currentUser?.role === 'admin' && (
+        <div className="settings-actions">
+          <button
+            className="btn-primary"
+            onClick={saveSettings}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
+      )}
 
       {/* User Management Section - Admin Only */}
       {currentUser?.role === 'admin' && (

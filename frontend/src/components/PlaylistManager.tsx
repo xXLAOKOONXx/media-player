@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 import './PlaylistManager.css';
 
 const API_BASE_URL = '';
@@ -17,7 +18,11 @@ interface Playlist {
   size: number;
 }
 
-const PlaylistManager = () => {
+interface PlaylistManagerProps {
+  currentUser?: User;
+}
+
+const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
   const [playlistFolders, setPlaylistFolders] = useState<PlaylistFolder[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
@@ -161,12 +166,14 @@ const PlaylistManager = () => {
       <div className="card">
         <div className="header-row">
           <h2>Playlist Folders</h2>
-          <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-            {showAddForm ? 'Cancel' : '+ Add Playlist Folder'}
-          </button>
+          {currentUser?.role === 'admin' && (
+            <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+              {showAddForm ? 'Cancel' : '+ Add Playlist Folder'}
+            </button>
+          )}
         </div>
 
-        {showAddForm && (
+        {showAddForm && currentUser?.role === 'admin' && (
           <form onSubmit={handleAddFolder} className="add-form">
             <div className="form-group">
               <label>Folder Name</label>
@@ -255,14 +262,16 @@ const PlaylistManager = () => {
                       <strong>{folder.name}</strong>
                       <div className="folder-path">{folder.path}</div>
                     </div>
-                    <div className="action-buttons">
-                      <button className="btn btn-sm btn-secondary" onClick={() => handleStartRename(folder)} title="Rename">
-                        ✏️
-                      </button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDeleteFolder(folder.id)} title="Delete">
-                        🗑️
-                      </button>
-                    </div>
+                    {currentUser?.role === 'admin' && (
+                      <div className="action-buttons">
+                        <button className="btn btn-sm btn-secondary" onClick={() => handleStartRename(folder)} title="Rename">
+                          ✏️
+                        </button>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleDeleteFolder(folder.id)} title="Delete">
+                          🗑️
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
