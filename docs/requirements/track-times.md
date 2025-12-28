@@ -1,5 +1,7 @@
 # Track Times View Requirements
 
+URL: `/audio/tracks`
+
 Source component:
 - `frontend/src/components/TrackTimesEditor.tsx`
 
@@ -9,7 +11,7 @@ Allows editing per-track custom start/end times for the currently loaded playlis
 
 ## Data loading
 
-- On mount, fetch `/api/playback/tracks` and populate the track list.
+- On mount, fetch `/api/audio/playback/tracks` and populate the track list.
 - Auto-refresh every 10 seconds while the document is visible (`!document.hidden`).
 
 ## Empty state
@@ -39,7 +41,7 @@ Buttons:
   - Enters edit mode for that track.
   - Pre-fills inputs with formatted times (`MM:SS`) derived from existing start/end.
 - **Clear** (only visible when start or end time is set)
-  - Sends PUT `/api/playback/tracks/{trackIndex}/times` with JSON `{ "start_time": null, "end_time": null }`.
+  - Sends PUT `/api/audio/playback/tracks/{trackIndex}/times` with JSON `{ "start_time": null, "end_time": null }`.
   - On failure: show an `alert()`.
   - On success: reload the track list.
 
@@ -65,7 +67,7 @@ Validation rules (must block save and show inline error text):
 Buttons:
 - **Save**
   - Parses the two inputs into seconds.
-  - Sends PUT `/api/playback/tracks/{trackIndex}/times` with JSON `{ "start_time": <number|null>, "end_time": <number|null> }`.
+  - Sends PUT `/api/audio/playback/tracks/{trackIndex}/times` with JSON `{ "start_time": <number|null>, "end_time": <number|null> }`.
   - If response is not OK: show inline error text (prefer server-provided `error` JSON field).
   - On success:
     - Exit edit mode.

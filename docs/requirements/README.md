@@ -1,15 +1,24 @@
 # Frontend View Requirements
 
-This folder contains per-view (per-tab) UI requirements for the frontend.
+This folder contains per-view UI requirements for the frontend.
 
-Views (tabs in `frontend/src/App.tsx`):
+## URL Structure
 
-- [Player](player.md)
-- [Track Times](track-times.md)
-- [Playlists](playlists.md)
-- [Music](music.md)
-- [Sound Effects](sound-effects.md)
-- [Storage](storage.md)
+The application now uses URL-based navigation:
+
+### Audio Routes
+- [`/audio/player`](player.md) - Player view with playback controls
+- [`/audio/tracks`](track-times.md) - Track Times editor
+- [`/audio/playlists`](playlists.md) - Playlist management
+- [`/audio/music`](music.md) - Music library
+- [`/audio/soundeffects`](sound-effects.md) - Sound effects
+- [`/audio/storage`](storage.md) - Storage management
+
+### Video Routes
+- [`/video`](video.md) - Video player (under construction)
+
+### Default Routes
+- `/` - Redirects to `/audio/player`
 
 ## Note for Copilot (living documentation)
 

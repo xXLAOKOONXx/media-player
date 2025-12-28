@@ -1,5 +1,7 @@
 # Sound Effects View Requirements
 
+URL: `/audio/soundeffects`
+
 Source component:
 - `frontend/src/components/SoundEffectsManager.tsx`
 
@@ -11,7 +13,7 @@ Configures folders that contain sound effect audio files and allows playing an e
 
 ### Initial load
 
-- On mount, fetch `/api/soundeffects` and render the folder list.
+- On mount, fetch `/api/audio/soundeffects` and render the folder list.
 
 ### Add Sound Effects Folder toggle
 
@@ -29,7 +31,7 @@ Buttons:
   - POST `/api/browse` with JSON `{ "path": <current path input or '/'> }`.
   - Displays browse results when items are returned.
 - **Add Sound Effects Folder** (submit)
-  - POST `/api/soundeffects` with JSON `{ name, path }`.
+  - POST `/api/audio/soundeffects` with JSON `{ name, path }`.
   - On success: clear form state, hide form, reload folder list.
 
 Browse results behavior:
@@ -44,7 +46,7 @@ Empty state:
 - “No sound effects folders configured”.
 
 Selecting a folder:
-- Clicking a folder selects it and loads files via GET `/api/soundeffects/{folderId}/files`.
+- Clicking a folder selects it and loads files via GET `/api/audio/soundeffects/{folderId}/files`.
 
 Folder actions
 
@@ -53,13 +55,13 @@ Folder actions
 - Pencil button (✏️) enters edit mode.
 - Edit mode provides:
   - input prefilled with folder name
-  - **Save**: PUT `/api/soundeffects/{folderId}` with JSON `{ "name": <editName> }` (requires non-empty name, else alert).
+  - **Save**: PUT `/api/audio/soundeffects/{folderId}` with JSON `{ "name": <editName> }` (requires non-empty name, else alert).
   - **Cancel**: exits edit mode.
 
 #### Delete
 
 - Trash button (🗑️) prompts confirmation.
-- If confirmed: DELETE `/api/soundeffects/{folderId}`.
+- If confirmed: DELETE `/api/audio/soundeffects/{folderId}`.
 - If deleted folder is selected: clear selection and file list.
 
 ## Audio Files card
@@ -73,7 +75,7 @@ Empty state:
 Per file row:
 - Shows name, extension, approximate KB size.
 - Button: **Play**
-  - POST `/api/soundeffects/play` with JSON `{ "sound_path": <file.path> }`.
+  - POST `/api/audio/soundeffects/play` with JSON `{ "sound_path": <file.path> }`.
   - On failure: `alert('Error playing sound effect')`.
 
 ## Error handling

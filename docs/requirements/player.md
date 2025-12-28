@@ -1,5 +1,7 @@
 # Player View Requirements
 
+URL: `/audio/player`
+
 Source components:
 - `frontend/src/components/NowPlaying.tsx`
 - `frontend/src/components/PlaybackControls.tsx`
@@ -46,7 +48,7 @@ Behavior:
   - Has `step = 0.1`.
   - Uses `value = current_position` (defaults to 0).
   - Is **disabled** when `status.is_playing` is falsy.
-- On slider change, send a POST request to `/api/playback/seek` with JSON `{ "position": <float> }`.
+- On slider change, send a POST request to `/api/audio/playback/seek` with JSON `{ "position": <float> }`.
 - Display current time and total time:
   - Current time shows `current_position`.
   - Total time shows `startTime + effectiveDuration` when available; otherwise `--:--`.
@@ -73,7 +75,7 @@ UI:
 
 Behavior:
 - Clicking toggles shuffle state.
-- POST `/api/playback/shuffle` with JSON `{ "enabled": <boolean> }`, where enabled is the toggled value.
+- POST `/api/audio/playback/shuffle` with JSON `{ "enabled": <boolean> }`, where enabled is the toggled value.
 
 #### Repeat button
 
@@ -89,19 +91,19 @@ UI:
 
 Behavior:
 - Clicking cycles repeat mode in order: `none → all → one → none`.
-- POST `/api/playback/repeat` with JSON `{ "mode": <nextMode> }`.
+- POST `/api/audio/playback/repeat` with JSON `{ "mode": <nextMode> }`.
 
 ### Transport controls
 
 Buttons:
-- **Previous**: POST `/api/playback/previous`.
+- **Previous**: POST `/api/audio/playback/previous`.
 - **Play** or **Pause** (mutually exclusive):
   - Show **Play** when NOT (is_playing && !is_paused).
   - Show **Pause** when (is_playing && !is_paused).
-  - Play: POST `/api/playback/play` with an empty JSON body `{}`.
-  - Pause: POST `/api/playback/pause`.
-- **Stop**: POST `/api/playback/stop`.
-- **Next**: POST `/api/playback/next`.
+  - Play: POST `/api/audio/playback/play` with an empty JSON body `{}`.
+  - Pause: POST `/api/audio/playback/pause`.
+- **Stop**: POST `/api/audio/playback/stop`.
+- **Next**: POST `/api/audio/playback/next`.
 
 After each transport/mode action above, the UI triggers `onUpdate()` to refresh status.
 
@@ -121,7 +123,7 @@ Controls:
 - Display current volume as `{volume}%`.
 
 Behavior:
-- Any volume change sends POST `/api/playback/volume` with JSON `{ "volume": <number> }`.
+- Any volume change sends POST `/api/audio/playback/volume` with JSON `{ "volume": <number> }`.
 - The UI updates local slider state immediately before/while the request is in flight.
 
 ## Error handling

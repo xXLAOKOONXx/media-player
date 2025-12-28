@@ -1,5 +1,7 @@
 # Music View Requirements
 
+URL: `/audio/music`
+
 Source component:
 - `frontend/src/components/MusicManager.tsx`
 
@@ -42,8 +44,8 @@ When `playlistFolder` is set (non-empty):
 ### Initial loads
 
 On mount:
-- GET `/api/music` to load music folders.
-- GET `/api/music/playlists-folder` to load the configured playlist folder.
+- GET `/api/audio/music` to load music folders.
+- GET `/api/audio/music/playlists-folder` to load the configured playlist folder.
 
 When `playlistFolder` changes and is non-empty:
 - POST `/api/browse` with `{ path: playlistFolder }` and build the list of “available playlists” by selecting items whose names end with `.m3u`.
@@ -51,9 +53,9 @@ When `playlistFolder` changes and is non-empty:
 ### Track loading modes
 
 - If a folder is selected: load tracks for that folder:
-  - GET `/api/music/{folderId}/tracks`
+  - GET `/api/audio/music/{folderId}/tracks`
 - Else if global search is enabled: load tracks from all folders:
-  - For each folder in `musicFolders`, GET `/api/music/{folderId}/tracks` concurrently.
+  - For each folder in `musicFolders`, GET `/api/audio/music/{folderId}/tracks` concurrently.
 
 During loading:
 - Show a loading spinner and the text “Loading tracks...”.
@@ -74,7 +76,7 @@ Controls:
   - Sets the playlist folder path to the current browse path.
   - Clears browse results.
 - **Save** (submit)
-  - PUT `/api/music/playlists-folder` with `{ path: playlistFolder }`.
+  - PUT `/api/audio/music/playlists-folder` with `{ path: playlistFolder }`.
   - On success:
     - Close modal.
     - Reload available playlists.
@@ -100,7 +102,7 @@ Buttons:
 - Browse list includes `..` and directories.
 - **Select Current Folder** sets the Folder Path to the current browse path.
 - **Add Folder** (submit)
-  - POST `/api/music` with `{ name, path, recursive }`.
+  - POST `/api/audio/music` with `{ name, path, recursive }`.
   - On success: reset form, close modal, reload folder list.
 - **Cancel** closes modal and clears browse results.
 
@@ -117,7 +119,7 @@ Fields:
 
 Buttons:
 - **Create Playlist** (submit)
-  - POST `/api/music/playlists/create` with:
+  - POST `/api/audio/music/playlists/create` with:
     - `playlist_name: newPlaylistName`
     - `tracks: <selected track objects>` (derived from the currently filtered list)
   - On success:
@@ -139,7 +141,7 @@ Controls:
 
 Buttons:
 - **Add to Playlist** (submit)
-  - POST `/api/music/playlists/{selectedPlaylist}/add-track` with `{ track: trackToAdd }`.
+  - POST `/api/audio/music/playlists/{selectedPlaylist}/add-track` with `{ track: trackToAdd }`.
   - On success:
     - `alert('Track added to playlist successfully!')`
     - Close modal and clear selection state.
@@ -165,19 +167,19 @@ Buttons:
 
 Per folder, when not editing:
 - **Refresh** (icon `refresh`, tooltip “Refresh folder”)
-  - POST `/api/music/{folderId}/refresh`
+  - POST `/api/audio/music/{folderId}/refresh`
   - Then reload tracks (selected folder or global search).
 - **Edit** (icon `edit`)
   - Enters inline edit mode and pre-fills name.
 - **Delete** (icon `delete`)
   - Confirms: “Are you sure you want to delete this music folder?”
-  - DELETE `/api/music/{folderId}`
+  - DELETE `/api/audio/music/{folderId}`
   - If deleted folder was selected: clear selection and tracks.
 
 Inline edit mode:
 - Text input for folder name.
 - **Save** (icon `check`)
-  - PUT `/api/music/{folderId}` with `{ name: editName }`.
+  - PUT `/api/audio/music/{folderId}` with `{ name: editName }`.
   - Exits edit mode and reloads folder list.
   - Pressing Enter in the input also saves.
 - **Cancel** (icon `close`)
@@ -219,7 +221,7 @@ Filtering behavior:
 When `selectedTracks.size > 0`, show:
 - **Create Playlist (N)** (opens modal)
 - **Add to Current Playlist (N)**
-  - POST `/api/playback/add-tracks` with `{ track_paths: <selected track paths> }`.
+  - POST `/api/audio/playback/add-tracks` with `{ track_paths: <selected track paths> }`.
   - On success: `alert('Added X track(s) to current playlist...')` and clears selection.
   - On failure: `alert('Failed to add tracks to current playlist')`.
 

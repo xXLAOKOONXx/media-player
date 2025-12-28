@@ -4,14 +4,36 @@ This document describes the REST API endpoints provided by the Media Player back
 
 ## Base URL
 
+### New Audio API (Recommended)
 ```
-http://localhost:5000/api
+http://localhost:5000/api/audio
 ```
 
 For Raspberry Pi deployment:
 ```
-http://raspberrypi.local:5000/api
+http://raspberrypi.local:5000/api/audio
 ```
+
+### Legacy API (Deprecated)
+The old API endpoints without the `/audio` prefix are still supported for backward compatibility but are deprecated:
+```
+http://localhost:5000/api
+```
+
+**Note:** New applications should use the `/api/audio/*` endpoints. The legacy endpoints will be removed in a future version.
+
+## Frontend Routes
+
+The application now supports URL-based navigation:
+
+- `/` - Redirects to `/audio/player`
+- `/audio/player` - Player view
+- `/audio/tracks` - Track Times editor
+- `/audio/playlists` - Playlist management
+- `/audio/music` - Music library
+- `/audio/soundeffects` - Sound effects
+- `/audio/storage` - Storage management
+- `/video` - Video player (under construction)
 
 ## Authentication
 
@@ -24,7 +46,7 @@ Currently, the API does not require authentication. In a production environment,
 #### Get All Storages
 
 ```http
-GET /storage
+GET /audio/storage
 ```
 
 **Response:**
@@ -45,7 +67,7 @@ GET /storage
 #### Add New Storage
 
 ```http
-POST /storage
+POST /audio/storage
 Content-Type: application/json
 
 {
@@ -75,7 +97,7 @@ Content-Type: application/json
 #### Delete Storage
 
 ```http
-DELETE /storage/:id
+DELETE /audio/storage/:id
 ```
 
 **Response:** 204 No Content
@@ -87,7 +109,7 @@ DELETE /storage/:id
 #### Get All Libraries
 
 ```http
-GET /libraries
+GET /audio/libraries
 ```
 
 **Response:**
@@ -321,7 +343,7 @@ Content-Type: application/json
 #### Get Crossfade Configuration
 
 ```http
-GET /crossfade/config
+GET /audio/crossfade/config
 ```
 
 **Response:**
@@ -341,7 +363,7 @@ GET /crossfade/config
 #### Update Crossfade Configuration
 
 ```http
-PUT /crossfade/config
+PUT /audio/crossfade/config
 Content-Type: application/json
 
 {
