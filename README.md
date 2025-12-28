@@ -385,7 +385,8 @@ The media player supports **server-side video playback** using the MPV player, s
 
 **Configuration:**
 - No additional configuration needed after installing mpv
-- Videos automatically play on the default display
+- Videos automatically play on the default display in **fullscreen mode**
+- Videos **auto-start when added** to the current playlist
 - Volume is controlled through the server's audio output
 - Works seamlessly with HDMI audio/video output
 

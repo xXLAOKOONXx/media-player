@@ -62,6 +62,8 @@ Video playback uses **server-side rendering with MPV player** (similar to audio 
 
 1. **VideoPlaybackController** (`backend/video_playback_controller.py`)
    - **Server-side video playback** using MPV player
+   - Opens videos in **fullscreen by default**
+   - **Auto-starts playback** when videos are added to playlist
    - Manages playlist state and navigation
    - Tracks playback status and position
    - Handles shuffle and repeat modes

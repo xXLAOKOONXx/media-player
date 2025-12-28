@@ -58,6 +58,7 @@ class VideoPlaybackController:
                     input_vo_keyboard=True,
                     osc=True,  # On-screen controller
                     ytdl=False,  # Don't use youtube-dl
+                    fullscreen=True,  # Start in fullscreen by default
                 )
                 # Set up event handlers
                 @self.player.property_observer('time-pos')
@@ -165,7 +166,10 @@ class VideoPlaybackController:
         return True
     
     def add_tracks(self, track_paths):
-        """Add tracks to the current playlist"""
+        """Add tracks to the current playlist and auto-start if not playing"""
+        added_count = 0
+        was_empty = len(self.current_playlist) == 0
+        
         for path in track_paths:
             if os.path.exists(path):
                 self.current_playlist.append({
@@ -174,9 +178,15 @@ class VideoPlaybackController:
                     'start_time': None,
                     'end_time': None
                 })
+                added_count += 1
         
         if not self.original_playlist:
             self.original_playlist = copy.deepcopy(self.current_playlist)
+        
+        # Auto-start playback if playlist was empty and videos were added
+        if was_empty and added_count > 0 and not self.is_playing:
+            logger.info(f"Auto-starting playback after adding {added_count} video(s)")
+            self.play()
         
         return True
     
