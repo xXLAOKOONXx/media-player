@@ -15,7 +15,10 @@ The application now uses URL-based navigation:
 - [`/audio/storage`](storage.md) - Storage management
 
 ### Video Routes
-- [`/video`](video.md) - Video player (under construction)
+- [`/video/player`](video-player.md) - Video player view with playback controls
+- [`/video/playlists`](video.md#playlists-tab) - Video playlist management
+- [`/video/library`](video-library.md) - Video library management
+- [`/video`](video.md) - Video main page (redirects to `/video/player`)
 
 ### Default Routes
 - `/` - Redirects to `/audio/player`
