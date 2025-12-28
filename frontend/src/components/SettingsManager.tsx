@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import UserManagement from './UserManagement';
 import './SettingsManager.css';
 
 const API_BASE_URL = '';
@@ -15,7 +16,17 @@ interface Settings {
   };
 }
 
-const SettingsManager = () => {
+interface User {
+  id: number;
+  username: string;
+  role: string;
+}
+
+interface SettingsManagerProps {
+  currentUser?: User | null;
+}
+
+const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
   const [settings, setSettings] = useState<Settings>({
     crossfade: {
       enabled: true,
@@ -247,6 +258,13 @@ const SettingsManager = () => {
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+
+      {/* User Management Section - Admin Only */}
+      {currentUser?.role === 'admin' && (
+        <section className="settings-section">
+          <UserManagement currentUser={currentUser} />
+        </section>
+      )}
     </div>
   );
 };

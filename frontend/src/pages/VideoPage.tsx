@@ -10,7 +10,17 @@ import SettingsManager from '../components/SettingsManager';
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
 
-function VideoPage() {
+interface User {
+  id: number;
+  username: string;
+  role: string;
+}
+
+interface VideoPageProps {
+  currentUser: User;
+}
+
+function VideoPage({ currentUser }: VideoPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -96,7 +106,7 @@ function VideoPage() {
         )}
         
         {activeTab === 'settings' && (
-          <SettingsManager />
+          <SettingsManager currentUser={currentUser} />
         )}
       </main>
     </div>
