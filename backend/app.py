@@ -18,9 +18,9 @@ from music_manager import MusicManager
 from audio_metadata import display_title, read_audio_metadata
 
 # Configure Flask to serve static files from the static folder
-# Use absolute path for security
+# Disable automatic static file serving
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
-app = Flask(__name__, static_folder=static_folder, static_url_path='')
+app = Flask(__name__, static_folder=None)
 
 # Validate static folder exists
 if not os.path.exists(static_folder):
@@ -1030,34 +1030,36 @@ def update_crossfade_config_audio():
     return update_crossfade_config()
 
 # Serve React frontend
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """Serve the React frontend or API 404"""
-    # If path starts with 'api', it's an API route that wasn't found
-    if path.startswith('api/'):
+@app.route('/')
+def serve_index():
+    """Serve index.html for root path"""
+    return send_from_directory(static_folder, 'index.html')
+
+# Serve static assets (JS, CSS, images)
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    """Serve static assets"""
+    return send_from_directory(os.path.join(static_folder, 'assets'), filename)
+
+@app.route('/favicon.svg')
+def serve_favicon():
+    """Serve favicon"""
+    return send_from_directory(static_folder, 'favicon.svg')
+
+@app.errorhandler(404)
+def handle_404(e):
+    """Handle 404 errors by serving React app or returning JSON for API routes"""
+    # Get the request path
+    path = request.path
+    
+    # If it's an API route, return JSON 404
+    if path.startswith('/api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
     
-    # Sanitize path to prevent directory traversal
-    if path:
-        # Remove any directory traversal attempts
-        path = path.replace('..', '')
-        # Normalize the path
-        safe_path = os.path.normpath(path).lstrip('/')
-        full_path = os.path.join(app.static_folder, safe_path)
-        
-        # Ensure the file is within static folder (prevent directory traversal)
-        if os.path.commonpath([app.static_folder, full_path]) != app.static_folder:
-            return jsonify({'error': 'Invalid path'}), 400
-        
-        # Check if file exists and serve it
-        if os.path.isfile(full_path):
-            return send_from_directory(app.static_folder, safe_path)
-    
-    # Otherwise, serve index.html (for React Router)
-    index_path = os.path.join(app.static_folder, 'index.html')
+    # For all other paths, serve the React app (for client-side routing)
+    index_path = os.path.join(static_folder, 'index.html')
     if os.path.exists(index_path):
-        return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(static_folder, 'index.html')
     else:
         return jsonify({
             'error': 'Frontend not built',
