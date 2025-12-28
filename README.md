@@ -44,6 +44,12 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 ### General Features
 - **Web-Based Control**: Modern React-based UI accessible from any device on your network
 - **Raspberry Pi Optimized**: Designed to run on Raspberry Pi with HDMI audio output
+- **User Management & Authentication**: Secure multi-user access with role-based permissions
+  - **Admin User**: Full access to all features, settings, and user management
+  - **Default User**: Restricted access for playback only, no configuration changes allowed
+  - **Custom Users**: Additional users with restricted access, managed by admin
+  - Optional password protection for admin user
+  - Session-based authentication with 30-day expiry
 
 ## 📋 Table of Contents
 
@@ -263,7 +269,42 @@ REACT_APP_API_URL=http://raspberrypi.local:5000
 
 ## 📖 Usage
 
-### 1. Configure Network Storage
+### 1. Login and Authentication
+
+When you first access the media player, you'll be presented with a login screen.
+
+#### Default Users
+
+The system comes with two built-in users:
+
+**Admin User:**
+- Username: `admin`
+- Password: None (by default - can be set later)
+- Access: Full access to all features including settings and user management
+
+**Default User:**
+- Username: `default`
+- Password: None (cannot be set)
+- Access: Playback controls only - no configuration changes allowed
+
+#### First Login
+
+1. Select a user from the dropdown (start with `admin` for full access)
+2. If admin has a password set, enter it (leave empty if no password is set)
+3. Click **Login**
+
+#### Managing Users (Admin Only)
+
+1. Login as admin
+2. Navigate to **Settings** tab
+3. Scroll to the **User Management** section
+4. Here you can:
+   - View all users
+   - Create new custom users with optional passwords
+   - Delete custom users (system users cannot be deleted)
+   - Set or change the admin password
+
+### 2. Configure Network Storage
 
 1. Navigate to the **Storage** tab
 2. Click **+ Add Storage**
@@ -275,7 +316,7 @@ REACT_APP_API_URL=http://raspberrypi.local:5000
    - Username/Password: Credentials for accessing the share
 4. Click **Add Storage**
 
-### 2. Add Playlist Folders
+### 3. Add Playlist Folders
 
 1. Navigate to the **Playlists** tab
 2. Click **+ Add Playlist Folder**
@@ -284,14 +325,14 @@ REACT_APP_API_URL=http://raspberrypi.local:5000
 5. Click **Add Playlist Folder**
 6. Use the ✏️ button to rename or 🗑️ button to delete a playlist folder
 
-### 3. Play Music
+### 4. Play Music
 
 1. In the **Playlists** tab, select a playlist folder
 2. Browse the available playlists
 3. Click **Play** on any playlist to start playback
 4. Navigate to the **Player** tab to control playback
 
-### 4. Control Playback
+### 5. Control Playback
 
 In the **Player** tab, you can:
 - **Shuffle** (🔀): Toggle shuffle mode to randomize track playback order
@@ -309,7 +350,7 @@ In the **Player** tab, you can:
 - **Crossfade**: Smooth transitions with real overlap between tracks
 - **Now Playing**: See the current track information
 
-### 5. Play Sound Effects
+### 6. Play Sound Effects
 
 1. Navigate to the **Sound Effects** tab
 2. Click **+ Add Sound Effects Folder**
@@ -321,7 +362,7 @@ In the **Player** tab, you can:
 
 Sound effects will play in parallel with music using separate audio channels, allowing you to trigger sound effects without interrupting music playback.
 
-### 6. Video Playback
+### 7. Video Playback
 
 1. Navigate to the **Video** section in the main navigation
 2. Go to the **Library** tab
@@ -412,7 +453,7 @@ For systems without MPV or when remote viewing is needed:
 - Use commonly supported codecs (H.264/AAC in MP4 container)
 - Ensure proper file permissions for the backend to access videos
 
-### 7. Crossfade Configuration
+### 8. Crossfade Configuration
 
 The media player features intelligent crossfading with real overlap between tracks:
 
