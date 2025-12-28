@@ -65,6 +65,21 @@ Contains configuration options for video playback.
    - Default: None (use default)
    - Description: "Which screen to display videos on (if multiple displays are available)"
 
+### Statistics Settings Section (Admin Only)
+
+Contains configuration options for playback statistics recording.
+
+#### Playback Statistics Group
+
+1. **Stats database folder** (text input with Browse button)
+   - Default: empty string
+   - Description: "Folder where the media-player-stats.db file will be stored. Leave empty to disable statistics recording."
+   - Browse button: Opens folder browser dialog
+   - When folder is set:
+     - Application creates `media-player-stats.db` in the specified folder
+     - Records playback statistics when media is played for 50% or 5 minutes (whichever is smaller)
+     - Each entry contains: timestamp, absolute folder path, current username
+
 ## Actions
 
 ### Save Settings Button
@@ -104,7 +119,8 @@ Response format:
   "video": {
     "fullscreen": true,
     "preferred_screen": null
-  }
+  },
+  "stats_folder": ""
 }
 ```
 
@@ -121,6 +137,7 @@ Returns updated settings on success, or error object on failure.
 Client-side:
 - Number inputs enforce minimum value of 0
 - Number inputs use step of 100 for user convenience
+- Stats folder must be a string (can be empty)
 
 Server-side:
 - `crossfade.enabled` must be boolean
@@ -128,6 +145,7 @@ Server-side:
 - `crossfade.fade_out_start_before_end_ms` must be non-negative number
 - `video.fullscreen` must be boolean
 - `video.preferred_screen` must be null, number, or string
+- `stats_folder` must be a string
 
 ## Error Handling
 

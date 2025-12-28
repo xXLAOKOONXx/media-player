@@ -75,6 +75,43 @@
   cursor: not-allowed;
 }
 
+.setting-item input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.path-input-group {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.path-input-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.path-input-group .btn-secondary {
+  padding: 8px 16px;
+  background-color: var(--secondary-color, #6c757d);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.path-input-group .btn-secondary:hover {
+  background-color: var(--secondary-hover, #5a6268);
+}
+
 .setting-item select {
   padding: 8px 12px;
   border: 1px solid var(--border-color);
@@ -152,12 +189,14 @@
   }
   
   .setting-item input[type="number"],
+  .setting-item input[type="text"],
   .setting-item select {
     background-color: #1a1a1a;
     border-color: #444;
   }
   
   .setting-item input[type="number"]:focus,
+  .setting-item input[type="text"]:focus,
   .setting-item select:focus {
     border-color: var(--primary-color);
     outline: none;

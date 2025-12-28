@@ -15,6 +15,7 @@ interface Settings {
     fullscreen: boolean;
     preferred_screen: number | string | null;
   };
+  stats_folder: string;
 }
 
 interface SettingsManagerProps {
@@ -31,7 +32,8 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
     video: {
       fullscreen: true,
       preferred_screen: null
-    }
+    },
+    stats_folder: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,6 +135,38 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
         preferred_screen: value === 'none' ? null : parseInt(value)
       }
     });
+  };
+
+  const handleStatsFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings({
+      ...settings,
+      stats_folder: e.target.value
+    });
+  };
+
+  const browseStatsFolder = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/browse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path: settings.stats_folder || '' }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const selectedPath = prompt('Enter folder path:', data.current_path);
+        if (selectedPath) {
+          setSettings({
+            ...settings,
+            stats_folder: selectedPath
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error browsing folder:', error);
+    }
   };
 
   if (loading) {
@@ -242,6 +276,42 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
           </div>
         </div>
       </section>
+
+      {/* Stats Settings Section - Admin Only */}
+      {currentUser?.role === 'admin' && (
+        <section className="settings-section">
+          <h3>Statistics Settings</h3>
+          
+          <div className="settings-group">
+            <h4>Playback Statistics</h4>
+            
+            <div className="setting-item">
+              <label>
+                <span className="setting-label">Stats database folder:</span>
+                <div className="path-input-group">
+                  <input
+                    type="text"
+                    value={settings.stats_folder}
+                    onChange={handleStatsFolderChange}
+                    placeholder="/path/to/stats/folder"
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={browseStatsFolder}
+                  >
+                    Browse
+                  </button>
+                </div>
+              </label>
+              <p className="setting-description">
+                Folder where the media-player-stats.db file will be stored. 
+                Leave empty to disable statistics recording.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Save Button - Admin Only */}
       {currentUser?.role === 'admin' && (
