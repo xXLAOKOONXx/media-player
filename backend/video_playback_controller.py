@@ -135,8 +135,24 @@ class VideoPlaybackController:
         # Add screen selection if specified
         preferred_screen = self.video_config.get('preferred_screen')
         if preferred_screen is not None:
-            # MPV uses 'screen' property to specify which screen to use
-            mpv_params['screen'] = preferred_screen
+            # mpv distinguishes between window placement (--screen/--screen-name)
+            # and which monitor to use for fullscreen (--fs-screen/--fs-screen-name).
+            # We set both so it behaves as users expect when fullscreen is enabled.
+            screen_value = preferred_screen
+            if isinstance(screen_value, str):
+                screen_str = screen_value.strip()
+                # Accept numeric strings from JSON/UI.
+                if screen_str.isdigit() or (screen_str.startswith('-') and screen_str[1:].isdigit()):
+                    screen_value = int(screen_str)
+                else:
+                    mpv_params['screen_name'] = screen_str
+                    mpv_params['fs_screen_name'] = screen_str
+                    screen_value = None
+
+            if screen_value is not None:
+                mpv_params['screen'] = screen_value
+                mpv_params['fs_screen'] = screen_value
+        logger.info(f"MPV parameters: {mpv_params}")
         
         return mpv_params
     
