@@ -40,7 +40,7 @@ def get_video_duration(video_path):
     if not os.path.exists(video_path):
         return None
     
-    # Try using mutagen (MP4 class handles MP4, M4V, M4A, M4B, and other MP4-based containers)
+    # Try using mutagen (MP4 class handles MP4, M4V, and other MP4-based video containers)
     if MUTAGEN_AVAILABLE:
         try:
             video = MP4(video_path)
