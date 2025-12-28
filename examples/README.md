@@ -42,7 +42,7 @@ cd backend
 pytest tests/
 ```
 
-See `docs/TESTING.md` for comprehensive testing documentation.
+See `docs/technical/testing.md` for comprehensive testing documentation.
 
 ## Configuration Sections
 
@@ -104,7 +104,7 @@ Configure automatic crossfading between tracks:
 - `duration_ms` (number): Fade duration in milliseconds (default: 3000)
 - `fade_out_start_before_end_ms` (number): When to start fading before track ends (default: 5000)
 
-See [docs/CROSSFADING.md](../docs/CROSSFADING.md) for detailed information.
+See [docs/technical/crossfading.md](../docs/technical/crossfading.md) for detailed information.
 
 ## Usage
 

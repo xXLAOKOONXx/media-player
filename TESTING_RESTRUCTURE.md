@@ -51,7 +51,7 @@ python scripts/generate_screenshots.py
 
 ### 5. Comprehensive Documentation
 
-Created `docs/TESTING.md`:
+Created `docs/technical/testing.md`:
 - Complete testing guide
 - Instructions for running tests
 - How to write new tests
@@ -213,7 +213,7 @@ python scripts/generate_screenshots.py
 - `scripts/generate_screenshots.py`
 
 ### Documentation (5 files)
-- `docs/TESTING.md`
+- `docs/technical/testing.md`
 - `scripts/README.md`
 - `examples/example_tracks/README.md`
 - `requirements-test.txt`

@@ -145,7 +145,7 @@ graph LR
    uv sync --no-build-isolation
    ```
    
-   See [UV Setup Guide](docs/UV_SETUP.md) for more details.
+   See [UV Setup Guide](docs/installation/uv-setup.md) for more details.
 
 3. **Build and start the application**
    ```bash
@@ -213,7 +213,7 @@ build.bat
 ./build.sh
 ```
 
-See the [Bundling Guide](docs/BUNDLING.md) for detailed instructions on creating and distributing bundles.
+See the [Bundling Guide](docs/technical/bundling.md) for detailed instructions on creating and distributing bundles.
 
 ## 🔧 Configuration
 
@@ -558,7 +558,10 @@ media-player/
 │   │   └── index.tsx      # Entry point
 │   └── package.json       # npm dependencies
 ├── docs/                   # Documentation
-│   └── TESTING.md         # Testing guide
+│   ├── installation/      # Installation guides
+│   ├── technical/         # Technical documentation
+│   ├── requirements/      # UI behavior specifications
+│   └── ui-guidance/       # UI design guidelines
 ├── scripts/                # Utility scripts
 │   └── generate_screenshots.py # UI screenshot generator
 ├── examples/
@@ -569,7 +572,7 @@ media-player/
 
 ### Testing
 
-The project includes a comprehensive test suite. See [docs/TESTING.md](docs/TESTING.md) for full details.
+The project includes a comprehensive test suite. See [docs/technical/testing.md](docs/technical/testing.md) for full details.
 
 **Quick start:**
 ```bash
