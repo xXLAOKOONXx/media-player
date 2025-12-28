@@ -113,6 +113,8 @@ class DatabaseManager:
                 file_size INTEGER,
                 title TEXT,
                 duration REAL,
+                start_time_in_ms INTEGER,
+                end_time_in_ms INTEGER,
                 last_modified REAL,
                 cached_at REAL NOT NULL,
                 tags TEXT,
@@ -163,7 +165,9 @@ class DatabaseManager:
             'media_id': 'TEXT',
             'description': 'TEXT',
             'premiere_date': 'TEXT',
-            'user_rating': 'REAL'
+            'user_rating': 'REAL',
+            'start_time_in_ms': 'INTEGER',
+            'end_time_in_ms': 'INTEGER'
         }
         
         # Allowed column types for validation
@@ -526,6 +530,8 @@ class DatabaseManager:
                 video.get('size', 0),
                 video.get('title'),
                 video.get('duration'),
+                video.get('start_time_in_ms'),
+                video.get('end_time_in_ms'),
                 last_modified,
                 current_time,
                 json.dumps(video.get('tags', [])),
@@ -541,9 +547,10 @@ class DatabaseManager:
         cursor.executemany('''
             INSERT INTO videos
             (folder_id, media_id, file_path, file_name, file_size, title, duration,
+             start_time_in_ms, end_time_in_ms,
              last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
              thumbnail_url, description, premiere_date, user_rating)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', rows)
         
         conn.commit()
@@ -565,8 +572,10 @@ class DatabaseManager:
             return None
         
         cursor.execute('''
-            SELECT media_id, file_path, file_name, file_size, title, duration, last_modified,
-                   tags, artist, thumbnail, thumbnail_mime_type, thumbnail_url, description, premiere_date, user_rating
+             SELECT media_id, file_path, file_name, file_size, title, duration,
+                 start_time_in_ms, end_time_in_ms,
+                 last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_url,
+                 description, premiere_date, user_rating
             FROM videos
             WHERE folder_id = ?
             ORDER BY title, file_name
@@ -587,14 +596,16 @@ class DatabaseManager:
                 'size': row[3],
                 'title': row[4] or os.path.splitext(row[2])[0],
                 'duration': row[5],
-                'modified': row[6],
-                'tags': json.loads(row[7]) if row[7] else [],
-                'artist': row[8],
-                'has_thumbnail': row[9] is not None,  # Boolean flag instead of binary data
-                'thumbnail_url': row[11],
-                'description': row[12],
-                'premiere_date': row[13],
-                'user_rating': row[14]
+                'start_time_in_ms': row[6],
+                'end_time_in_ms': row[7],
+                'modified': row[8],
+                'tags': json.loads(row[9]) if row[9] else [],
+                'artist': row[10],
+                'has_thumbnail': row[11] is not None,  # Boolean flag instead of binary data
+                'thumbnail_url': row[13],
+                'description': row[14],
+                'premiere_date': row[15],
+                'user_rating': row[16]
             }
             videos.append(video)
         

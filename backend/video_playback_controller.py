@@ -28,6 +28,7 @@ import logging
 import time
 
 from services.basic_file_operation import get_actual_path_with_correct_case
+from video_metadata import read_video_metadata
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')
@@ -104,6 +105,9 @@ class VideoPlaybackController:
         # Track timing state
         self.track_custom_start = None  # Custom start time in track (seconds)
         self.track_custom_end = None  # Custom end time in track (seconds)
+
+        # Guard to prevent repeated end-time triggers per track
+        self._custom_end_time_triggered = False
         
         # Video configuration
         self.video_config = video_config or {
@@ -181,6 +185,8 @@ class VideoPlaybackController:
                 self.current_position = value
                 # Check if we should record stats
                 self._check_and_record_stats()
+                # Enforce per-track custom end time if configured
+                self._check_custom_end_time()
         
         @self.player.event_callback('end-file')
         def end_file_callback(_event):
@@ -288,6 +294,81 @@ class VideoPlaybackController:
             if not self.next_track():
                 # If next_track returns False, we've reached the end
                 logger.info("Playlist completed, stopping playback")
+
+    @staticmethod
+    def _ms_to_seconds(value):
+        """Convert a ms-like value (int/float/numeric str) to seconds float."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value) / 1000.0
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            try:
+                return float(s) / 1000.0
+            except ValueError:
+                return None
+        return None
+
+    def _get_custom_times_for_path(self, video_path: str):
+        """Get custom start/end times (seconds) for a given video file path."""
+        try:
+            metadata = read_video_metadata(
+                video_path,
+                include_duration=False,
+                check_nfo=True,
+                include_thumbnail=False,
+            )
+        except Exception:
+            return None, None
+
+        start_sec = self._ms_to_seconds(metadata.get('start_time_in_ms'))
+        end_sec = self._ms_to_seconds(metadata.get('end_time_in_ms'))
+
+        # Sanity: ignore negatives
+        if start_sec is not None and start_sec < 0:
+            start_sec = None
+        if end_sec is not None and end_sec < 0:
+            end_sec = None
+        # If end <= start, treat as invalid
+        if start_sec is not None and end_sec is not None and end_sec <= start_sec:
+            end_sec = None
+
+        return start_sec, end_sec
+
+    def _check_custom_end_time(self):
+        """If the current track has an end_time, auto-advance when reached."""
+        if not self.is_playing or self.is_paused:
+            return
+
+        current_track = self.get_current_track()
+        if not current_track:
+            return
+
+        end_time = current_track.get('end_time')
+        if end_time is None:
+            return
+
+        try:
+            end_time = float(end_time)
+        except (TypeError, ValueError):
+            return
+
+        # Rearm if user seeks back below end time.
+        if self.current_position < max(0.0, end_time - 0.25):
+            self._custom_end_time_triggered = False
+
+        if self._custom_end_time_triggered:
+            return
+
+        if self.current_position >= end_time:
+            self._custom_end_time_triggered = True
+            logger.info(f"Custom end time reached ({end_time:.3f}s), advancing to next video")
+            self._handle_video_end()
     
     def load_playlist(self, playlist_path, track_index=0):
         """Load a video playlist from an M3U file"""
@@ -312,13 +393,15 @@ class VideoPlaybackController:
                         if os.path.exists(track_path):
                             # Get video duration
                             duration = get_video_duration(track_path)
+
+                            start_time, end_time = self._get_custom_times_for_path(track_path)
                             
                             tracks.append({
                                 'path': track_path,
                                 'title': os.path.basename(track_path),
                                 'duration': duration,
-                                'start_time': None,
-                                'end_time': None
+                                'start_time': start_time,
+                                'end_time': end_time
                             })
         except Exception as e:
             logger.error(f"Error loading playlist {playlist_path}: {e}")
@@ -345,13 +428,15 @@ class VideoPlaybackController:
             if os.path.exists(path):
                 # Get video duration
                 duration = get_video_duration(path)
+
+                start_time, end_time = self._get_custom_times_for_path(path)
                 
                 self.current_playlist.append({
                     'path': path,
                     'title': os.path.basename(path),
                     'duration': duration,
-                    'start_time': None,
-                    'end_time': None
+                    'start_time': start_time,
+                    'end_time': end_time
                 })
                 valid_tracks_added += 1
         
@@ -415,18 +500,40 @@ class VideoPlaybackController:
                 
                 # Stop any currently playing video
                 if self.is_playing:
+                    # Prevent stop() from triggering an end-file -> next-track chain.
+                    self._manual_track_change = True
                     self.player.stop()
                 
                 # Load and play the video
                 self.player.play(video_path)
+
+                # Reset end-time trigger guard for this track
+                self._custom_end_time_triggered = False
                 
-                # Set volume
-                self.player.volume = self.volume
-                
-                # Apply custom start time if set (must be positive)
+                # Set volume (don't fail playback if this errors)
+                try:
+                    self.player.volume = self.volume
+                except Exception as e:
+                    logger.debug(f"Error setting MPV volume: {e}")
+
+                # Apply custom start time if set (must be positive).
+                # MPV may reject seeks until the file is actually loaded/playing.
                 start_time = current_track.get('start_time')
-                if start_time and start_time > 0:
-                    self.player.seek(start_time, reference='absolute')
+                if start_time is not None:
+                    try:
+                        start_time = float(start_time)
+                    except (TypeError, ValueError):
+                        start_time = None
+
+                if start_time is not None and start_time > 0:
+                    try:
+                        self.player.wait_until_playing(timeout=self.DURATION_DETECTION_TIMEOUT)
+                    except Exception as e:
+                        logger.debug(f"MPV not ready for seek yet: {e}")
+                    try:
+                        self.player.seek(start_time, reference='absolute')
+                    except Exception as e:
+                        logger.debug(f"Error seeking to custom start time {start_time}s: {e}")
                 
                 self.is_playing = True
                 self.is_paused = False
@@ -456,6 +563,8 @@ class VideoPlaybackController:
             # No video player available, just update state
             self.is_playing = True
             self.is_paused = False
+            # Reset end-time trigger guard for this track
+            self._custom_end_time_triggered = False
             logger.info(f"Video playback state updated (no player available)")
             return True
     

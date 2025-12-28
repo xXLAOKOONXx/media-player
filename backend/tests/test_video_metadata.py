@@ -141,6 +141,26 @@ class TestNFOParsing:
         finally:
             os.unlink(nfo_path)
 
+    def test_parse_nfo_with_custom_times_ms(self):
+        """NFO start/end times should be parsed as integer milliseconds when numeric."""
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Timed Movie</title>
+    <start_time_in_ms>1200</start_time_in_ms>
+    <end_time_in_ms>3456</end_time_in_ms>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            metadata = parse_nfo_file(nfo_path)
+            assert metadata['start_time_in_ms'] == 1200
+            assert metadata['end_time_in_ms'] == 3456
+        finally:
+            os.unlink(nfo_path)
+
 
 class TestVideoMetadataExtraction:
     """Test video metadata extraction with NFO files."""
@@ -187,6 +207,28 @@ class TestVideoMetadataExtraction:
             assert isinstance(metadata, dict)
         finally:
             os.unlink(video_path)
+
+    def test_read_metadata_from_mp4_freeform_custom_times(self, tmp_path, monkeypatch):
+        """MP4 files can carry custom times under freeform atoms (mocked mutagen)."""
+        import video_metadata as vm
+
+        video_path = tmp_path / "test.mp4"
+        video_path.write_bytes(b"")
+
+        class FakeMP4:
+            def __init__(self, _path):
+                self.tags = {
+                    vm.START_TIME_IN_MS_TAG: [b"1500"],
+                    vm.END_TIME_IN_MS_TAG: [b"2500"],
+                }
+                self.info = None
+
+        monkeypatch.setattr(vm, "MUTAGEN_AVAILABLE", True, raising=False)
+        monkeypatch.setattr(vm, "MP4", FakeMP4, raising=False)
+
+        metadata = vm.read_video_metadata(str(video_path), include_duration=False, check_nfo=False, include_thumbnail=False)
+        assert metadata["start_time_in_ms"] == 1500
+        assert metadata["end_time_in_ms"] == 2500
     
     def test_find_nfo_file_exists(self):
         """Test finding an existing NFO file."""
