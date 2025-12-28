@@ -20,7 +20,7 @@ class UserManager:
     
     def hash_password(self, password):
         """Hash a password using bcrypt"""
-        if password is None:
+        if password is None or password == '':
             return None
         salt = bcrypt.gensalt()
         return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')

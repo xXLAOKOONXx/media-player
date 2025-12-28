@@ -23,11 +23,11 @@ function Login({ onLoginSuccess }: LoginProps) {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`);
+      const response = await fetch(`${API_BASE_URL}/api/auth/available-users`);
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
-      } else if (response.status === 401 || response.status === 403) {
+      } else {
         // If we can't access users list, provide default options
         setUsers([
           { id: 1, username: 'admin', role: 'admin' },

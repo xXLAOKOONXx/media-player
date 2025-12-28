@@ -40,7 +40,7 @@ from audio_metadata import display_title, read_audio_metadata
 from video_playback_controller import VideoPlaybackController
 from video_manager import VideoManager
 from database_manager import DatabaseManager
-from user_manager import UserManager, require_admin
+from user_manager import UserManager, require_admin, require_auth
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -194,6 +194,18 @@ def get_current_user():
         'role': user['role']
     })
 
+# Public endpoint for login page
+@app.route('/api/auth/available-users', methods=['GET'])
+def get_available_users():
+    """Get list of available users for login (public endpoint)"""
+    # Return only username and role, no sensitive info
+    users = user_manager.get_all_users()
+    return jsonify([{
+        'id': u['id'],
+        'username': u['username'],
+        'role': u['role']
+    } for u in users])
+
 # User Management APIs (admin only)
 @app.route('/api/users', methods=['GET'])
 @require_admin(user_manager)
@@ -265,6 +277,7 @@ def update_user_password(user_id):
 
 # Network Storage Management APIs
 @app.route('/api/audio/storage', methods=['GET'])
+@require_auth(user_manager)
 def get_storages():
     """Get all configured network storages"""
     config = load_config()
@@ -306,6 +319,7 @@ def delete_storage(storage_id):
 
 # Playlist Management APIs
 @app.route('/api/audio/playlists', methods=['GET'])
+@require_auth(user_manager)
 def get_playlists():
     """Get all configured playlist folders"""
     config = load_config()
@@ -408,6 +422,7 @@ def get_playlist_tracks(playlist_id):
 
 # Sound Effects Management APIs
 @app.route('/api/audio/soundeffects', methods=['GET'])
+@require_auth(user_manager)
 def get_sound_effects_folders():
     """Get all configured sound effects folders"""
     config = load_config()
@@ -496,6 +511,7 @@ def play_sound_effect():
 
 # Music Management APIs
 @app.route('/api/audio/music', methods=['GET'])
+@require_auth(user_manager)
 def get_music_folders():
     """Get all configured music folders"""
     config = load_config()
@@ -1094,6 +1110,7 @@ def update_settings():
 
 # Video Library Management
 @app.route('/api/video/libraries', methods=['GET'])
+@require_auth(user_manager)
 def get_video_libraries():
     """Get all configured video libraries"""
     config = load_config()
