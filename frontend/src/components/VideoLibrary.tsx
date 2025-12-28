@@ -99,7 +99,7 @@ const VideoLibrary = () => {
       const data = await response.json();
       setVideoLibraries(data);
     } catch (err) {
-      console.error('Error loading video librarys:', err);
+      console.error('Error loading video libraries:', err);
     }
   };
 
@@ -331,7 +331,7 @@ const VideoLibrary = () => {
 
   const handleAddToCurrentPlaylist = async () => {
     try {
-      const trackPaths = Array.from(selectedVideos);
+      const videoPaths = Array.from(selectedVideos);
       
       const response = await fetch(`${API_BASE_URL}/api/video/playback/add-videos`, {
         method: 'POST',
@@ -339,13 +339,12 @@ const VideoLibrary = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          track_paths: trackPaths
+          video_paths: videoPaths
         })
       });
       
       if (response.ok) {
-        const result = await response.json();
-        alert(`Added ${result.videos_added} track(s) to current playlist. Total: ${result.total_videos} videos.`);
+        alert(`Added ${videoPaths.length} video(s) to current playlist.`);
         setSelectedVideos(new Set()); // Clear selection
       } else {
         alert('Failed to add videos to current playlist');
@@ -733,7 +732,7 @@ const VideoLibrary = () => {
         {!foldersCollapsed && (
           <>
             {videoLibraries.length === 0 ? (
-              <p className="empty-message">No video librarys configured</p>
+              <p className="empty-message">No video libraries configured</p>
             ) : (
               <ul>
                 {videoLibraries.map((folder) => (

@@ -1118,19 +1118,19 @@ def update_video_track_times(track_index):
     else:
         return jsonify({'error': 'Invalid track index'}), 400
 
-@app.route('/api/video/playback/add-tracks', methods=['POST'])
+@app.route('/api/video/playback/add-videos', methods=['POST'])
 def add_video_tracks():
     """Add videos to current playback playlist"""
     data = request.json
-    track_paths = data.get('track_paths', [])
+    video_paths = data.get('video_paths', [])
     
-    if not track_paths:
-        return jsonify({'error': 'track_paths is required'}), 400
+    if not video_paths:
+        return jsonify({'error': 'video_paths is required'}), 400
     
-    video_playback_controller.add_tracks(track_paths)
+    video_playback_controller.add_tracks(video_paths)
     
     return jsonify({
-        'message': f'Added {len(track_paths)} video(s) to playlist',
+        'message': f'Added {len(video_paths)} video(s) to playlist',
         'playlist_length': len(video_playback_controller.get_playlist())
     })
 
