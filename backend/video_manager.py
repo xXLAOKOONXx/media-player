@@ -1,12 +1,13 @@
 """Video Manager
 
-Handles video library management with basic metadata extraction.
+Handles video library management with metadata extraction from files and NFO files.
 """
 
 import os
 from pathlib import Path
 
 from video_cache import VideoCache
+from video_metadata import read_video_metadata
 
 
 class VideoManager:
@@ -85,7 +86,7 @@ class VideoManager:
                 except OSError:
                     return
 
-                # Create track info
+                # Create track info with basic file metadata
                 video_info = {
                     'path': full_path,
                     'name': file_name,
@@ -93,6 +94,21 @@ class VideoManager:
                     'size': stat.st_size,
                     'modified': stat.st_mtime
                 }
+                
+                # Extract metadata from video file and NFO file
+                try:
+                    metadata = read_video_metadata(
+                        full_path,
+                        include_duration=True,
+                        check_nfo=True
+                    )
+                    # Merge metadata, keeping existing values if not in metadata
+                    for key, value in metadata.items():
+                        if value is not None:
+                            video_info[key] = value
+                except Exception as e:
+                    # If metadata extraction fails, continue with basic info
+                    pass
                 
                 video_files.append(video_info)
 
