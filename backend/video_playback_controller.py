@@ -66,7 +66,8 @@ class VideoPlaybackController:
                         self.current_position = value
                 
                 @self.player.event_callback('end-file')
-                def end_file_callback(event):
+                def end_file_callback(_event):
+                    # _event parameter intentionally unused
                     logger.info("Video ended, playing next")
                     self._handle_video_end()
                 
@@ -88,9 +89,11 @@ class VideoPlaybackController:
         if self.player:
             try:
                 self.player.terminate()
-                logger.info("MPV player terminated")
+                # Note: Not setting self.player = None here as this is
+                # best-effort cleanup in __del__. Use cleanup() for full cleanup.
+                logger.info("MPV player terminated in __del__")
             except Exception as e:
-                logger.debug(f"Error terminating MPV player: {e}")
+                logger.debug(f"Error terminating MPV player in __del__: {e}")
     
     def cleanup(self):
         """Explicitly cleanup MPV player resources
@@ -216,9 +219,10 @@ class VideoPlaybackController:
                 # Set volume
                 self.player.volume = self.volume
                 
-                # Apply custom start time if set
-                if current_track.get('start_time'):
-                    self.player.seek(current_track['start_time'], reference='absolute')
+                # Apply custom start time if set (must be positive)
+                start_time = current_track.get('start_time')
+                if start_time and start_time > 0:
+                    self.player.seek(start_time, reference='absolute')
                 
                 self.is_playing = True
                 self.is_paused = False
