@@ -4,7 +4,7 @@ This document describes the REST API endpoints provided by the Media Player back
 
 ## Base URL
 
-### New Audio API (Recommended)
+### Audio API
 ```
 http://localhost:5000/api/audio
 ```
@@ -14,17 +14,11 @@ For Raspberry Pi deployment:
 http://raspberrypi.local:5000/api/audio
 ```
 
-### Legacy API (Deprecated)
-The old API endpoints without the `/audio` prefix are still supported for backward compatibility but are deprecated:
-```
-http://localhost:5000/api
-```
-
-**Note:** New applications should use the `/api/audio/*` endpoints. The legacy endpoints will be removed in a future version.
+**Note:** All API endpoints are under the `/api/audio/*` prefix.
 
 ## Frontend Routes
 
-The application now supports URL-based navigation:
+The application supports URL-based navigation:
 
 - `/` - Redirects to `/audio/player`
 - `/audio/player` - Player view
