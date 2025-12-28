@@ -8,6 +8,7 @@ dependencies = [
     "pygame==2.6.1",
     "mutagen==1.47.0",
     "python-mpv==1.0.7",
+    "bcrypt==4.1.2",
 ]
 
 [project.optional-dependencies]
