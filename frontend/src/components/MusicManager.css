@@ -1,8 +1,8 @@
 .music-manager {
   padding: 20px;
-  background-color: #1a1a1a;
+  background-color: #414141;
   min-height: 100vh;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .music-header {
@@ -14,7 +14,7 @@
 
 .music-header h2 {
   margin: 0;
-  color: #ffffff;
+  color: #dfdfdf;
   font-size: 28px;
 }
 
@@ -29,37 +29,37 @@
   align-items: center;
   gap: 5px;
   padding: 10px 18px;
-  background-color: #667eea;
-  color: white;
+  background-color: #4a5568;
+  color: #dfdfdf;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
 
 .music-actions button:hover {
-  background-color: #5568d3;
+  background-color: #5a6c7d;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
 }
 
 .music-actions button.search-all-button {
-  background-color: #10b981;
+  background-color: #4a5d54;
 }
 
 .music-actions button.search-all-button:hover {
-  background-color: #059669;
+  background-color: #5a6d64;
 }
 
 .music-actions button.add-to-current-button {
-  background-color: #f59e0b;
+  background-color: #5d544a;
 }
 
 .music-actions button.add-to-current-button:hover {
-  background-color: #d97706;
+  background-color: #6d645a;
 }
 
 .music-actions button .material-icons {
@@ -71,16 +71,16 @@
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background-color: #064e3b;
-  border: 1px solid #10b981;
+  background-color: #606060;
+  border: 1px solid #707070;
   border-radius: 6px;
   margin-bottom: 20px;
   font-size: 14px;
-  color: #d1fae5;
+  color: #dfdfdf;
 }
 
 .playlist-folder-info .material-icons {
-  color: #10b981;
+  color: #9d9d9d;
 }
 
 .music-folders {
@@ -89,7 +89,7 @@
 
 .music-folders h3 {
   margin-bottom: 15px;
-  color: #ffffff;
+  color: #dfdfdf;
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -123,24 +123,24 @@
   align-items: center;
   padding: 14px;
   margin-bottom: 10px;
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background-color: #606060;
+  border: 1px solid #707070;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .music-folders li:hover {
-  background-color: #333333;
-  border-color: #4a4a4a;
+  background-color: #707070;
+  border-color: #808080;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .music-folders li.selected {
-  background-color: #1e3a8a;
-  border-left: 4px solid #667eea;
-  border-color: #3b82f6;
-  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  background-color: #4a5568;
+  border-left: 4px solid #9d9d9d;
+  border-color: #5a6c7d;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .music-folders .folder-info {
@@ -152,13 +152,13 @@
 
 .music-folders .folder-info .material-icons {
   font-size: 32px;
-  color: #667eea;
+  color: #9d9d9d;
 }
 
 .music-folders .folder-name {
   font-weight: 600;
   margin-bottom: 4px;
-  color: #ffffff;
+  color: #dfdfdf;
   font-size: 15px;
 }
 
@@ -170,8 +170,8 @@
 .music-folders .folder-badge {
   display: inline-block;
   padding: 3px 10px;
-  background-color: #667eea;
-  color: white;
+  background-color: #4a5568;
+  color: #dfdfdf;
   border-radius: 4px;
   font-size: 11px;
   margin-top: 6px;
@@ -185,8 +185,8 @@
 
 .music-folders .folder-actions button {
   padding: 8px;
-  background-color: #3a3a3a;
-  border: 1px solid #4a4a4a;
+  background-color: #606060;
+  border: 1px solid #707070;
   cursor: pointer;
   border-radius: 6px;
   display: flex;
@@ -196,13 +196,13 @@
 }
 
 .music-folders .folder-actions button:hover {
-  background-color: #4a4a4a;
-  border-color: #5a5a5a;
+  background-color: #707070;
+  border-color: #808080;
 }
 
 .music-folders .folder-actions .material-icons {
   font-size: 20px;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .music-folders .editing {
@@ -215,10 +215,10 @@
 .music-folders .editing input {
   flex: 1;
   padding: 8px;
-  border: 1px solid #4a4a4a;
+  border: 1px solid #707070;
   border-radius: 4px;
-  background-color: #2a2a2a;
-  color: #e0e0e0;
+  background-color: #606060;
+  color: #dfdfdf;
 }
 
 .music-folders .editing button {
@@ -227,25 +227,25 @@
   border: none;
   cursor: pointer;
   border-radius: 4px;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .music-folders .editing button:hover {
-  background-color: #3a3a3a;
+  background-color: #606060;
 }
 
 .search-filters {
   margin-bottom: 20px;
   padding: 20px;
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background-color: #606060;
+  border: 1px solid #707070;
   border-radius: 8px;
 }
 
 .search-filters h4 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #ffffff;
+  color: #dfdfdf;
   font-size: 16px;
 }
 
@@ -262,27 +262,27 @@
 .search-filters input {
   flex: 1;
   padding: 10px;
-  border: 1px solid #4a4a4a;
+  border: 1px solid #707070;
   border-radius: 6px;
   font-size: 14px;
-  background-color: #1a1a1a;
-  color: #e0e0e0;
+  background-color: #414141;
+  color: #dfdfdf;
 }
 
 .search-filters input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  border-color: #4a5568;
+  box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.2);
 }
 
 .search-filters input::placeholder {
-  color: #666;
+  color: #9d9d9d;
 }
 
 .search-filters button {
   padding: 10px 18px;
-  background-color: #dc2626;
-  color: white;
+  background-color: #8b4545;
+  color: #dfdfdf;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -291,7 +291,7 @@
 }
 
 .search-filters button:hover {
-  background-color: #b91c1c;
+  background-color: #6b3535;
 }
 
 .loading-container {
@@ -304,8 +304,8 @@
 }
 
 .loading-spinner {
-  border: 4px solid #3a3a3a;
-  border-top: 4px solid #667eea;
+  border: 4px solid #606060;
+  border-top: 4px solid #4a5568;
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -319,18 +319,18 @@
 }
 
 .tracks-list {
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background-color: #606060;
+  border: 1px solid #707070;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .tracks-header {
   padding: 12px 15px;
-  background-color: #333333;
-  border-bottom: 1px solid #3a3a3a;
+  background-color: #707070;
+  border-bottom: 1px solid #808080;
   font-weight: 600;
-  color: #ffffff;
+  color: #dfdfdf;
 }
 
 .tracks-list table {
@@ -339,15 +339,15 @@
 }
 
 .tracks-list thead {
-  background-color: #333333;
+  background-color: #707070;
 }
 
 .tracks-list th {
   padding: 12px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 2px solid #3a3a3a;
-  color: #a0a0a0;
+  border-bottom: 2px solid #808080;
+  color: #9d9d9d;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -355,12 +355,12 @@
 
 .tracks-list td {
   padding: 12px;
-  border-bottom: 1px solid #333333;
-  color: #e0e0e0;
+  border-bottom: 1px solid #707070;
+  color: #dfdfdf;
 }
 
 .tracks-list tbody tr:hover {
-  background-color: #333333;
+  background-color: #707070;
 }
 
 .tracks-list .tags {
@@ -371,28 +371,28 @@
 
 .tracks-list .tag {
   padding: 2px 8px;
-  background-color: #1e3a8a;
-  color: #bfdbfe;
+  background-color: #4a5568;
+  color: #dfdfdf;
   border-radius: 3px;
   font-size: 11px;
 }
 
 .tracks-list td button {
   padding: 6px 10px;
-  background-color: #3a3a3a;
-  border: 1px solid #4a4a4a;
+  background-color: #606060;
+  border: 1px solid #707070;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
   transition: all 0.2s;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .tracks-list td button:hover:not(:disabled) {
-  background-color: #4a4a4a;
-  border-color: #5a5a5a;
+  background-color: #707070;
+  border-color: #808080;
 }
 
 .tracks-list td button:disabled {
@@ -418,20 +418,20 @@
 }
 
 .modal-content {
-  background-color: #2a2a2a;
+  background-color: #606060;
   padding: 30px;
   border-radius: 8px;
   max-width: 600px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  border: 1px solid #3a3a3a;
+  border: 1px solid #707070;
 }
 
 .modal-content h3 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #ffffff;
+  color: #dfdfdf;
 }
 
 .form-group {
@@ -442,7 +442,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .form-group input[type="text"],
@@ -450,18 +450,18 @@
 .form-group select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #4a4a4a;
+  border: 1px solid #707070;
   border-radius: 4px;
-  background-color: #1a1a1a;
-  color: #e0e0e0;
+  background-color: #414141;
+  color: #dfdfdf;
 }
 
 .form-group input[type="text"]:focus,
 .form-group input[type="number"]:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  border-color: #4a5568;
+  box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.2);
 }
 
 .form-group input[type="checkbox"] {
@@ -479,31 +479,31 @@
 
 .path-input-group button {
   padding: 8px 16px;
-  background-color: #667eea;
-  color: white;
+  background-color: #4a5568;
+  color: #dfdfdf;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .path-input-group button:hover {
-  background-color: #5568d3;
+  background-color: #5a6c7d;
 }
 
 .browse-results {
   margin-top: 20px;
   padding: 15px;
-  background-color: #333333;
+  background-color: #707070;
   border-radius: 4px;
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #3a3a3a;
+  border: 1px solid #808080;
 }
 
 .browse-results h4 {
   margin-top: 0;
   margin-bottom: 10px;
-  color: #ffffff;
+  color: #dfdfdf;
 }
 
 .browse-results ul {
@@ -519,28 +519,28 @@
   padding: 8px;
   cursor: pointer;
   border-radius: 4px;
-  color: #e0e0e0;
+  color: #dfdfdf;
 }
 
 .browse-results li:hover {
-  background-color: #3a3a3a;
+  background-color: #606060;
 }
 
 .browse-results .material-icons {
-  color: #667eea;
+  color: #9d9d9d;
 }
 
 .browse-results button {
   padding: 8px 16px;
-  background-color: #667eea;
-  color: white;
+  background-color: #4a5568;
+  color: #dfdfdf;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .browse-results button:hover {
-  background-color: #5568d3;
+  background-color: #5a6c7d;
 }
 
 .form-actions {
@@ -559,22 +559,22 @@
 }
 
 .form-actions button[type="submit"] {
-  background-color: #667eea;
-  color: white;
+  background-color: #4a5568;
+  color: #dfdfdf;
 }
 
 .form-actions button[type="submit"]:hover {
-  background-color: #5568d3;
+  background-color: #5a6c7d;
 }
 
 .form-actions button[type="button"] {
-  background-color: #3a3a3a;
-  color: #e0e0e0;
-  border: 1px solid #4a4a4a;
+  background-color: #606060;
+  color: #dfdfdf;
+  border: 1px solid #707070;
 }
 
 .form-actions button[type="button"]:hover {
-  background-color: #4a4a4a;
+  background-color: #707070;
 }
 
 .empty-message {
@@ -664,16 +664,16 @@
   .tracks-list tbody tr {
     display: block;
     margin-bottom: 15px;
-    border: 1px solid #3a3a3a;
+    border: 1px solid #707070;
     border-radius: 8px;
     padding: 12px;
-    background-color: #2a2a2a;
+    background-color: #606060;
     position: relative;
     padding-right: 40px;
   }
 
   .tracks-list tbody tr:hover {
-    background-color: #333333;
+    background-color: #707070;
   }
 
   .tracks-list td {

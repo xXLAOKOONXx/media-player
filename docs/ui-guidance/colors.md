@@ -45,6 +45,24 @@ The Media Player uses a minimal, dark-themed color palette based on grayscale wi
   - Used for: Text on active/selected elements
   - Description: Dark gray text on light backgrounds for contrast
 
+#### Additional Accent Colors (For Variety)
+When multiple distinct UI elements need different colors while maintaining the greyish aesthetic:
+
+- **Greenish Gray**: `#4a5d54`
+  - Used for: Success states, positive actions, alternative primary buttons
+  - Description: Muted green-gray for positive feedback
+  - Hover: `#5a6d64`
+
+- **Warm Gray**: `#5d544a`
+  - Used for: Warning states, alternative actions
+  - Description: Muted warm gray for secondary emphasis
+  - Hover: `#6d645a`
+
+- **Cool Gray**: `#4a5460`
+  - Used for: Info states, tertiary actions
+  - Description: Muted cool gray for informational elements
+  - Hover: `#5a6470`
+
 ### Semantic Colors
 
 #### Danger/Delete
@@ -69,13 +87,14 @@ The Media Player uses a minimal, dark-themed color palette based on grayscale wi
 - ✅ Use the defined color palette consistently across components
 - ✅ Maintain high contrast ratios for accessibility (light text on dark backgrounds)
 - ✅ Use blueish-gray accent for primary interactive elements
+- ✅ Use the additional accent colors (greenish/warm/cool gray) when you need variety while maintaining the aesthetic
 - ✅ Use semantic colors (danger red) only for their intended purposes
 - ✅ Test color combinations for readability
 
 ### Don'ts
 - ❌ Don't introduce new colors without updating this documentation
 - ❌ Don't use pure black (`#000000`) or pure white (`#ffffff`) - use the defined grays
-- ❌ Don't use bright, saturated colors that clash with the minimal aesthetic
+- ❌ Don't use bright, saturated colors (like bright blue `#667eea`, bright green `#10b981`, bright orange `#f59e0b`) that clash with the minimal aesthetic
 - ❌ Don't use colored text for regular content - keep text grayscale
 
 ## Accessibility
