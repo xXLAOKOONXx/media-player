@@ -15,11 +15,16 @@ All data is now stored in `media_player.db`:
 - Music folder metadata and track cache
 - Video folder metadata and video cache
 
-### 2. Device-Aware Configuration
-The database uses the **computer's hostname** (via `platform.node()`) to identify different devices. This enables:
-- Multiple devices to share the same database file (e.g., on a network share)
-- Each device maintains its own configuration and cache
-- No conflicts when different devices access the same database
+### 2. Platform-Specific Storage Location
+The database is stored in the appropriate per-user application data folder:
+- **Windows**: `%LOCALAPPDATA%\media-player\media_player.db` (typically `C:\Users\<username>\AppData\Local\media-player\media_player.db`)
+- **Linux**: `~/.local/share/media-player/media_player.db`
+- **macOS**: `~/.local/share/media-player/media_player.db`
+
+This ensures:
+- Data is stored per-user, not globally
+- Each user has their own configuration and cache
+- No permission issues with system directories
 
 ### 3. Database Schema
 
@@ -27,30 +32,25 @@ The database uses the **computer's hostname** (via `platform.node()`) to identif
 ```sql
 CREATE TABLE config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_name TEXT NOT NULL,
-    config_key TEXT NOT NULL,
+    config_key TEXT NOT NULL UNIQUE,
     config_value TEXT NOT NULL,
-    updated_at REAL NOT NULL,
-    UNIQUE(device_name, config_key)
+    updated_at REAL NOT NULL
 );
 ```
 
 #### Music Tables
 ```sql
 CREATE TABLE music_folders (
-    device_name TEXT NOT NULL,
-    id INTEGER NOT NULL,
-    path TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
     recursive INTEGER NOT NULL,
-    last_scan REAL,
-    PRIMARY KEY (device_name, id)
+    last_scan REAL
 );
 
 CREATE TABLE music_tracks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_name TEXT NOT NULL,
     folder_id INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
     file_name TEXT NOT NULL,
     file_size INTEGER,
     artist TEXT,
@@ -60,33 +60,30 @@ CREATE TABLE music_tracks (
     tags TEXT,
     last_modified REAL,
     cached_at REAL NOT NULL,
-    UNIQUE(device_name, folder_id, file_path)
+    FOREIGN KEY (folder_id) REFERENCES music_folders (id) ON DELETE CASCADE
 );
 ```
 
 #### Video Tables
 ```sql
 CREATE TABLE video_folders (
-    device_name TEXT NOT NULL,
-    id INTEGER NOT NULL,
-    path TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
     recursive INTEGER NOT NULL,
-    last_scan REAL,
-    PRIMARY KEY (device_name, id)
+    last_scan REAL
 );
 
 CREATE TABLE videos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_name TEXT NOT NULL,
     folder_id INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
     file_name TEXT NOT NULL,
     file_size INTEGER,
     title TEXT,
     duration REAL,
     last_modified REAL,
     cached_at REAL NOT NULL,
-    UNIQUE(device_name, folder_id, file_path)
+    FOREIGN KEY (folder_id) REFERENCES video_folders (id) ON DELETE CASCADE
 );
 ```
 
@@ -114,25 +111,22 @@ All existing APIs continue to work as before. The changes are internal:
 - `VideoCache` now uses `DatabaseManager` internally
 - `app.py` configuration functions now read/write to the database
 
-## Multi-Device Support Example
+## Storage Location
 
-### Scenario
-You have two computers sharing a network drive:
+The database is automatically stored in the user-specific application data directory:
 - Computer A (hostname: `desktop-pc`)
-- Computer B (hostname: `laptop`)
 
-### Configuration
-1. Place `media_player.db` on the shared network drive
-2. Point both installations to use the same database file
-3. Each device will have its own configuration in the database:
-   - `desktop-pc` → its own music folders, video folders, settings
-   - `laptop` → its own music folders, video folders, settings
+### Windows
+```
+C:\Users\<username>\AppData\Local\media-player\media_player.db
+```
 
-### Benefits
-- No configuration conflicts
-- Each device can have different paths (since they might mount shares differently)
-- Cache is device-specific (optimized for each device's access patterns)
-- Shared database means easier backup and management
+### Linux/macOS
+```
+~/.local/share/media-player/media_player.db
+```
+
+This ensures each user has their own configuration and cache data stored in the appropriate location for their operating system.
 
 ## Testing
 
@@ -143,7 +137,6 @@ All existing tests pass with the new implementation:
 - Video cache tests
 
 Additional test coverage:
-- Device isolation tests
 - Configuration storage tests
 - Database migration tests
 
@@ -151,7 +144,7 @@ Additional test coverage:
 
 No performance degradation expected:
 - Same SQLite backend as before
-- Optimized indexes for device-specific queries
+- Optimized indexes for queries
 - Cache invalidation logic unchanged
 
 ## Files Modified
@@ -171,30 +164,31 @@ No performance degradation expected:
 
 ## Troubleshooting
 
-### Database Locked Error
-If you get "database is locked" errors with a network database:
-1. Ensure only one instance is writing at a time
-2. Consider using a longer timeout: `DatabaseManager(db_path, timeout=30.0)`
-3. Check network connection stability
+### Database Location
+To find where the database is stored on your system:
+```python
+from database_manager import get_app_data_dir
+print(get_app_data_dir())
+```
 
 ### Migration Issues
 If configuration doesn't migrate properly:
 1. Check if `config.json.migrated` exists
-2. Manually verify data with: `sqlite3 media_player.db "SELECT * FROM config;"`
+2. Manually verify data with: `sqlite3 <path_to_db> "SELECT * FROM config;"`
 3. Restore from `config.json.migrated` if needed
 
-### Device Name Issues
-If you want to override the device name:
+
+### Custom Database Location
+If you need to use a custom location:
 ```python
-db = DatabaseManager()
-db.device_name = "custom-device-name"
+from database_manager import DatabaseManager
+db = DatabaseManager('/path/to/custom/location/media_player.db')
 ```
 
 ## Future Enhancements
 
 Possible future improvements:
-1. Add device management UI (view all devices using the database)
-2. Export/import device configurations
-3. Shared playlists across devices
-4. Database vacuum/optimization commands
-5. Database encryption for sensitive data
+1. Export/import configurations
+2. Database vacuum/optimization commands
+3. Database encryption for sensitive data
+4. Cloud sync support
