@@ -11,13 +11,14 @@ The Video view provides video playback functionality with library management, pl
 
 ## Layout
 
-The Video page uses a tabbed interface with three main sections:
+The Video page uses a tabbed interface with four main sections:
 
 ### Navigation Tabs
 
 - **Player** - Video player with playback controls
 - **Playlists** - Video playlist management
 - **Library** - Video library and collection management
+- **Settings** - Application settings (shared with Audio view)
 
 ## Sub-views
 
@@ -168,6 +169,15 @@ If MPV is not available, videos can play in the browser:
 - Modern web browser with HTML5 video support
 - Sufficient network bandwidth for streaming
 - Hardware video decoding recommended for HD content
+
+### Settings Tab (URL: `/video/settings`)
+
+See [settings.md](settings.md) for detailed requirements.
+
+Features:
+- Configure audio crossfade settings
+- Configure video playback settings (fullscreen mode, preferred screen)
+- Shared settings view accessible from both Audio and Video sections
 
 ## Default Routes
 
