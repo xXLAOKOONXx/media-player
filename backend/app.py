@@ -146,7 +146,6 @@ video_config = config.get('video', {
     'preferred_screen': None
 })
 video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager)
-video_playback_controller = VideoPlaybackController(video_config=video_config)
 
 # Authentication APIs
 @app.route('/api/auth/login', methods=['POST'])
