@@ -852,6 +852,10 @@ def delete_video_library(library_id):
     libraries = config.get('video_libraries', [])
     config['video_libraries'] = [lib for lib in libraries if lib['id'] != library_id]
     save_config(config)
+    
+    # Invalidate cache for this library
+    video_manager.invalidate_cache(library_id)
+    
     return '', 204
 
 @app.route('/api/video/libraries/<int:library_id>/videos', methods=['GET'])
@@ -864,7 +868,15 @@ def get_library_videos(library_id):
     if not library:
         return jsonify({'error': 'Video library not found'}), 404
     
-    videos = video_manager.get_video_files(library['path'], library.get('recursive', False))
+    # Check if force refresh is requested
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
+    
+    videos = video_manager.get_video_files(
+        library['path'],
+        library.get('recursive', False),
+        folder_id=library_id,
+        force_refresh=force_refresh
+    )
     return jsonify(videos)
 
 # Video Playlist Management

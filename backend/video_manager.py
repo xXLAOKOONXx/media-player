@@ -6,6 +6,8 @@ Handles video library management with basic metadata extraction.
 import os
 from pathlib import Path
 
+from video_cache import VideoCache
+
 
 class VideoManager:
     """Manages video libraries and tracks"""
@@ -13,11 +15,48 @@ class VideoManager:
     # Supported video file extensions
     VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg'}
     
-    def __init__(self):
-        pass
+    def __init__(self, use_cache=True):
+        self.cache = VideoCache() if use_cache else None
     
-    def get_video_files(self, path, recursive=False):
+    def get_video_files(
+        self,
+        path,
+        recursive=False,
+        folder_id=None,
+        force_refresh=False,
+    ):
         """Get all video files in a directory
+        
+        Args:
+            path: Directory path to scan
+            recursive: If True, scan subdirectories as well
+            folder_id: Optional folder ID for caching
+            force_refresh: If True, bypass cache and rescan
+            
+        Returns:
+            List of dicts with file information
+        """
+        # Try to use cache if available
+        if self.cache and folder_id is not None and not force_refresh:
+            # Register folder in cache
+            self.cache.register_folder(folder_id, path, recursive)
+            
+            # Try to get from cache
+            cached_videos = self.cache.get_cached_videos(folder_id)
+            if cached_videos is not None:
+                return cached_videos
+        
+        # Cache miss or force refresh - scan filesystem
+        video_files = self._scan_video_files(path, recursive)
+        
+        # Update cache
+        if self.cache and folder_id is not None:
+            self.cache.cache_videos(folder_id, video_files)
+        
+        return video_files
+    
+    def _scan_video_files(self, path, recursive=False):
+        """Scan filesystem for video files
         
         Args:
             path: Directory path to scan
@@ -132,3 +171,20 @@ class VideoManager:
             ]
         
         return filtered
+    
+    def invalidate_cache(self, folder_id):
+        """Invalidate cache for a specific folder"""
+        if self.cache:
+            self.cache.invalidate_folder(folder_id)
+    
+    def clear_cache(self):
+        """Clear all cached data"""
+        if self.cache:
+            self.cache.clear_cache()
+    
+    def get_cache_stats(self):
+        """Get cache statistics"""
+        if self.cache:
+            return self.cache.get_cache_stats()
+        return {'folders': 0, 'videos': 0, 'total_size_bytes': 0}
+

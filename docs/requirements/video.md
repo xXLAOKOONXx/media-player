@@ -76,8 +76,15 @@ Video playback uses **server-side rendering with MPV player** (similar to audio 
    - Scans video library folders
    - Creates M3U playlists
    - Filters and searches videos
+   - **SQLite caching** for faster library loading
 
-3. **API Endpoints** (in `backend/app.py`)
+3. **VideoCache** (`backend/video_cache.py`)
+   - SQLite database for video metadata caching
+   - Stores file paths, titles, sizes, and durations
+   - Dramatically improves library loading performance
+   - Automatic cache invalidation on folder changes
+
+4. **API Endpoints** (in `backend/app.py`)
    - `/api/video/libraries/*` - Library management
    - `/api/video/playlists/*` - Playlist management
    - `/api/video/playback/*` - Playback control
