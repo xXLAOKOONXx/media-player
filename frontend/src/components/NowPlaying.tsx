@@ -32,7 +32,7 @@ const NowPlaying = ({ status }: NowPlayingProps) => {
     const position = parseFloat(e.target.value);
     
     try {
-      await fetch(`${API_BASE_URL}/api/playback/seek`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/seek`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ position })

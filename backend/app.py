@@ -814,6 +814,221 @@ def browse_path():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# NEW API ROUTES WITH /api/audio/ PREFIX
+# ============================================================================
+
+# Network Storage Management APIs - Audio
+@app.route('/api/audio/storage', methods=['GET'])
+def get_storages_audio():
+    """Get all configured network storages (audio endpoint)"""
+    return get_storages()
+
+@app.route('/api/audio/storage', methods=['POST'])
+def add_storage_audio():
+    """Add a new network storage (audio endpoint)"""
+    return add_storage()
+
+@app.route('/api/audio/storage/<int:storage_id>', methods=['DELETE'])
+def delete_storage_audio(storage_id):
+    """Delete a network storage (audio endpoint)"""
+    return delete_storage(storage_id)
+
+# Playlist Management APIs - Audio
+@app.route('/api/audio/playlists', methods=['GET'])
+def get_playlists_audio():
+    """Get all configured playlist folders (audio endpoint)"""
+    return get_playlists()
+
+@app.route('/api/audio/playlists', methods=['POST'])
+def add_playlist_audio():
+    """Add a new playlist folder (audio endpoint)"""
+    return add_playlist()
+
+@app.route('/api/audio/playlists/<int:playlist_id>', methods=['PUT'])
+def rename_playlist_audio(playlist_id):
+    """Rename a playlist folder (audio endpoint)"""
+    return rename_playlist(playlist_id)
+
+@app.route('/api/audio/playlists/<int:playlist_id>', methods=['DELETE'])
+def delete_playlist_audio(playlist_id):
+    """Delete a playlist folder (audio endpoint)"""
+    return delete_playlist(playlist_id)
+
+@app.route('/api/audio/playlists/<int:playlist_id>/files', methods=['GET'])
+def get_playlist_files_audio(playlist_id):
+    """Get all playlist files in a folder (audio endpoint)"""
+    return get_playlist_files(playlist_id)
+
+@app.route('/api/audio/playlists/<int:playlist_id>/tracks', methods=['GET'])
+def get_playlist_tracks_audio(playlist_id):
+    """Get all tracks in a playlist (audio endpoint)"""
+    return get_playlist_tracks(playlist_id)
+
+# Sound Effects Management APIs - Audio
+@app.route('/api/audio/soundeffects', methods=['GET'])
+def get_sound_effects_folders_audio():
+    """Get all configured sound effects folders (audio endpoint)"""
+    return get_sound_effects_folders()
+
+@app.route('/api/audio/soundeffects', methods=['POST'])
+def add_sound_effects_folder_audio():
+    """Add a new sound effects folder (audio endpoint)"""
+    return add_sound_effects_folder()
+
+@app.route('/api/audio/soundeffects/<int:folder_id>', methods=['PUT'])
+def rename_sound_effects_folder_audio(folder_id):
+    """Rename a sound effects folder (audio endpoint)"""
+    return rename_sound_effects_folder(folder_id)
+
+@app.route('/api/audio/soundeffects/<int:folder_id>', methods=['DELETE'])
+def delete_sound_effects_folder_audio(folder_id):
+    """Delete a sound effects folder (audio endpoint)"""
+    return delete_sound_effects_folder(folder_id)
+
+@app.route('/api/audio/soundeffects/<int:folder_id>/files', methods=['GET'])
+def get_sound_effects_files_audio(folder_id):
+    """Get all audio files in a sound effects folder (audio endpoint)"""
+    return get_sound_effects_files(folder_id)
+
+@app.route('/api/audio/soundeffects/play', methods=['POST'])
+def play_sound_effect_audio():
+    """Play a sound effect in parallel with music (audio endpoint)"""
+    return play_sound_effect()
+
+# Music Management APIs - Audio
+@app.route('/api/audio/music', methods=['GET'])
+def get_music_folders_audio():
+    """Get all configured music folders (audio endpoint)"""
+    return get_music_folders()
+
+@app.route('/api/audio/music', methods=['POST'])
+def add_music_folder_audio():
+    """Add a new music folder (audio endpoint)"""
+    return add_music_folder()
+
+@app.route('/api/audio/music/<int:folder_id>', methods=['PUT'])
+def rename_music_folder_audio(folder_id):
+    """Rename a music folder (audio endpoint)"""
+    return rename_music_folder(folder_id)
+
+@app.route('/api/audio/music/<int:folder_id>', methods=['DELETE'])
+def delete_music_folder_audio(folder_id):
+    """Delete a music folder (audio endpoint)"""
+    return delete_music_folder(folder_id)
+
+@app.route('/api/audio/music/<int:folder_id>/tracks', methods=['GET'])
+def get_music_tracks_audio(folder_id):
+    """Get all tracks in a music folder (audio endpoint)"""
+    return get_music_tracks(folder_id)
+
+@app.route('/api/audio/music/<int:folder_id>/refresh', methods=['POST'])
+def refresh_music_folder_audio(folder_id):
+    """Refresh the track cache for a music folder (audio endpoint)"""
+    return refresh_music_folder(folder_id)
+
+@app.route('/api/audio/music/search', methods=['POST'])
+def search_music_tracks_audio():
+    """Search tracks across all music folders by various criteria (audio endpoint)"""
+    return search_music_tracks()
+
+@app.route('/api/audio/music/playlists-folder', methods=['GET'])
+def get_playlists_folder_audio():
+    """Get the configured playlist folder path (audio endpoint)"""
+    return get_playlists_folder()
+
+@app.route('/api/audio/music/playlists-folder', methods=['PUT'])
+def set_playlists_folder_audio():
+    """Set the playlist folder path (audio endpoint)"""
+    return set_playlists_folder()
+
+@app.route('/api/audio/music/playlists/create', methods=['POST'])
+def create_music_playlist_audio():
+    """Create a new M3U playlist from selected tracks (audio endpoint)"""
+    return create_music_playlist()
+
+@app.route('/api/audio/music/playlists/<path:playlist_name>/add-track', methods=['POST'])
+def add_track_to_playlist_audio(playlist_name):
+    """Add a track to an existing M3U playlist (audio endpoint)"""
+    return add_track_to_playlist(playlist_name)
+
+# Playback Control APIs - Audio
+@app.route('/api/audio/playback/add-tracks', methods=['POST'])
+def add_tracks_audio():
+    """Add tracks to the playback queue (audio endpoint)"""
+    return add_tracks()
+
+@app.route('/api/audio/playback/play', methods=['POST'])
+def play_audio():
+    """Start playback (audio endpoint)"""
+    return play()
+
+@app.route('/api/audio/playback/pause', methods=['POST'])
+def pause_audio():
+    """Pause playback (audio endpoint)"""
+    return pause()
+
+@app.route('/api/audio/playback/stop', methods=['POST'])
+def stop_audio():
+    """Stop playback (audio endpoint)"""
+    return stop()
+
+@app.route('/api/audio/playback/next', methods=['POST'])
+def next_track_audio():
+    """Skip to next track (audio endpoint)"""
+    return next_track()
+
+@app.route('/api/audio/playback/previous', methods=['POST'])
+def previous_track_audio():
+    """Go to previous track (audio endpoint)"""
+    return previous_track()
+
+@app.route('/api/audio/playback/volume', methods=['POST'])
+def set_volume_audio():
+    """Set playback volume (audio endpoint)"""
+    return set_volume()
+
+@app.route('/api/audio/playback/shuffle', methods=['POST'])
+def toggle_shuffle_audio():
+    """Toggle shuffle mode (audio endpoint)"""
+    return toggle_shuffle()
+
+@app.route('/api/audio/playback/repeat', methods=['POST'])
+def set_repeat_audio():
+    """Set repeat mode (audio endpoint)"""
+    return set_repeat()
+
+@app.route('/api/audio/playback/seek', methods=['POST'])
+def seek_audio():
+    """Seek to a position in the current track (audio endpoint)"""
+    return seek()
+
+@app.route('/api/audio/playback/status', methods=['GET'])
+def get_status_audio():
+    """Get current playback status (audio endpoint)"""
+    return get_status()
+
+@app.route('/api/audio/playback/tracks', methods=['GET'])
+def get_tracks_audio():
+    """Get all tracks in the current playlist (audio endpoint)"""
+    return get_tracks()
+
+@app.route('/api/audio/playback/tracks/<int:track_index>/times', methods=['PUT'])
+def set_track_times_audio(track_index):
+    """Set custom start and end times for a specific track (audio endpoint)"""
+    return set_track_times(track_index)
+
+# Crossfade Configuration APIs - Audio
+@app.route('/api/audio/crossfade/config', methods=['GET'])
+def get_crossfade_config_audio():
+    """Get current crossfade configuration (audio endpoint)"""
+    return get_crossfade_config()
+
+@app.route('/api/audio/crossfade/config', methods=['PUT'])
+def update_crossfade_config_audio():
+    """Update crossfade configuration (audio endpoint)"""
+    return update_crossfade_config()
+
 # Serve React frontend
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

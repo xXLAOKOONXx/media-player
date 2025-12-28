@@ -44,7 +44,7 @@ const PlaylistManager = () => {
 
   const loadPlaylistFolders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/playlists`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/playlists`);
       const data = await response.json();
       setPlaylistFolders(data);
     } catch (err) {
@@ -54,7 +54,7 @@ const PlaylistManager = () => {
 
   const loadPlaylists = async (folderId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/playlists/${folderId}/files`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/playlists/${folderId}/files`);
       const data = await response.json();
       setPlaylists(data);
     } catch (err) {
@@ -80,7 +80,7 @@ const PlaylistManager = () => {
   const handleAddFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/playlists`, {
+      await fetch(`${API_BASE_URL}/api/audio/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFolder)
@@ -98,7 +98,7 @@ const PlaylistManager = () => {
       return;
     }
     try {
-      await fetch(`${API_BASE_URL}/api/playlists/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/playlists/${folderId}`, {
         method: 'DELETE'
       });
       if (selectedFolder === folderId) {
@@ -123,7 +123,7 @@ const PlaylistManager = () => {
       return;
     }
     try {
-      await fetch(`${API_BASE_URL}/api/playlists/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/playlists/${folderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName })

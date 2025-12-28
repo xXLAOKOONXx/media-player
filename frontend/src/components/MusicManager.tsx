@@ -95,7 +95,7 @@ const MusicManager = () => {
 
   const loadMusicFolders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/music`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/music`);
       const data = await response.json();
       setMusicFolders(data);
     } catch (err) {
@@ -105,7 +105,7 @@ const MusicManager = () => {
 
   const loadPlaylistFolder = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/music/playlists-folder`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/music/playlists-folder`);
       const data = await response.json();
       setPlaylistFolder(data.path || '');
     } catch (err) {
@@ -137,7 +137,7 @@ const MusicManager = () => {
   const loadTracks = async (folderId: number) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/music/${folderId}/tracks`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/music/${folderId}/tracks`);
       const data = await response.json();
       setTracks(data);
     } catch (err) {
@@ -152,7 +152,7 @@ const MusicManager = () => {
       setIsLoading(true);
       // Load tracks from all folders concurrently
       const trackPromises = musicFolders.map(folder =>
-        fetch(`${API_BASE_URL}/api/music/${folder.id}/tracks`).then(res => res.json())
+        fetch(`${API_BASE_URL}/api/audio/music/${folder.id}/tracks`).then(res => res.json())
       );
       const allTracksArrays = await Promise.all(trackPromises);
       const allTracks = allTracksArrays.flat();
@@ -172,7 +172,7 @@ const MusicManager = () => {
   const refreshFolder = async (folderId: number) => {
     try {
       setIsLoading(true);
-      await fetch(`${API_BASE_URL}/api/music/${folderId}/refresh`, {
+      await fetch(`${API_BASE_URL}/api/audio/music/${folderId}/refresh`, {
         method: 'POST'
       });
       // Reload tracks
@@ -245,7 +245,7 @@ const MusicManager = () => {
   const handleAddFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/music`, {
+      await fetch(`${API_BASE_URL}/api/audio/music`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFolder)
@@ -260,7 +260,7 @@ const MusicManager = () => {
 
   const handleUpdateFolder = async (folderId: number) => {
     try {
-      await fetch(`${API_BASE_URL}/api/music/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/music/${folderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName })
@@ -278,7 +278,7 @@ const MusicManager = () => {
       return;
     }
     try {
-      await fetch(`${API_BASE_URL}/api/music/${folderId}`, {
+      await fetch(`${API_BASE_URL}/api/audio/music/${folderId}`, {
         method: 'DELETE'
       });
       if (selectedFolder === folderId) {
@@ -294,7 +294,7 @@ const MusicManager = () => {
   const handleSetPlaylistFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_BASE_URL}/api/music/playlists-folder`, {
+      await fetch(`${API_BASE_URL}/api/audio/music/playlists-folder`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: playlistFolder })
@@ -333,7 +333,7 @@ const MusicManager = () => {
     try {
       const trackPaths = Array.from(selectedTracks);
       
-      const response = await fetch(`${API_BASE_URL}/api/playback/add-tracks`, {
+      const response = await fetch(`${API_BASE_URL}/api/audio/playback/add-tracks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -374,7 +374,7 @@ const MusicManager = () => {
         selectedTracks.has(t.path)
       );
 
-      const response = await fetch(`${API_BASE_URL}/api/music/playlists/create`, {
+      const response = await fetch(`${API_BASE_URL}/api/audio/music/playlists/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -408,7 +408,7 @@ const MusicManager = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/music/playlists/${selectedPlaylist}/add-track`,
+        `${API_BASE_URL}/api/audio/music/playlists/${selectedPlaylist}/add-track`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

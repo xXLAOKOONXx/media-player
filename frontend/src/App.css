@@ -22,6 +22,32 @@
   margin-right: 0.5rem;
 }
 
+.main-nav {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.main-nav a {
+  color: #dfdfdf;
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  background-color: #606060;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.main-nav a:hover {
+  background-color: #4a5568;
+}
+
+.main-nav a.active {
+  background-color: #9d9d9d;
+  color: #414141;
+  font-weight: bold;
+}
+
 .tabs {
   display: flex;
   gap: 0.5rem;

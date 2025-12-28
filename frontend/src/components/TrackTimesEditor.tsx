@@ -21,7 +21,7 @@ const TrackTimesEditor = () => {
 
   const loadTracks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/playback/tracks`);
+      const response = await fetch(`${API_BASE_URL}/api/audio/playback/tracks`);
       const data = await response.json();
       setTracks(data.tracks || []);
     } catch (err) {
@@ -96,7 +96,7 @@ const TrackTimesEditor = () => {
         return;
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
+      const response = await fetch(`${API_BASE_URL}/api/audio/playback/tracks/${trackIndex}/times`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,7 @@ const TrackTimesEditor = () => {
 
   const handleClear = async (trackIndex: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/playback/tracks/${trackIndex}/times`, {
+      const response = await fetch(`${API_BASE_URL}/api/audio/playback/tracks/${trackIndex}/times`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

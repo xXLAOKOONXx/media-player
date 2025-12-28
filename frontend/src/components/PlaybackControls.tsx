@@ -13,7 +13,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
   const handlePlay = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/play`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/play`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -26,7 +26,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
   const handlePause = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/pause`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/pause`, {
         method: 'POST'
       });
       onUpdate();
@@ -37,7 +37,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
   const handleStop = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/stop`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/stop`, {
         method: 'POST'
       });
       onUpdate();
@@ -48,7 +48,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
   const handlePrevious = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/previous`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/previous`, {
         method: 'POST'
       });
       onUpdate();
@@ -59,7 +59,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
 
   const handleNext = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/next`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/next`, {
         method: 'POST'
       });
       onUpdate();
@@ -71,7 +71,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
   const handleVolumeChange = async (newVolume: number) => {
     setVolume(newVolume);
     try {
-      await fetch(`${API_BASE_URL}/api/playback/volume`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/volume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ volume: newVolume })
@@ -94,7 +94,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
   const handleShuffle = async () => {
     const newShuffleState = !status?.shuffle;
     try {
-      await fetch(`${API_BASE_URL}/api/playback/shuffle`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/shuffle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: newShuffleState })
@@ -112,7 +112,7 @@ const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
     const nextMode = modes[(currentIndex + 1) % modes.length];
     
     try {
-      await fetch(`${API_BASE_URL}/api/playback/repeat`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/repeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: nextMode })
