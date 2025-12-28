@@ -10,7 +10,17 @@ import SettingsManager from '../components/SettingsManager';
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
 
-function AudioPage() {
+interface User {
+  id: number;
+  username: string;
+  role: string;
+}
+
+interface AudioPageProps {
+  currentUser: User;
+}
+
+function AudioPage({ currentUser }: AudioPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -107,7 +117,7 @@ function AudioPage() {
         )}
         
         {activeTab === 'settings' && (
-          <SettingsManager />
+          <SettingsManager currentUser={currentUser} />
         )}
       </main>
     </div>
