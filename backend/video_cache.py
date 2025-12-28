@@ -104,7 +104,8 @@ class VideoCache:
 
         rows = []
         for video in videos:
-            # last_modified is captured during scan to avoid an extra network call.
+            # Get modification time - prefer 'modified' key for consistency
+            # Also check 'last_modified' for backwards compatibility
             last_modified = video.get('modified') or video.get('last_modified')
             if last_modified is None:
                 try:
@@ -164,8 +165,10 @@ class VideoCache:
         if not rows:
             return []
         
-        # Trust the cache - don't check file existence
-        # Files will only be validated when adding to playlists or on refresh
+        # Trust the cache without checking file existence for performance.
+        # This improves load times significantly, especially on network shares.
+        # Trade-off: May return entries for deleted files until next refresh.
+        # Files are validated when adding to playlists or on manual refresh.
         videos = []
         for row in rows:
             video = {

@@ -49,9 +49,13 @@ class VideoManager:
         # Cache miss or force refresh - scan filesystem
         video_files = self._scan_video_files(path, recursive)
         
-        # Update cache
+        # Update cache (handle errors gracefully)
         if self.cache and folder_id is not None:
-            self.cache.cache_videos(folder_id, video_files)
+            try:
+                self.cache.cache_videos(folder_id, video_files)
+            except Exception as e:
+                # Log error but don't fail the request
+                print(f"Warning: Failed to cache videos for folder {folder_id}: {e}")
         
         return video_files
     
