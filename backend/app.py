@@ -38,7 +38,7 @@ storage_manager = StorageManager()
 library_manager = LibraryManager()
 sound_effects_manager = SoundEffectsManager()
 music_manager = MusicManager(use_cache=True)
-video_manager = VideoManager()
+video_manager = VideoManager(use_cache=True)
 video_playback_controller = VideoPlaybackController()
 
 # Configuration
