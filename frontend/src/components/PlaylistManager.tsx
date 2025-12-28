@@ -144,7 +144,7 @@ const PlaylistManager = () => {
 
   const handlePlayPlaylist = async (playlistPath: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/playback/play`, {
+      await fetch(`${API_BASE_URL}/api/audio/playback/play`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playlist_path: playlistPath, track_index: 0 })
