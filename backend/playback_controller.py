@@ -81,7 +81,7 @@ class PlaybackController:
     CROSSFADE_LOG_FREQUENCY = 20  # Log every Nth step (100/20 = 5 log entries)
     FADEOUT_BUFFER_SECONDS = 0.5  # Buffer time to ensure fadeout and queue transition complete
     
-    def __init__(self, crossfade_config=None):
+    def __init__(self, crossfade_config=None, stats_manager=None):
         # Initialize pygame mixer
         self.audio_available = False
         if PYGAME_AVAILABLE:
@@ -127,6 +127,11 @@ class PlaybackController:
         self.track_custom_end = None  # Custom end time in track (seconds)
         self.pause_time = None  # System time when paused
         self.total_pause_duration = 0  # Total time spent paused
+        
+        # Stats tracking
+        self.stats_manager = stats_manager
+        self.current_username = None  # Set by app when playback starts
+        self.stats_recorded = False  # Track if stats have been recorded for current track
         
         # Set initial volume if audio is available
         if self.audio_available:
@@ -371,6 +376,7 @@ class PlaybackController:
             self.track_start_time = time.time()
             self.pause_time = None
             self.total_pause_duration = 0
+            self.stats_recorded = False  # Reset stats flag for new track
             self._reset_crossfade_state()
             
             # Start monitoring thread
@@ -504,6 +510,9 @@ class PlaybackController:
         while not self.stop_monitoring.is_set():
             if self.is_playing and not self.is_paused:
                 if self.audio_available:
+                    # Check if we should record stats for this track
+                    self._check_and_record_stats()
+                    
                     # Check if custom end time has been reached
                     if self.track_custom_end is not None and self.track_start_time is not None:
                         elapsed = time.time() - self.track_start_time - self.total_pause_duration
@@ -527,6 +536,57 @@ class PlaybackController:
                 break
             
             time.sleep(0.1)  # Check more frequently for smooth crossfading
+    
+    def _check_and_record_stats(self):
+        """Check if playback has reached the threshold for recording stats"""
+        if self.stats_recorded or not self.stats_manager or not self.current_username:
+            return
+        
+        if not self.stats_manager.is_initialized():
+            return
+        
+        if not self.current_playlist or self.current_track_index >= len(self.current_playlist):
+            return
+        
+        track = self.current_playlist[self.current_track_index]
+        track_path = track.get('path')
+        
+        if not track_path or not self.track_start_time:
+            return
+        
+        # Calculate elapsed playback time (excluding paused time)
+        elapsed = time.time() - self.track_start_time - self.total_pause_duration
+        
+        # Get track duration
+        duration_str = track.get('duration', '0')
+        try:
+            duration = float(duration_str)
+        except (ValueError, TypeError):
+            duration = 0
+        
+        if duration <= 0:
+            return
+        
+        # Determine the effective duration considering custom start/end times
+        effective_start = self.track_custom_start or 0
+        effective_end = self.track_custom_end or duration
+        effective_duration = effective_end - effective_start
+        
+        if effective_duration <= 0:
+            return
+        
+        # Calculate thresholds: 50% or 5 minutes (300 seconds), whichever is smaller
+        threshold = min(effective_duration * 0.5, 300.0)
+        
+        if elapsed >= threshold:
+            # Record the stat
+            try:
+                folder_path = os.path.dirname(track_path)
+                if self.stats_manager.record_media_stat(folder_path, self.current_username):
+                    self.stats_recorded = True
+                    logger.info(f"Recorded stats for {track_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
+            except Exception as e:
+                logger.error(f"Failed to record stats: {e}")
     
     def _handle_crossfade(self):
         """Handle crossfade logic during playback"""
