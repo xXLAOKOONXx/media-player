@@ -18,7 +18,9 @@ from music_manager import MusicManager
 from audio_metadata import display_title, read_audio_metadata
 
 # Configure Flask to serve static files from the static folder
-# Disable automatic static file serving
+# Disable automatic static file serving to prevent Flask's catch-all route
+# from interfering with React Router's client-side routing.
+# We manually serve assets under /assets/* and use 404 handler for HTML.
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=None)
 

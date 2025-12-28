@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import './App.css';
 import AudioPage from './pages/AudioPage';
 import VideoPage from './pages/VideoPage';
@@ -12,18 +12,18 @@ function AppHeader() {
     <header className="App-header">
       <h1><span className="material-icons">music_note</span>Media Player</h1>
       <nav className="main-nav">
-        <a 
-          href="/audio/player" 
+        <Link 
+          to="/audio/player" 
           className={isAudioPath ? 'active' : ''}
         >
           Audio
-        </a>
-        <a 
-          href="/video" 
+        </Link>
+        <Link 
+          to="/video" 
           className={isVideoPath ? 'active' : ''}
         >
           Video
-        </a>
+        </Link>
       </nav>
     </header>
   );
