@@ -425,8 +425,8 @@ const VideoLibrary = () => {
         alert(`Failed to add video: ${error.error}`);
       }
     } catch (err) {
-      console.error('Error adding track to playlist:', err);
-      alert('Failed to add track to playlist');
+      console.error('Error adding video to playlist:', err);
+      alert('Failed to add video to playlist');
     }
   };
 
