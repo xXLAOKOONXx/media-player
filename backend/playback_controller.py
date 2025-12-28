@@ -581,7 +581,7 @@ class PlaybackController:
         if elapsed >= threshold:
             # Record the stat
             try:
-                folder_path = os.path.dirname(track_path)
+                folder_path = os.path.dirname(os.path.abspath(track_path))
                 if self.stats_manager.record_media_stat(folder_path, self.current_username):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {track_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")

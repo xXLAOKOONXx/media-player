@@ -118,6 +118,8 @@ class VideoPlaybackController:
         self.current_username = None  # Set by app when playback starts
         self.stats_recorded = False  # Track if stats have been recorded for current track
         self.track_start_time = None  # System time when track started
+        self.pause_start_time = None  # System time when paused
+        self.total_pause_duration = 0  # Total time spent paused
         
         # Initialize mpv if available
         if MPV_AVAILABLE:
@@ -352,6 +354,21 @@ class VideoPlaybackController:
         
         return True
     
+    def pause(self):
+        """Pause playback"""
+        if self.is_playing and not self.is_paused:
+            if self.player and self.video_available:
+                try:
+                    self.player.pause = True
+                    logger.info("Video paused")
+                except Exception as e:
+                    logger.error(f"Error pausing video: {e}")
+            
+            self.is_paused = True
+            self.pause_start_time = time.time()  # Track when pause started
+            return True
+        return False
+    
     def play(self):
         """Start or resume playback"""
         if not self.current_playlist:
@@ -368,6 +385,10 @@ class VideoPlaybackController:
             try:
                 self.player.pause = False
                 self.is_paused = False
+                # Track pause duration
+                if self.pause_start_time is not None:
+                    self.total_pause_duration += time.time() - self.pause_start_time
+                    self.pause_start_time = None
                 logger.info("Resumed video playback")
                 return True
             except Exception as e:
@@ -399,7 +420,9 @@ class VideoPlaybackController:
                 self.is_playing = True
                 self.is_paused = False
                 self.stats_recorded = False  # Reset stats flag for new video
-                self.track_start_time = None  # Will be set when time-pos updates
+                self.track_start_time = time.time()  # Set start time for stats tracking
+                self.pause_start_time = None
+                self.total_pause_duration = 0
                 
                 # Try to get duration from MPV if not already available
                 if current_track.get('duration') is None:
@@ -439,14 +462,7 @@ class VideoPlaybackController:
         current_track = self.current_playlist[self.current_track_index]
         video_path = current_track.get('path')
         
-        if not video_path:
-            return
-        
-        # Set track start time on first position update
-        if self.track_start_time is None and self.current_position > 0:
-            self.track_start_time = time.time() - self.current_position
-        
-        if not self.track_start_time:
+        if not video_path or not self.track_start_time:
             return
         
         # Get video duration
@@ -454,8 +470,8 @@ class VideoPlaybackController:
         if duration is None or duration <= 0:
             return
         
-        # Calculate elapsed playback time
-        elapsed = self.current_position
+        # Calculate elapsed playback time (excluding paused time)
+        elapsed = time.time() - self.track_start_time - self.total_pause_duration
         
         # Determine the effective duration considering custom start/end times
         effective_start = current_track.get('start_time', 0)
@@ -471,7 +487,7 @@ class VideoPlaybackController:
         if elapsed >= threshold:
             # Record the stat
             try:
-                folder_path = os.path.dirname(video_path)
+                folder_path = os.path.dirname(os.path.abspath(video_path))
                 if self.stats_manager.record_media_stat(folder_path, self.current_username):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {video_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
@@ -489,9 +505,34 @@ class VideoPlaybackController:
                     logger.error(f"Error pausing video: {e}")
             
             self.is_paused = True
+            self.pause_start_time = time.time()  # Track when pause started
             return True
         return False
     
+    def play(self):
+        """Start or resume playback"""
+        if not self.current_playlist:
+            logger.warning("Cannot play: no playlist loaded")
+            return False
+        
+        current_track = self.get_current_track()
+        if not current_track:
+            logger.warning("No current track to play")
+            return False
+        
+        # If already playing and paused, just resume
+        if self.is_paused and self.player and self.video_available:
+            try:
+                self.player.pause = False
+                self.is_paused = False
+                # Track pause duration
+                if self.pause_start_time is not None:
+                    self.total_pause_duration += time.time() - self.pause_start_time
+                    self.pause_start_time = None
+                logger.info("Resumed video playback")
+                return True
+            except Exception as e:
+                logger.error(f"Error resuming video: {e}")
     def stop(self):
         """Stop playback"""
         if self.player and self.video_available:
