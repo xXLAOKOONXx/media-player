@@ -13,7 +13,9 @@ fi
 # Install backend dependencies
 echo "🐍 Installing backend dependencies with uv..."
 cd backend
-uv sync --no-build-isolation
+# Include the backend's development extras (e.g., pytest) so `uv sync` doesn't
+# prune them from the environment.
+uv sync --no-build-isolation --extra dev
 cd ..
 
 # Install frontend dependencies
