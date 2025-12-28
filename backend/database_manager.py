@@ -113,6 +113,12 @@ class DatabaseManager:
                 duration REAL,
                 last_modified REAL,
                 cached_at REAL NOT NULL,
+                tags TEXT,
+                artist TEXT,
+                thumbnail TEXT,
+                description TEXT,
+                premiere_date TEXT,
+                user_rating REAL,
                 FOREIGN KEY (folder_id) REFERENCES video_folders (id) ON DELETE CASCADE
             )
         ''')
@@ -138,6 +144,27 @@ class DatabaseManager:
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
         ''')
+        
+        # Migrate existing videos table to add new columns if they don't exist
+        cursor.execute("PRAGMA table_info(videos)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+        
+        new_columns = {
+            'tags': 'TEXT',
+            'artist': 'TEXT',
+            'thumbnail': 'TEXT',
+            'description': 'TEXT',
+            'premiere_date': 'TEXT',
+            'user_rating': 'REAL'
+        }
+        
+        for column_name, column_type in new_columns.items():
+            if column_name not in existing_columns:
+                try:
+                    cursor.execute(f'ALTER TABLE videos ADD COLUMN {column_name} {column_type}')
+                except sqlite3.OperationalError:
+                    # Column might already exist in some edge cases
+                    pass
         
         # Create indexes for faster lookups
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_folder ON music_tracks (folder_id)')
@@ -461,13 +488,20 @@ class DatabaseManager:
                 video.get('duration'),
                 last_modified,
                 current_time,
+                json.dumps(video.get('tags', [])),
+                video.get('artist'),
+                video.get('thumbnail'),
+                video.get('description'),
+                video.get('premiere_date'),
+                video.get('user_rating'),
             ))
         
         cursor.executemany('''
             INSERT INTO videos
             (folder_id, file_path, file_name, file_size, title, duration,
-             last_modified, cached_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             last_modified, cached_at, tags, artist, thumbnail, description,
+             premiere_date, user_rating)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', rows)
         
         conn.commit()
@@ -489,7 +523,8 @@ class DatabaseManager:
             return None
         
         cursor.execute('''
-            SELECT file_path, file_name, file_size, title, duration, last_modified
+            SELECT file_path, file_name, file_size, title, duration, last_modified,
+                   tags, artist, thumbnail, description, premiere_date, user_rating
             FROM videos
             WHERE folder_id = ?
             ORDER BY title, file_name
@@ -509,7 +544,13 @@ class DatabaseManager:
                 'size': row[2],
                 'title': row[3] or os.path.splitext(row[1])[0],
                 'duration': row[4],
-                'modified': row[5]
+                'modified': row[5],
+                'tags': json.loads(row[6]) if row[6] else [],
+                'artist': row[7],
+                'thumbnail': row[8],
+                'description': row[9],
+                'premiere_date': row[10],
+                'user_rating': row[11]
             }
             videos.append(video)
         
