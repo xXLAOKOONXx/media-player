@@ -76,7 +76,12 @@ class VideoPlaybackController:
             logger.warning("python-mpv not installed, running in no-video mode")
     
     def __del__(self):
-        """Cleanup MPV player on deletion"""
+        """Cleanup MPV player on deletion
+        
+        Note: __del__ is not guaranteed to be called in Python.
+        Use cleanup() method for reliable resource cleanup.
+        This is provided as a best-effort fallback only.
+        """
         if self.player:
             try:
                 self.player.terminate()
@@ -85,7 +90,11 @@ class VideoPlaybackController:
                 logger.debug(f"Error terminating MPV player: {e}")
     
     def cleanup(self):
-        """Explicitly cleanup MPV player resources"""
+        """Explicitly cleanup MPV player resources
+        
+        This is the recommended way to cleanup resources.
+        Call this method explicitly when done with the controller.
+        """
         if self.player:
             try:
                 self.player.terminate()
