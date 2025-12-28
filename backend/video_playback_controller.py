@@ -474,8 +474,11 @@ class VideoPlaybackController:
         elapsed = time.time() - self.track_start_time - self.total_pause_duration
         
         # Determine the effective duration considering custom start/end times
-        effective_start = current_track.get('start_time', 0)
-        effective_end = current_track.get('end_time', duration)
+        # Note: keys may exist with value None; coerce None to defaults
+        start_time_val = current_track.get('start_time')
+        end_time_val = current_track.get('end_time')
+        effective_start = start_time_val if start_time_val is not None else 0
+        effective_end = end_time_val if end_time_val is not None else duration
         effective_duration = effective_end - effective_start
         
         if effective_duration <= 0:
