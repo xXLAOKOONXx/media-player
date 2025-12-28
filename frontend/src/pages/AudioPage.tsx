@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import StorageManager from '../components/StorageManager';
 import PlaylistManager from '../components/PlaylistManager';
 import PlaybackControls from '../components/PlaybackControls';
 import NowPlaying from '../components/NowPlaying';
-import TrackTimesEditor from '../components/TrackTimesEditor';
 import SoundEffectsManager from '../components/SoundEffectsManager';
 import MusicManager from '../components/MusicManager';
 
@@ -19,15 +17,13 @@ function AudioPage() {
   const getActiveTabFromPath = () => {
     const path = location.pathname;
     if (path.includes('/player')) return 'player';
-    if (path.includes('/tracks')) return 'tracks';
     if (path.includes('/playlists')) return 'playlists';
     if (path.includes('/music')) return 'music';
     if (path.includes('/soundeffects')) return 'soundeffects';
-    if (path.includes('/storage')) return 'storage';
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'storage' | 'playlists' | 'player' | 'tracks' | 'soundeffects' | 'music'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'playlists' | 'player' | 'soundeffects' | 'music'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -63,12 +59,6 @@ function AudioPage() {
           Player
         </button>
         <button 
-          className={activeTab === 'tracks' ? 'active' : ''} 
-          onClick={() => handleTabChange('tracks')}
-        >
-          Track Times
-        </button>
-        <button 
           className={activeTab === 'playlists' ? 'active' : ''} 
           onClick={() => handleTabChange('playlists')}
         >
@@ -86,12 +76,6 @@ function AudioPage() {
         >
           Sound Effects
         </button>
-        <button 
-          className={activeTab === 'storage' ? 'active' : ''} 
-          onClick={() => handleTabChange('storage')}
-        >
-          Storage
-        </button>
       </nav>
 
       <main className="App-main">
@@ -100,10 +84,6 @@ function AudioPage() {
             <NowPlaying status={playbackStatus} />
             <PlaybackControls status={playbackStatus} onUpdate={() => {}} />
           </div>
-        )}
-        
-        {activeTab === 'tracks' && (
-          <TrackTimesEditor />
         )}
         
         {activeTab === 'playlists' && (
@@ -116,10 +96,6 @@ function AudioPage() {
         
         {activeTab === 'soundeffects' && (
           <SoundEffectsManager />
-        )}
-        
-        {activeTab === 'storage' && (
-          <StorageManager />
         )}
       </main>
     </div>
