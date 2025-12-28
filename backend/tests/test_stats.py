@@ -6,6 +6,7 @@ import os
 import pytest
 import tempfile
 import shutil
+import sqlite3
 from stats_manager import StatsManager
 
 
@@ -40,13 +41,13 @@ class TestStatsManager:
         manager = StatsManager(temp_stats_folder)
         
         # Record a stat
-        success = manager.record_media_stat('/path/to/media/folder', 'testuser')
+        success = manager.record_media_stat('/path/to/media/file.mp4', 'testuser')
         assert success
         
         # Verify it was recorded
         stats = manager.get_media_stats()
         assert len(stats) == 1
-        assert stats[0]['folder_path'] == '/path/to/media/folder'
+        assert stats[0]['file_path'] == '/path/to/media/file.mp4'
         assert stats[0]['username'] == 'testuser'
         assert 'timestamp' in stats[0]
         assert 'id' in stats[0]
@@ -56,9 +57,9 @@ class TestStatsManager:
         manager = StatsManager(temp_stats_folder)
         
         # Record multiple stats
-        manager.record_media_stat('/path/to/folder1', 'user1')
-        manager.record_media_stat('/path/to/folder2', 'user2')
-        manager.record_media_stat('/path/to/folder3', 'user1')
+        manager.record_media_stat('/path/to/file1.mp3', 'user1')
+        manager.record_media_stat('/path/to/file2.mp3', 'user2')
+        manager.record_media_stat('/path/to/file3.mp3', 'user1')
         
         # Verify all were recorded
         stats = manager.get_media_stats()
@@ -69,9 +70,9 @@ class TestStatsManager:
         manager = StatsManager(temp_stats_folder)
         
         # Record stats for different users
-        manager.record_media_stat('/path/to/folder1', 'user1')
-        manager.record_media_stat('/path/to/folder2', 'user2')
-        manager.record_media_stat('/path/to/folder3', 'user1')
+        manager.record_media_stat('/path/to/file1.mp3', 'user1')
+        manager.record_media_stat('/path/to/file2.mp3', 'user2')
+        manager.record_media_stat('/path/to/file3.mp3', 'user1')
         
         # Filter by user1
         user1_stats = manager.get_media_stats(username='user1')
@@ -90,7 +91,7 @@ class TestStatsManager:
         
         # Record multiple stats
         for i in range(10):
-            manager.record_media_stat(f'/path/to/folder{i}', 'testuser')
+            manager.record_media_stat(f'/path/to/file{i}.mp3', 'testuser')
         
         # Get limited stats
         stats = manager.get_media_stats(limit=5)
@@ -100,7 +101,7 @@ class TestStatsManager:
         """Test that recording without initialization fails gracefully"""
         manager = StatsManager(None)
         
-        success = manager.record_media_stat('/path/to/folder', 'testuser')
+        success = manager.record_media_stat('/path/to/file.mp3', 'testuser')
         assert not success
     
     def test_set_stats_folder(self, temp_stats_folder):
@@ -117,8 +118,38 @@ class TestStatsManager:
         assert os.path.exists(manager.db_path)
         
         # Test recording works
-        success = manager.record_media_stat('/test/folder', 'testuser')
+        success = manager.record_media_stat('/test/file.mp3', 'testuser')
         assert success
+
+    def test_legacy_db_with_folder_path_column_is_supported(self, temp_stats_folder):
+        """Existing DBs may have a legacy schema with folder_path.
+
+        The manager should still initialize and allow recording (we now pass file paths).
+        """
+        db_path = os.path.join(temp_stats_folder, 'media-player-stats.db')
+
+        conn = sqlite3.connect(db_path, timeout=5.0)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS media_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                folder_path TEXT NOT NULL,
+                username TEXT NOT NULL
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+        manager = StatsManager(temp_stats_folder)
+        assert manager.is_initialized()
+
+        # Should write a file path into the legacy column without failing
+        success = manager.record_media_stat('/path/to/media/file.mp4', 'testuser')
+        assert success
+
+        stats = manager.get_media_stats(limit=1)
+        assert stats and stats[0]['file_path'] == '/path/to/media/file.mp4'
 
 
 class TestStatsTracking:
