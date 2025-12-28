@@ -41,12 +41,12 @@ class DatabaseManager:
         # Music folders table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS music_folders (
-                id INTEGER PRIMARY KEY,
                 device_name TEXT NOT NULL,
+                id INTEGER NOT NULL,
                 path TEXT NOT NULL,
                 recursive INTEGER NOT NULL,
                 last_scan REAL,
-                UNIQUE(device_name, id)
+                PRIMARY KEY (device_name, id)
             )
         ''')
         
@@ -66,7 +66,6 @@ class DatabaseManager:
                 tags TEXT,
                 last_modified REAL,
                 cached_at REAL NOT NULL,
-                FOREIGN KEY (folder_id) REFERENCES music_folders (id) ON DELETE CASCADE,
                 UNIQUE(device_name, folder_id, file_path)
             )
         ''')
@@ -74,12 +73,12 @@ class DatabaseManager:
         # Video folders table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS video_folders (
-                id INTEGER PRIMARY KEY,
                 device_name TEXT NOT NULL,
+                id INTEGER NOT NULL,
                 path TEXT NOT NULL,
                 recursive INTEGER NOT NULL,
                 last_scan REAL,
-                UNIQUE(device_name, id)
+                PRIMARY KEY (device_name, id)
             )
         ''')
         
@@ -96,7 +95,6 @@ class DatabaseManager:
                 duration REAL,
                 last_modified REAL,
                 cached_at REAL NOT NULL,
-                FOREIGN KEY (folder_id) REFERENCES video_folders (id) ON DELETE CASCADE,
                 UNIQUE(device_name, folder_id, file_path)
             )
         ''')
