@@ -40,13 +40,13 @@ def get_video_duration(video_path):
     if not os.path.exists(video_path):
         return None
     
-    # Try using mutagen for MP4 files (most reliable and doesn't require external tools)
+    # Try using mutagen (supports MP4, M4V, and other container formats)
     if MUTAGEN_AVAILABLE:
         try:
             video = MP4(video_path)
             if video.info and hasattr(video.info, 'length'):
                 duration = video.info.length
-                if duration and duration > 0:
+                if duration is not None and duration > 0:
                     return float(duration)
         except MP4StreamInfoError as e:
             logger.debug(f"Mutagen MP4 stream error for {video_path}: {e}")
