@@ -14,6 +14,7 @@ import sys
 import hashlib
 import shutil
 import tempfile
+import mimetypes
 from datetime import datetime
 from pathlib import Path
 
@@ -168,6 +169,19 @@ class DatabaseManager:
                 FOREIGN KEY (folder_id) REFERENCES video_folders (id) ON DELETE CASCADE
             )
         ''')
+
+        # Generic artwork thumbnails (e.g., Series/Season posters).
+        # Stored on disk under the same thumbs/ layout as video thumbnails.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_artwork (
+                art_id TEXT PRIMARY KEY,
+                source_path TEXT,
+                source_mtime REAL,
+                thumbnail_file TEXT,
+                thumbnail_mime_type TEXT,
+                updated_at REAL NOT NULL
+            )
+        ''')
         
         # Users table
         cursor.execute('''
@@ -285,6 +299,8 @@ class DatabaseManager:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_series_id ON videos (series_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_season_id ON videos (season_id)')
 
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_artwork_source_path ON video_artwork (source_path)')
+
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_series_folder ON video_series (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_series_full_path ON video_series (full_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_seasons_series ON video_seasons (series_id)')
@@ -394,6 +410,136 @@ class DatabaseManager:
                 os.remove(abs_path)
         except Exception:
             pass
+
+    @staticmethod
+    def _mime_from_image_path(path: str) -> str | None:
+        if not isinstance(path, str) or not path:
+            return None
+        mime, _ = mimetypes.guess_type(path)
+        if isinstance(mime, str) and mime.startswith('image/'):
+            return mime
+        ext = os.path.splitext(path)[1].lower().lstrip('.')
+        if ext in ('jpg', 'jpeg'):
+            return 'image/jpeg'
+        if ext == 'png':
+            return 'image/png'
+        if ext == 'webp':
+            return 'image/webp'
+        if ext == 'gif':
+            return 'image/gif'
+        return None
+
+    def ensure_video_artwork_from_source(self, art_id: str, source_path: str) -> bool:
+        """Ensure a poster/cover image is cached on disk and tracked in DB.
+
+        This is used for Series/Season posters that are not tied to a video row.
+        Returns True if artwork is available after the call, False otherwise.
+        """
+        if not isinstance(art_id, str) or not art_id.strip():
+            return False
+        if not isinstance(source_path, str) or not source_path:
+            return False
+
+        art_id = art_id.strip()
+
+        try:
+            if not os.path.exists(source_path) or not os.path.isfile(source_path):
+                return False
+            source_mtime = os.path.getmtime(source_path)
+        except Exception:
+            return False
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            'SELECT source_mtime, thumbnail_file FROM video_artwork WHERE art_id = ?',
+            (art_id,),
+        )
+        row = cursor.fetchone()
+
+        if row:
+            cached_mtime, thumb_file = row
+            if cached_mtime is not None and cached_mtime == source_mtime and thumb_file:
+                abs_path = thumb_file
+                if not os.path.isabs(abs_path):
+                    abs_path = os.path.join(self._get_db_dir(), thumb_file)
+                if os.path.exists(abs_path):
+                    conn.close()
+                    return True
+
+        # Cache miss or stale: (re)read and persist.
+        try:
+            with open(source_path, 'rb') as f:
+                data = f.read()
+            if not data:
+                conn.close()
+                return False
+        except Exception:
+            conn.close()
+            return False
+
+        mime_type = self._mime_from_image_path(source_path)
+        try:
+            new_thumb_file = self._persist_thumbnail_file(art_id, data, mime_type)
+        except Exception:
+            conn.close()
+            return False
+
+        # Cleanup old file if it differs.
+        if row:
+            old_thumb_file = row[1]
+            if old_thumb_file and old_thumb_file != new_thumb_file:
+                self._delete_thumbnail_file(old_thumb_file)
+
+        now = datetime.now().timestamp()
+        cursor.execute(
+            '''
+            INSERT INTO video_artwork (art_id, source_path, source_mtime, thumbnail_file, thumbnail_mime_type, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(art_id) DO UPDATE SET
+                source_path = excluded.source_path,
+                source_mtime = excluded.source_mtime,
+                thumbnail_file = excluded.thumbnail_file,
+                thumbnail_mime_type = excluded.thumbnail_mime_type,
+                updated_at = excluded.updated_at
+            ''',
+            (art_id, source_path, source_mtime, new_thumb_file, mime_type, now),
+        )
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_video_artwork_thumbnail(self, art_id: str):
+        """Get cached artwork thumbnail bytes by art_id.
+
+        Returns:
+            (bytes, mime_type) or (None, None)
+        """
+        if not isinstance(art_id, str) or not art_id.strip():
+            return None, None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT thumbnail_file, thumbnail_mime_type FROM video_artwork WHERE art_id = ?',
+            (art_id.strip(),),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return None, None
+
+        thumb_file, mime_type = row
+        if not thumb_file:
+            return None, None
+
+        data = self._read_thumbnail_file(thumb_file)
+        if isinstance(data, (bytes, bytearray)) and data:
+            return bytes(data), mime_type
+
+        return None, None
     
     # Configuration methods
     def get_config(self, key, default=None):

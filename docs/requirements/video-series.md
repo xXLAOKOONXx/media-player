@@ -29,6 +29,16 @@ URL behavior:
   - If a series has a cover URL, it is displayed.
   - Otherwise a placeholder icon is shown.
 
+### Series/Season thumbnails
+
+- A Series may have a poster image in its folder:
+  - `SERIES/poster.jpg`
+- A Season may have a poster image stored in the Series folder (not inside the season folder):
+  - For Season 1 (`SERIES/S01/`), the poster may be `SERIES/season01-poster.jpg`
+- When these poster files exist, the backend caches them using the same thumbnail storage mechanism as video thumbnails and serves them via:
+  - `GET /api/video/thumbnail/by-art-id/<series_or_season_id>`
+- The `cover` field in the series tree response points at that API route when a cached poster is available.
+
 ## Series details (URL-addressable popup)
 
 - Clicking a series tile opens a modal-style popup.

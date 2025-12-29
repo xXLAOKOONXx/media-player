@@ -11,6 +11,7 @@ import time
 import logging
 from collections import defaultdict
 
+
 from services.video.video_cache import VideoCache
 from services.video.video_metadata import read_video_metadata
 from services.video.video_metadata import find_nfo_file
@@ -421,7 +422,7 @@ class VideoManager:
             series_tags = series_nfo.get('tags') if isinstance(series_nfo.get('tags'), list) else self._union_tags_from_videos(series_videos)
             series_user_rating = series_nfo.get('user_rating') if isinstance(series_nfo.get('user_rating'), (int, float)) else self._avg_user_rating_from_videos(series_videos)
             series_artists = self._split_artist_string(series_nfo.get('artist')) or self._union_artists_from_videos(series_videos)
-            series_cover = self._pick_cover_from_videos(series_videos)
+            series_cover = self._pick_series_cover(series_public_id, series_path, series_videos)
 
             series_obj = Series(
                 id=series_public_id,
@@ -465,7 +466,7 @@ class VideoManager:
                 season_user_rating = season_nfo.get('user_rating') if isinstance(season_nfo.get('user_rating'), (int, float)) else self._avg_user_rating_from_videos(season_videos)
                 season_artists = self._split_artist_string(season_nfo.get('artist')) or self._union_artists_from_videos(season_videos)
 
-                season_cover = self._pick_cover_from_videos(season_videos)
+                season_cover = self._pick_season_cover(season_public_id, series_path, season_index, season_videos)
 
                 seasons.append(
                     Season(
@@ -485,6 +486,65 @@ class VideoManager:
             series_items.append(series_obj)
 
         return [s.to_dict() for s in series_items]
+
+    @staticmethod
+    def _find_first_existing(paths: list[str]) -> str | None:
+        for p in paths:
+            try:
+                if p and os.path.exists(p):
+                    return p
+            except Exception:
+                continue
+        return None
+
+    def _find_series_poster_file(self, series_path: str) -> str | None:
+        if not isinstance(series_path, str) or not series_path:
+            return None
+        candidates = [
+            os.path.join(series_path, 'poster.jpg'),
+            os.path.join(series_path, 'poster.jpeg'),
+            os.path.join(series_path, 'poster.png'),
+            os.path.join(series_path, 'poster.webp'),
+        ]
+        return self._find_first_existing(candidates)
+
+    def _find_season_poster_file(self, series_path: str, season_index: int | None) -> str | None:
+        if not isinstance(series_path, str) or not series_path:
+            return None
+        if not isinstance(season_index, int):
+            return None
+
+        # As per spec: poster stored in the series folder, named like season01-poster.jpg.
+        base_names = [
+            f'season{season_index:02d}-poster',
+            f'season{season_index}-poster',
+        ]
+        exts = ['.jpg', '.jpeg', '.png', '.webp']
+        candidates: list[str] = []
+        for bn in base_names:
+            for ext in exts:
+                candidates.append(os.path.join(series_path, f'{bn}{ext}'))
+        return self._find_first_existing(candidates)
+
+    def _pick_series_cover(self, series_public_id: str, series_path: str, videos: list[dict]) -> str | None:
+        poster = self._find_series_poster_file(series_path)
+        if poster and getattr(self, 'cache', None) is not None and getattr(self.cache, 'db', None) is not None:
+            try:
+                if self.cache.db.ensure_video_artwork_from_source(series_public_id, poster):
+                    return f"/api/video/thumbnail/by-art-id/{series_public_id}"
+            except Exception:
+                pass
+        return self._pick_cover_from_videos(videos)
+
+    def _pick_season_cover(self, season_public_id: str, series_path: str, season_index: int | None, videos: list[dict]) -> str | None:
+        poster = self._find_season_poster_file(series_path, season_index)
+        if poster and getattr(self, 'cache', None) is not None and getattr(self.cache, 'db', None) is not None:
+            try:
+                if self.cache.db.ensure_video_artwork_from_source(season_public_id, poster):
+                    return f"/api/video/thumbnail/by-art-id/{season_public_id}"
+            except Exception:
+                pass
+        return self._pick_cover_from_videos(videos)
 
     @staticmethod
     def _add_series_and_season_fields(video: dict, *, library_root: str) -> None:
@@ -688,16 +748,6 @@ class VideoManager:
             return []
         parts = [p.strip() for p in artist.split(',')]
         return [p for p in parts if p]
-
-    @staticmethod
-    def _find_first_existing(paths: list[str]) -> str | None:
-        for p in paths:
-            try:
-                if p and os.path.exists(p):
-                    return p
-            except Exception:
-                continue
-        return None
 
     @staticmethod
     def _pick_cover_from_videos(videos: list[dict]) -> str | None:

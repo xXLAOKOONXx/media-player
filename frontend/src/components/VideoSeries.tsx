@@ -145,7 +145,7 @@ function VideoSeries() {
 
     // URL takes priority (shareable links).
     if (selectedLibraryIdFromUrl != null && libraries.some(l => l.id === selectedLibraryIdFromUrl)) {
-      if (selectedLibraryId !== selectedLibraryIdFromUrl) {
+      if (selectedLibraryId === null) {
         setSelectedLibraryId(selectedLibraryIdFromUrl);
       }
       return;
