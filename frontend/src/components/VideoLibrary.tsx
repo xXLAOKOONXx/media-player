@@ -17,11 +17,25 @@ interface Video {
   path: string;
   size: number;
   director?: string;
+  artist?: string;
   title?: string;
   series?: string;
   duration?: number;
   tags?: string[];
 }
+
+const truncateText = (value: string, maxChars: number) => {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}…`;
+};
+
+const getArtistText = (video: Video) => {
+  // Prefer enhanced metadata field; fall back to legacy `director`.
+  const artist = (video.artist || '').trim();
+  if (artist) return artist;
+  const director = (video.director || '').trim();
+  return director;
+};
 
 interface Playlist {
   name: string;
@@ -197,9 +211,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     let filtered = [...videos];
 
     if (searchArtist) {
-      const directorLower = searchArtist.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.director?.toLowerCase().includes(directorLower)
+      const artistLower = searchArtist.toLowerCase();
+      filtered = filtered.filter(t =>
+        getArtistText(t).toLowerCase().includes(artistLower)
       );
     }
 
@@ -924,7 +938,11 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                         />
                       </td>
                       <td data-label="Title">{track.title || track.name}</td>
-                      <td data-label="Artist">{track.director || '-'}</td>
+                      <td data-label="Artist" title={getArtistText(track) || undefined}>
+                        {getArtistText(track)
+                          ? truncateText(getArtistText(track), 30)
+                          : '-'}
+                      </td>
                       <td data-label="Album">{track.series || '-'}</td>
                       <td data-label="Duration">{formatDuration(track.duration)}</td>
                       <td data-label="Tags">

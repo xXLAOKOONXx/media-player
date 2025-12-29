@@ -22,6 +22,63 @@ except ImportError:
 START_TIME_IN_MS_TAG = '----:LAO:music-start'
 END_TIME_IN_MS_TAG = '----:LAO:music-end'
 
+# Standard MP4/iTunes atom for the artist field (©ART).
+ARTISTS_TAG = '\xa9ART'
+
+# Standard MP4/iTunes atom for the title/name field (©nam).
+TITLE_TAG = '\xa9nam'
+
+# Some taggers store a comma-separated set of tags under a literal "tags" atom/key.
+# IMPORTANT: We intentionally do NOT use MP4 genre (©gen) because it is limited.
+MP4_TAGS_FIELD = 'tags'
+
+
+def _coerce_text(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        try:
+            value = bytes(value).decode('utf-8', errors='ignore')
+        except Exception:
+            return None
+    try:
+        text = str(value).strip()
+    except Exception:
+        return None
+    return text or None
+
+
+def _normalize_tag_values(raw: Any) -> list[str]:
+    """Normalize MP4 tag field values into a list[str].
+
+    Accepts either a single string/bytes or a list of strings.
+    Splits comma-separated values.
+    """
+    if raw is None:
+        return []
+
+    if not isinstance(raw, (list, tuple)):
+        raw = [raw]
+
+    seen: set[str] = set()
+    tags: list[str] = []
+    for item in raw:
+        text = _coerce_text(item)
+        if not text:
+            continue
+
+        # Allow either a pre-split list or a single comma-separated string.
+        parts = [p.strip() for p in text.split(',')]
+        for part in parts:
+            if not part or part in seen:
+                continue
+            seen.add(part)
+            tags.append(part)
+
+    return tags
+
 
 def _coerce_int_ms(value: Any) -> Optional[int]:
     """Coerce an arbitrary metadata value into an integer milliseconds value."""
@@ -102,20 +159,41 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
     try:
         tree = ET.parse(nfo_path)
         root = tree.getroot()
-        
+
+        def _local_tag(tag: str) -> str:
+            # Strip XML namespaces, if present: {ns}tag -> tag
+            return tag.split('}')[-1] if tag else ''
+
+        actor_names: list[str] = []
+        artist_values: list[str] = []
+
         # Iterate through all child elements
         for element in root:
-            tag_name = element.tag  # Keep original case
+            tag_name = _local_tag(element.tag)  # Keep original case, minus namespaces
+            tag_name_lower = tag_name.lower()
+
+            # Special case: Kodi/Jellyfin-style actors are nested: <actor><name>...</name></actor>
+            if tag_name_lower == 'actor':
+                name_value: Optional[str] = None
+                for child in element:
+                    if _local_tag(child.tag).lower() == 'name':
+                        if child.text and child.text.strip():
+                            name_value = child.text.strip()
+                        break
+                if name_value:
+                    actor_names.append(name_value)
+                continue
+
             text_value = element.text
-            
+
             if text_value is None or not text_value.strip():
                 continue
-            
+
             text_value = text_value.strip()
-            
+
             # Map NFO fields to our metadata fields (check both original case and lowercase)
-            field_name = NFO_FIELD_MAP.get(tag_name) or NFO_FIELD_MAP.get(tag_name.lower())
-            
+            field_name = NFO_FIELD_MAP.get(tag_name) or NFO_FIELD_MAP.get(tag_name_lower)
+
             if field_name:
                 # Special handling for different field types
                 if field_name == 'user_rating':
@@ -135,9 +213,34 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
                     coerced = _coerce_int_ms(text_value)
                     if coerced is not None:
                         metadata[field_name] = coerced
+                elif field_name == 'artist':
+                    artist_values.append(text_value)
                 else:
                     metadata[field_name] = text_value
-        
+
+        if artist_values:
+            # Keep order, remove duplicates
+            seen: set[str] = set()
+            unique_artist_values: list[str] = []
+            for name in artist_values:
+                if name in seen:
+                    continue
+                seen.add(name)
+                unique_artist_values.append(name)
+            metadata['artist'] = ', '.join(unique_artist_values)
+
+        # If no explicit <artist> is provided, use actor names as artist.
+        if actor_names and not metadata.get('artist'):
+            # Keep order, remove duplicates
+            seen: set[str] = set()
+            unique_actor_names: list[str] = []
+            for name in actor_names:
+                if name in seen:
+                    continue
+                seen.add(name)
+                unique_actor_names.append(name)
+            metadata['artist'] = ', '.join(unique_actor_names)
+
     except ET.ParseError as e:
         # Failed to parse XML, return empty metadata
         pass
@@ -174,6 +277,86 @@ def read_video_metadata(
         if ext in ('.mp4', '.m4v'):
             try:
                 video = MP4(file_path)
+
+                # Embedded title (iTunes/MP4 ©nam)
+                try:
+                    tags = getattr(video, 'tags', None)
+                    title_raw = None
+                    if tags and hasattr(tags, 'get'):
+                        title_raw = tags.get(TITLE_TAG)
+                    elif hasattr(video, 'get'):
+                        title_raw = video.get(TITLE_TAG, [])
+
+                    if title_raw:
+                        if isinstance(title_raw, (list, tuple)):
+                            title_raw = title_raw[0] if title_raw else None
+                        if isinstance(title_raw, (bytes, bytearray, memoryview)):
+                            try:
+                                title_value = bytes(title_raw).decode('utf-8', errors='ignore')
+                            except Exception:
+                                title_value = None
+                        else:
+                            title_value = str(title_raw) if title_raw is not None else None
+
+                        if title_value:
+                            title_value = title_value.strip()
+                        if title_value:
+                            metadata['title'] = title_value
+                except Exception:
+                    pass
+
+                # Embedded artists (iTunes/MP4 ©ART)
+                try:
+                    tags = getattr(video, 'tags', None)
+                    artists_raw = None
+                    if tags and hasattr(tags, 'get'):
+                        artists_raw = tags.get(ARTISTS_TAG)
+                    elif hasattr(video, 'get'):
+                        artists_raw = video.get(ARTISTS_TAG, [])
+
+                    if artists_raw:
+                        if not isinstance(artists_raw, (list, tuple)):
+                            artists_raw = [artists_raw]
+
+                        seen_artists: set[str] = set()
+                        artists: list[str] = []
+                        for raw in artists_raw:
+                            if isinstance(raw, (bytes, bytearray, memoryview)):
+                                try:
+                                    value = bytes(raw).decode('utf-8', errors='ignore')
+                                except Exception:
+                                    continue
+                            else:
+                                value = str(raw)
+
+                            value = value.strip()
+                            if not value or value in seen_artists:
+                                continue
+                            seen_artists.add(value)
+                            artists.append(value)
+
+                        if artists:
+                            metadata['artist'] = ', '.join(artists)
+                except Exception:
+                    pass
+
+                # Embedded tags (MP4 "tags" field)
+                # IMPORTANT: Do not use MP4 genre, only the "tags" field.
+                try:
+                    if 'tags' not in metadata:
+                        raw_tags = None
+                        if hasattr(video, 'get'):
+                            raw_tags = video.get(MP4_TAGS_FIELD, [])
+                        else:
+                            tags_obj = getattr(video, 'tags', None)
+                            if tags_obj and hasattr(tags_obj, 'get'):
+                                raw_tags = tags_obj.get(MP4_TAGS_FIELD, [])
+
+                        normalized = _normalize_tag_values(raw_tags)
+                        if normalized:
+                            metadata['tags'] = normalized
+                except Exception:
+                    pass
 
                 # Custom trim points (milliseconds)
                 start_ms = _read_mp4_freeform_ms_tag(video, START_TIME_IN_MS_TAG)
