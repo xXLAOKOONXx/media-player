@@ -1797,6 +1797,34 @@ def video_repeat():
     video_playback_controller.set_repeat_mode(mode)
     return jsonify({'repeat_mode': mode})
 
+
+@app.route('/api/video/playback/audio-track', methods=['POST'])
+def video_audio_track():
+    """Select active audio track (MPV aid)"""
+    data = request.get_json(silent=True) or {}
+    track_id = data.get('track_id')
+    if track_id is None:
+        return jsonify({'error': 'track_id is required'}), 400
+
+    if not video_playback_controller.set_audio_track(track_id):
+        return jsonify({'error': 'Invalid track_id'}), 400
+
+    return jsonify({'success': True, 'track_id': int(track_id)})
+
+
+@app.route('/api/video/playback/subtitle-track', methods=['POST'])
+def video_subtitle_track():
+    """Select active subtitle track (MPV sid), or disable with -1"""
+    data = request.get_json(silent=True) or {}
+    track_id = data.get('track_id')
+    if track_id is None:
+        return jsonify({'error': 'track_id is required'}), 400
+
+    if not video_playback_controller.set_subtitle_track(track_id):
+        return jsonify({'error': 'Invalid track_id'}), 400
+
+    return jsonify({'success': True, 'track_id': int(track_id)})
+
 @app.route('/api/video/playback/seek', methods=['POST'])
 def video_seek():
     """Seek to position in video"""

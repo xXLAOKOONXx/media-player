@@ -26,6 +26,7 @@ import random
 import copy
 import logging
 import time
+import sys
 
 from services.general.basic_file_operation import get_actual_path_with_correct_case
 from services.video.video_metadata import read_video_metadata
@@ -34,6 +35,16 @@ from services.video.video_metadata import read_video_metadata
 logger = logging.getLogger('VideoPlaybackController')
 if not logger.handlers:
     logger.setLevel(logging.INFO)
+
+
+def _running_under_pytest() -> bool:
+    # Avoid initializing MPV during unit tests. python-mpv can spawn background
+    # threads and has been observed to crash on Windows in CI/dev environments.
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return True
+    if 'pytest' in sys.modules:
+        return True
+    return False
 
 
 def get_video_duration(video_path):
@@ -58,7 +69,7 @@ def get_video_duration(video_path):
             logger.debug(f"Mutagen failed to extract duration from {video_path}: {e}")
     
     # Fallback: Try using MPV in a temporary instance
-    if MPV_AVAILABLE:
+    if MPV_AVAILABLE and not _running_under_pytest():
         temp_player = None
         try:
             temp_player = mpv.MPV(video=False, audio=False)
@@ -101,6 +112,13 @@ class VideoPlaybackController:
         # Shuffle and repeat modes
         self.shuffle_enabled = False
         self.repeat_mode = 'none'  # 'none', 'all', 'one'
+
+        # Audio/subtitle track selection
+        # MPV uses 'aid' (audio) and 'sid' (subtitle) properties.
+        # For subtitles, MPV supports disabling via 'no'. We represent "off" as -1 in the API.
+        self.selected_audio_track_id = None
+        self.selected_subtitle_track_id = -1
+        self._subtitle_track_user_selected = False
         
         # Track timing state
         self.track_custom_start = None  # Custom start time in track (seconds)
@@ -130,8 +148,8 @@ class VideoPlaybackController:
         # Flag to prevent end-file event handling during manual operations
         self._manual_track_change = False
         
-        # Initialize mpv if available
-        if MPV_AVAILABLE:
+        # Initialize mpv if available (skip during unit tests)
+        if MPV_AVAILABLE and not _running_under_pytest():
             self._initialize_mpv_player()
         else:
             logger.warning("python-mpv not installed, running in no-video mode")
@@ -549,6 +567,19 @@ class VideoPlaybackController:
                 # Load and play the video
                 self.player.play(video_path)
 
+                # Best-effort: apply stored audio/subtitle selection.
+                try:
+                    self._apply_selected_tracks_to_player()
+                except Exception as e:
+                    logger.debug(f"Error applying audio/subtitle track selection: {e}")
+
+                # Best-effort: if subtitles are currently off and we haven't explicitly
+                # selected a subtitle track yet, auto-enable a matching "forced" subtitle.
+                try:
+                    self._maybe_select_default_forced_subtitle()
+                except Exception as e:
+                    logger.debug(f"Error selecting default forced subtitle: {e}")
+
                 # Reset end-time trigger guard for this track
                 self._custom_end_time_triggered = False
                 
@@ -609,6 +640,234 @@ class VideoPlaybackController:
             self._custom_end_time_triggered = False
             logger.info(f"Video playback state updated (no player available)")
             return True
+
+    def _get_mpv_track_list(self):
+        """Return MPV track-list as a list of dicts, or empty list on failure."""
+        if not self.player or not self.video_available:
+            return []
+        try:
+            track_list = getattr(self.player, 'track_list', None)
+            if track_list is None:
+                return []
+            if not isinstance(track_list, (list, tuple)):
+                return []
+            tracks = [t for t in track_list if isinstance(t, dict)]
+            return tracks
+        except Exception:
+            return []
+
+    @staticmethod
+    def _format_track_label(track_type: str, track_id: int, title, lang) -> str:
+        """Create a stable, human-friendly label for track selectors.
+
+        Preferred format: "title - lang (id)".
+        If title/lang are missing, fall back gracefully.
+        """
+        title_str = str(title).strip() if isinstance(title, str) else ''
+        lang_str = str(lang).strip() if isinstance(lang, str) else ''
+
+        if title_str and lang_str:
+            return f"{title_str} - {lang_str} ({track_id})"
+        if title_str:
+            return f"{title_str} ({track_id})"
+        if lang_str:
+            return f"{lang_str} ({track_id})"
+        return f"{track_type} {track_id}"
+
+    @staticmethod
+    def _get_track_title_from_mpv_track(track_dict: dict):
+        title = track_dict.get('title')
+        if isinstance(title, str) and title.strip():
+            return title
+
+        metadata = track_dict.get('metadata')
+        if isinstance(metadata, dict):
+            name = metadata.get('name')
+            if isinstance(name, str) and name.strip():
+                return name
+
+        return None
+
+    @staticmethod
+    def _text_contains_forced(text) -> bool:
+        if not isinstance(text, str):
+            return False
+        return 'forced' in text.lower()
+
+    def _maybe_select_default_forced_subtitle(self):
+        """Auto-select a matching forced subtitle if subtitles are off.
+
+        Rule:
+        - If subtitle title (or metadata.name) contains "forced" AND subtitle language matches
+          the active audio track language, enable that subtitle by default.
+        - Only do this when subtitles are currently off and user hasn't explicitly selected
+          a subtitle track via the API/UI.
+        """
+        if not self.player or not self.video_available:
+            return
+
+        if self._subtitle_track_user_selected:
+            return
+
+        current_sid = self._get_current_sid()
+        sid_is_off = current_sid in (None, 'no', 'disabled', False)
+        if not sid_is_off:
+            return
+
+        # Ensure we have an audio language to compare against.
+        tracks = self._get_mpv_track_list()
+        if not tracks:
+            return
+
+        current_aid = self._get_current_aid()
+        audio_lang = None
+        if isinstance(current_aid, int):
+            for t in tracks:
+                if t.get('type') == 'audio' and t.get('id') == current_aid:
+                    audio_lang = t.get('lang')
+                    break
+        if not isinstance(audio_lang, str) or not audio_lang.strip():
+            # Fallback: whichever audio track MPV marks as selected.
+            for t in tracks:
+                if t.get('type') == 'audio' and bool(t.get('selected')):
+                    audio_lang = t.get('lang')
+                    break
+
+        if not isinstance(audio_lang, str) or not audio_lang.strip():
+            return
+        audio_lang_norm = audio_lang.strip().lower()
+
+        candidates = []
+        for t in tracks:
+            if t.get('type') != 'sub':
+                continue
+            tid = t.get('id')
+            if not isinstance(tid, int):
+                continue
+            sub_lang = t.get('lang')
+            if not isinstance(sub_lang, str) or not sub_lang.strip():
+                continue
+            if sub_lang.strip().lower() != audio_lang_norm:
+                continue
+
+            title = t.get('title')
+            meta_name = None
+            metadata = t.get('metadata')
+            if isinstance(metadata, dict):
+                meta_name = metadata.get('name')
+
+            if self._text_contains_forced(title) or self._text_contains_forced(meta_name) or t.get('forced'):
+                candidates.append(tid)
+
+        if not candidates:
+            return
+
+        chosen_id = sorted(candidates)[0]
+        self.selected_subtitle_track_id = chosen_id
+        try:
+            self.player.sid = int(chosen_id)
+        except Exception as e:
+            logger.debug(f"Failed to set MPV sid={chosen_id} for forced subtitle default: {e}")
+
+    def _get_track_options(self, track_type: str):
+        tracks = self._get_mpv_track_list()
+        options = []
+        for t in tracks:
+            if t.get('type') != track_type:
+                continue
+            tid = t.get('id')
+            if not isinstance(tid, int):
+                continue
+            title = self._get_track_title_from_mpv_track(t)
+            lang = t.get('lang')
+            label = self._format_track_label(track_type, tid, title, lang)
+            logger.info(f"Found {track_type} track: id={tid}, title={title}, lang={lang}, label={label}, t={t}")
+            options.append({
+                'id': tid,
+                'label': label,
+                'title': title if isinstance(title, str) and title.strip() else None,
+                'lang': lang if isinstance(lang, str) and lang.strip() else None,
+                'selected': bool(t.get('selected')),
+            })
+        return options
+
+    def _get_current_aid(self):
+        if self.player and self.video_available:
+            try:
+                val = getattr(self.player, 'aid', None)
+                return val
+            except Exception:
+                return None
+        return None
+
+    def _get_current_sid(self):
+        if self.player and self.video_available:
+            try:
+                val = getattr(self.player, 'sid', None)
+                return val
+            except Exception:
+                return None
+        return None
+
+    def _apply_selected_tracks_to_player(self):
+        if not self.player or not self.video_available:
+            return
+
+        # Audio
+        if isinstance(self.selected_audio_track_id, int) and self.selected_audio_track_id >= 0:
+            try:
+                self.player.aid = int(self.selected_audio_track_id)
+            except Exception as e:
+                logger.debug(f"Failed to set MPV aid={self.selected_audio_track_id}: {e}")
+
+        # Subtitles
+        if isinstance(self.selected_subtitle_track_id, int):
+            try:
+                if self.selected_subtitle_track_id < 0:
+                    self.player.sid = 'no'
+                else:
+                    self.player.sid = int(self.selected_subtitle_track_id)
+            except Exception as e:
+                logger.debug(f"Failed to set MPV sid={self.selected_subtitle_track_id}: {e}")
+
+    def set_audio_track(self, track_id):
+        """Select an audio track by MPV track id."""
+        try:
+            tid = int(track_id)
+        except Exception:
+            return False
+
+        if tid < 0:
+            return False
+
+        self.selected_audio_track_id = tid
+        if self.player and self.video_available:
+            try:
+                self.player.aid = tid
+            except Exception as e:
+                logger.debug(f"Error setting audio track: {e}")
+                return False
+        return True
+
+    def set_subtitle_track(self, track_id):
+        """Select a subtitle track by MPV track id, or disable with -1."""
+        try:
+            tid = int(track_id)
+        except Exception:
+            return False
+
+        self.selected_subtitle_track_id = tid
+        self._subtitle_track_user_selected = True
+        if self.player and self.video_available:
+            try:
+                if tid < 0:
+                    self.player.sid = 'no'
+                else:
+                    self.player.sid = tid
+            except Exception as e:
+                logger.debug(f"Error setting subtitle track: {e}")
+                return False
+        return True
     
     def _check_and_record_stats(self):
         """Check if playback has reached the threshold for recording stats"""
@@ -869,6 +1128,33 @@ class VideoPlaybackController:
         """Get current playback status"""
         current_track = self.get_current_track()
         next_track = self.get_next_track()
+
+        audio_tracks = self._get_track_options('audio')
+        subtitle_tracks = self._get_track_options('sub')
+
+        # Prepend an "Off" option for subtitles when subtitle tracks exist.
+        if subtitle_tracks:
+            current_sid = self._get_current_sid()
+            sid_is_off = current_sid in (None, 'no', 'disabled', False)
+            off_selected = sid_is_off or (isinstance(self.selected_subtitle_track_id, int) and self.selected_subtitle_track_id < 0)
+            subtitle_tracks = [{'id': -1, 'label': 'Off', 'title': None, 'lang': None, 'selected': bool(off_selected)}] + subtitle_tracks
+
+        current_aid = self._get_current_aid()
+        current_sid = self._get_current_sid()
+
+        current_audio_track_id = None
+        if isinstance(current_aid, int):
+            current_audio_track_id = current_aid
+        elif isinstance(self.selected_audio_track_id, int):
+            current_audio_track_id = self.selected_audio_track_id
+
+        current_subtitle_track_id = None
+        if isinstance(current_sid, int):
+            current_subtitle_track_id = current_sid
+        elif isinstance(current_sid, str) and current_sid.strip().lower() == 'no':
+            current_subtitle_track_id = -1
+        elif isinstance(self.selected_subtitle_track_id, int):
+            current_subtitle_track_id = self.selected_subtitle_track_id
         
         return {
             'is_playing': self.is_playing,
@@ -880,7 +1166,11 @@ class VideoPlaybackController:
             'volume': self.volume,  # Volume as integer 0-100
             'shuffle': self.shuffle_enabled,
             'repeat_mode': self.repeat_mode,
-            'current_position': self.current_position
+            'current_position': self.current_position,
+            'audio_tracks': audio_tracks,
+            'subtitle_tracks': subtitle_tracks,
+            'current_audio_track_id': current_audio_track_id,
+            'current_subtitle_track_id': current_subtitle_track_id,
         }
     
     def get_playlist(self):

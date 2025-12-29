@@ -131,6 +131,32 @@ Behavior:
 - Any volume change sends POST `/api/video/playback/volume` with JSON `{ "volume": <number> }`.
 - The UI updates local slider state immediately before/while the request is in flight.
 
+### Audio & Subtitles
+
+If the current video has multiple audio tracks and/or multiple subtitle tracks, show dropdowns in the player controls to select them.
+
+Data source:
+- `GET /api/video/playback/status` includes:
+  - `audio_tracks`: Array of `{ id: number, label: string, selected?: boolean }`
+  - `subtitle_tracks`: Array of `{ id: number, label: string, selected?: boolean }` (includes an `Off` option with `id: -1` when subtitles exist)
+  - `current_audio_track_id`: number | null
+  - `current_subtitle_track_id`: number | null
+
+Label format:
+- Track labels are formatted as `title - lang (id)` when both title and lang are available.
+
+UI behavior:
+- Show the **Audio** dropdown only when more than 1 audio track is available.
+- Show the **Subtitles** dropdown only when more than 1 subtitle track is available.
+
+Default selection behavior:
+- If subtitles are currently off and the backend finds a subtitle track whose title (or MPV `metadata.name`) contains "forced" and whose language matches the active audio track language, the backend selects that subtitle track by default.
+- If the user explicitly selects a subtitle track (including "Off"), the backend does not override that choice.
+
+Actions:
+- Audio selection: POST `/api/video/playback/audio-track` with `{ "track_id": <number> }`.
+- Subtitle selection: POST `/api/video/playback/subtitle-track` with `{ "track_id": <number> }`.
+
 ## Error handling
 
 - Network errors are logged to the console.

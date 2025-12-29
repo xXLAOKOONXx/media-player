@@ -197,3 +197,39 @@
   font-weight: bold;
   color: #dfdfdf;
 }
+
+.track-select-control {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: rgba(65, 65, 65, 0.5);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.track-select-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.track-select-label {
+  font-weight: bold;
+  color: #dfdfdf;
+  min-width: 80px;
+}
+
+.track-select {
+  background-color: #4a5568;
+  color: #dfdfdf;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  min-height: 36px;
+}
+
+.track-select:focus {
+  outline: 2px solid rgba(223, 223, 223, 0.35);
+  outline-offset: 2px;
+}

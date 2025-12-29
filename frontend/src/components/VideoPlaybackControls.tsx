@@ -11,6 +11,19 @@ interface VideoPlaybackControlsProps {
 const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps) => {
   const [volume, setVolume] = useState(status?.volume || 50);
 
+  const audioTracks = Array.isArray(status?.audio_tracks) ? status.audio_tracks : [];
+  const subtitleTracks = Array.isArray(status?.subtitle_tracks) ? status.subtitle_tracks : [];
+
+  const selectableAudioTracks = audioTracks.filter((t: any) => typeof t?.id === 'number');
+  const selectableSubtitleTracks = subtitleTracks.filter((t: any) => typeof t?.id === 'number');
+
+  const showAudioTrackSelect = selectableAudioTracks.length > 1;
+  const subtitleRealCount = selectableSubtitleTracks.filter((t: any) => (t?.id ?? 0) >= 0).length;
+  const showSubtitleSelect = subtitleRealCount > 1;
+
+  const currentAudioTrackId = typeof status?.current_audio_track_id === 'number' ? status.current_audio_track_id : undefined;
+  const currentSubtitleTrackId = typeof status?.current_subtitle_track_id === 'number' ? status.current_subtitle_track_id : -1;
+
   const handlePlay = async () => {
     try {
       await fetch(`${API_BASE_URL}/api/video/playback/play`, {
@@ -144,6 +157,32 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
   const isPlaying = status?.is_playing && !status?.is_paused;
   const shuffleEnabled = status?.shuffle || false;
 
+  const handleAudioTrackChange = async (trackId: number) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/video/playback/audio-track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId })
+      });
+      onUpdate();
+    } catch (err) {
+      console.error('Error selecting audio track:', err);
+    }
+  };
+
+  const handleSubtitleTrackChange = async (trackId: number) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/video/playback/subtitle-track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId })
+      });
+      onUpdate();
+    } catch (err) {
+      console.error('Error selecting subtitle track:', err);
+    }
+  };
+
   return (
     <div className="playback-controls card">
       <h2>Controls</h2>
@@ -218,6 +257,44 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
         </button>
         <span className="volume-value">{volume}%</span>
       </div>
+
+      {(showAudioTrackSelect || showSubtitleSelect) && (
+        <div className="track-select-control">
+          {showAudioTrackSelect && (
+            <label className="track-select-field">
+              <span className="track-select-label">Audio</span>
+              <select
+                className="track-select"
+                value={currentAudioTrackId ?? selectableAudioTracks[0]?.id}
+                onChange={(e) => handleAudioTrackChange(parseInt(e.target.value, 10))}
+              >
+                {selectableAudioTracks.map((t: any) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label || `Audio ${t.id}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {showSubtitleSelect && (
+            <label className="track-select-field">
+              <span className="track-select-label">Subtitles</span>
+              <select
+                className="track-select"
+                value={currentSubtitleTrackId}
+                onChange={(e) => handleSubtitleTrackChange(parseInt(e.target.value, 10))}
+              >
+                {selectableSubtitleTracks.map((t: any) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label || (t.id < 0 ? 'Off' : `Sub ${t.id}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
     </div>
   );
 };
