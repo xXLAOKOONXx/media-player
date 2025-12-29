@@ -5,8 +5,8 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from video_manager import VideoManager
-from database_manager import DatabaseManager
+from services.video.video_manager import VideoManager
+from services.general.database_manager import DatabaseManager
 
 
 class TestVideoMetadataIntegration:

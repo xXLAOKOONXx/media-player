@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from database_manager import DatabaseManager
+from services.general.database_manager import DatabaseManager
 
 
 class VideoCache:

@@ -19,8 +19,8 @@ import copy
 import logging
 import re
 
-from audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
-from services.basic_file_operation import get_actual_path_with_correct_case
+from services.audio.audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
+from services.general.basic_file_operation import get_actual_path_with_correct_case
 
 # Configure logging for performance monitoring
 # Note: This is a module-level logger. Applications can configure the root logger

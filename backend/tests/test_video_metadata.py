@@ -5,7 +5,7 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from video_metadata import parse_nfo_file, read_video_metadata, find_nfo_file
+from services.video.video_metadata import parse_nfo_file, read_video_metadata, find_nfo_file
 
 
 class TestNFOParsing:
@@ -210,7 +210,7 @@ class TestVideoMetadataExtraction:
 
     def test_read_metadata_from_mp4_freeform_custom_times(self, tmp_path, monkeypatch):
         """MP4 files can carry custom times under freeform atoms (mocked mutagen)."""
-        import video_metadata as vm
+        import services.video.video_metadata as vm
 
         video_path = tmp_path / "test.mp4"
         video_path.write_bytes(b"")

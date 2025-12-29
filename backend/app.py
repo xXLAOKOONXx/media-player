@@ -33,17 +33,16 @@ def _configure_logging() -> None:
     )
 
 # Import modules
-from storage_manager import StorageManager
-from library_manager import LibraryManager
-from playback_controller import PlaybackController
-from sound_effects_manager import SoundEffectsManager
-from music_manager import MusicManager
-from audio_metadata import display_title, read_audio_metadata
-from video_playback_controller import VideoPlaybackController
-from video_manager import VideoManager
-from database_manager import DatabaseManager
-from user_manager import UserManager, require_admin, require_auth
-from stats_manager import StatsManager
+from services.general.library_manager import LibraryManager
+from services.audio.playback_controller import PlaybackController
+from services.audio.sound_effects_manager import SoundEffectsManager
+from services.audio.music_manager import MusicManager
+from services.audio.audio_metadata import display_title, read_audio_metadata
+from services.video.video_playback_controller import VideoPlaybackController
+from services.video.video_manager import VideoManager
+from services.general.database_manager import DatabaseManager
+from services.general.user_manager import UserManager, require_admin, require_auth
+from services.general.stats_manager import StatsManager
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -62,7 +61,6 @@ if not os.path.exists(static_folder):
 
 
 # Initialize managers
-storage_manager = StorageManager()
 library_manager = LibraryManager()
 sound_effects_manager = SoundEffectsManager()
 music_manager = MusicManager(use_cache=True)
