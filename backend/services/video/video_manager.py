@@ -414,6 +414,7 @@ class VideoManager:
         series_items: list[Series] = []
         for series_name, series_videos in sorted(by_series.items(), key=lambda kv: kv[0].lower()):
             series_path = os.path.join(library_root, series_name)
+            series_public_id = f"ser_{hashlib.sha1(os.path.normpath(series_path).lower().encode('utf-8', errors='ignore')).hexdigest()[:12]}"
 
             series_nfo = self._read_folder_nfo_metadata(series_path, 'tvshow.nfo')
             series_title = (series_nfo.get('title') or series_name).strip() if isinstance(series_nfo.get('title') or series_name, str) else series_name
@@ -423,6 +424,7 @@ class VideoManager:
             series_cover = self._pick_cover_from_videos(series_videos)
 
             series_obj = Series(
+                id=series_public_id,
                 full_path=series_path,
                 title=series_title,
                 user_rating=series_user_rating,
@@ -451,6 +453,7 @@ class VideoManager:
             seasons: list[Season] = []
             for season_name, season_videos in sorted(season_buckets.items(), key=lambda kv: kv[0].lower()):
                 season_path = os.path.join(series_path, season_name)
+                season_public_id = f"sea_{hashlib.sha1(os.path.normpath(season_path).lower().encode('utf-8', errors='ignore')).hexdigest()[:12]}"
                 season_index = self._infer_season_index_from_folder_name(season_name)
 
                 season_nfo = self._read_folder_nfo_metadata(season_path, 'season.nfo')
@@ -466,6 +469,7 @@ class VideoManager:
 
                 seasons.append(
                     Season(
+                        id=season_public_id,
                         full_path=season_path,
                         title=season_title,
                         user_rating=season_user_rating,

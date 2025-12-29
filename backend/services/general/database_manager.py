@@ -1499,6 +1499,11 @@ class DatabaseManager:
             return None
 
         try:
+            def _stable_tree_id(prefix: str, full_path: str | None) -> str:
+                normalized = os.path.normpath(full_path or '')
+                digest = hashlib.sha1(normalized.lower().encode('utf-8', errors='ignore')).hexdigest()[:12]
+                return f"{prefix}_{digest}"
+
             cursor.execute('''
                 SELECT id, full_path, title, user_rating, tags, artists, cover
                 FROM video_series
@@ -1513,6 +1518,7 @@ class DatabaseManager:
             for row in series_rows:
                 sid = int(row[0])
                 series_by_id[sid] = {
+                    'id': _stable_tree_id('ser', row[1]),
                     'full_path': row[1],
                     'title': row[2] or (os.path.basename(row[1]) if row[1] else 'Untitled'),
                     'user_rating': row[3],
@@ -1539,6 +1545,7 @@ class DatabaseManager:
                     season_id = int(row[0])
                     series_id = int(row[1])
                     season_dict = {
+                        'id': _stable_tree_id('sea', row[2]),
                         'full_path': row[2],
                         'title': row[3] or (os.path.basename(row[2]) if row[2] else 'Untitled'),
                         'user_rating': row[4],

@@ -25,9 +25,11 @@ interface Video {
   tags?: string[];
   user_rating?: number;
   index_number?: number;
+  premiere_date?: string;
 }
 
 interface Season {
+  id?: string;
   full_path: string;
   title: string;
   user_rating?: number | null;
@@ -39,6 +41,7 @@ interface Season {
 }
 
 interface Series {
+  id?: string;
   full_path: string;
   title: string;
   user_rating?: number | null;
@@ -51,7 +54,24 @@ interface Series {
 
 const DEFAULT_LIBRARY_STORAGE_KEY = 'videoSeries.defaultLibraryId';
 
+const SERIES_ID_QUERY_KEY = 'seriesId';
+const SEASON_ID_QUERY_KEY = 'seasonId';
+const LIBRARY_ID_QUERY_KEY = 'libraryId';
+// Backward-compatibility for old deep-links.
+const SERIES_PATH_QUERY_KEY = 'series';
+const SEASON_PATH_QUERY_KEY = 'season';
+
 const getVideoTitle = (video: Video) => (video.title || video.name || 'Untitled').trim();
+
+const getPremiereDateKey = (video: Video) => {
+  const raw = typeof video.premiere_date === 'string' ? video.premiere_date.trim() : '';
+  if (!raw) return null;
+
+  // Expect YYYY-MM-DD from NFO parsing; interpret as UTC midnight to avoid timezone shifts.
+  const ms = Date.parse(`${raw}T00:00:00Z`);
+  if (!Number.isFinite(ms)) return null;
+  return ms;
+};
 
 const formatDuration = (seconds?: number) => {
   if (seconds == null || Number.isNaN(seconds)) return '—';
@@ -79,8 +99,17 @@ function VideoSeries() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const selectedSeriesPath = searchParams.get('series') || '';
-  const selectedSeasonPath = searchParams.get('season') || '';
+  const selectedLibraryIdFromUrlRaw = searchParams.get(LIBRARY_ID_QUERY_KEY) || '';
+  const selectedLibraryIdFromUrl = (() => {
+    if (!selectedLibraryIdFromUrlRaw) return null;
+    const parsed = Number(selectedLibraryIdFromUrlRaw);
+    return Number.isFinite(parsed) ? parsed : null;
+  })();
+
+  const selectedSeriesId = searchParams.get(SERIES_ID_QUERY_KEY) || '';
+  const selectedSeasonId = searchParams.get(SEASON_ID_QUERY_KEY) || '';
+  const selectedSeriesPath = searchParams.get(SERIES_PATH_QUERY_KEY) || '';
+  const selectedSeasonPath = searchParams.get(SEASON_PATH_QUERY_KEY) || '';
 
   useEffect(() => {
     const stored = window.localStorage.getItem(DEFAULT_LIBRARY_STORAGE_KEY);
@@ -98,7 +127,7 @@ function VideoSeries() {
         const response = await fetch(`${API_BASE_URL}/api/video/libraries`);
         const data = await response.json();
         setLibraries(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch {
         setError('Failed to load video libraries');
       } finally {
         setIsLoadingLibraries(false);
@@ -114,9 +143,15 @@ function VideoSeries() {
       return;
     }
 
-    if (selectedLibraryId && libraries.some(l => l.id === selectedLibraryId)) {
+    // URL takes priority (shareable links).
+    if (selectedLibraryIdFromUrl != null && libraries.some(l => l.id === selectedLibraryIdFromUrl)) {
+      if (selectedLibraryId !== selectedLibraryIdFromUrl) {
+        setSelectedLibraryId(selectedLibraryIdFromUrl);
+      }
       return;
     }
+
+    if (selectedLibraryId && libraries.some(l => l.id === selectedLibraryId)) return;
 
     if (defaultLibraryId && libraries.some(l => l.id === defaultLibraryId)) {
       setSelectedLibraryId(defaultLibraryId);
@@ -124,7 +159,26 @@ function VideoSeries() {
     }
 
     setSelectedLibraryId(libraries[0].id);
-  }, [libraries, defaultLibraryId, selectedLibraryId]);
+  }, [libraries, defaultLibraryId, selectedLibraryId, selectedLibraryIdFromUrl]);
+
+  // Keep library selection in the URL.
+  // Important: this must use the latest `searchParams` to avoid re-introducing stale series/season params,
+  // which can otherwise cause the URL + selection to "fight" and appear to jump back and forth.
+  useEffect(() => {
+    if (selectedLibraryId == null) return;
+    if (selectedLibraryIdFromUrl === selectedLibraryId) return;
+
+    const next = new URLSearchParams(searchParams);
+    next.set(LIBRARY_ID_QUERY_KEY, String(selectedLibraryId));
+
+    // Changing libraries invalidates any selected series/season.
+    next.delete(SERIES_ID_QUERY_KEY);
+    next.delete(SEASON_ID_QUERY_KEY);
+    next.delete(SERIES_PATH_QUERY_KEY);
+    next.delete(SEASON_PATH_QUERY_KEY);
+
+    setSearchParams(next, { replace: true });
+  }, [searchParams, selectedLibraryId, selectedLibraryIdFromUrl, setSearchParams]);
 
   const setAsDefaultLibrary = (libraryId: number) => {
     setDefaultLibraryId(libraryId);
@@ -139,7 +193,7 @@ function VideoSeries() {
         const response = await fetch(`${API_BASE_URL}/api/video/libraries/${libraryId}/series`);
         const data = await response.json();
         setSeriesList(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch {
         setError('Failed to load series for the selected library');
         setSeriesList([]);
       } finally {
@@ -155,34 +209,52 @@ function VideoSeries() {
   }, [selectedLibraryId]);
 
   const selectedSeries = useMemo(() => {
-    if (!selectedSeriesPath) return null;
-    return seriesList.find(s => s.full_path === selectedSeriesPath) || null;
-  }, [seriesList, selectedSeriesPath]);
+    if (selectedSeriesId) {
+      const byId = seriesList.find(s => s.id === selectedSeriesId);
+      if (byId) return byId;
+    }
+    if (selectedSeriesPath) {
+      return seriesList.find(s => s.full_path === selectedSeriesPath) || null;
+    }
+    return null;
+  }, [seriesList, selectedSeriesId, selectedSeriesPath]);
 
   const selectedSeason = useMemo(() => {
     if (!selectedSeries) return null;
-    if (!selectedSeasonPath) return null;
-    return selectedSeries.seasons?.find(se => se.full_path === selectedSeasonPath) || null;
-  }, [selectedSeasonPath, selectedSeries]);
+    if (selectedSeasonId) {
+      const byId = selectedSeries.seasons?.find(se => se.id === selectedSeasonId) || null;
+      if (byId) return byId;
+    }
+    if (selectedSeasonPath) {
+      return selectedSeries.seasons?.find(se => se.full_path === selectedSeasonPath) || null;
+    }
+    return null;
+  }, [selectedSeasonId, selectedSeasonPath, selectedSeries]);
 
   const closeModal = () => {
     const next = new URLSearchParams(searchParams);
-    next.delete('series');
-    next.delete('season');
+    next.delete(SERIES_ID_QUERY_KEY);
+    next.delete(SEASON_ID_QUERY_KEY);
+    next.delete(SERIES_PATH_QUERY_KEY);
+    next.delete(SEASON_PATH_QUERY_KEY);
     setSearchParams(next);
   };
 
   const openSeries = (s: Series) => {
     const next = new URLSearchParams(searchParams);
-    next.set('series', s.full_path);
-    next.delete('season');
+    if (s.id) next.set(SERIES_ID_QUERY_KEY, s.id);
+    next.delete(SEASON_ID_QUERY_KEY);
+    next.delete(SERIES_PATH_QUERY_KEY);
+    next.delete(SEASON_PATH_QUERY_KEY);
     setSearchParams(next);
   };
 
   const selectSeason = (season: Season) => {
     const next = new URLSearchParams(searchParams);
-    if (selectedSeries) next.set('series', selectedSeries.full_path);
-    next.set('season', season.full_path);
+    if (selectedSeries?.id) next.set(SERIES_ID_QUERY_KEY, selectedSeries.id);
+    if (season.id) next.set(SEASON_ID_QUERY_KEY, season.id);
+    next.delete(SERIES_PATH_QUERY_KEY);
+    next.delete(SEASON_PATH_QUERY_KEY);
     setSearchParams(next);
   };
 
@@ -204,7 +276,7 @@ function VideoSeries() {
         setError(msg);
         return;
       }
-    } catch (e) {
+    } catch {
       setError('Failed to start playback');
     }
   };
@@ -213,9 +285,31 @@ function VideoSeries() {
     const items = Array.isArray(videos) ? videos : [];
     if (items.length === 0) return <div className="video-explorer-empty">No videos found.</div>;
 
+    const hasAnyIndex = items.some(v => typeof v.index_number === 'number' && Number.isFinite(v.index_number));
+
+    const sorted = [...items].sort((a, b) => {
+      const aTitle = getVideoTitle(a);
+      const bTitle = getVideoTitle(b);
+
+      if (hasAnyIndex) {
+        const aIndex = typeof a.index_number === 'number' && Number.isFinite(a.index_number) ? a.index_number : Number.POSITIVE_INFINITY;
+        const bIndex = typeof b.index_number === 'number' && Number.isFinite(b.index_number) ? b.index_number : Number.POSITIVE_INFINITY;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+      }
+
+      const aDate = getPremiereDateKey(a) ?? Number.POSITIVE_INFINITY;
+      const bDate = getPremiereDateKey(b) ?? Number.POSITIVE_INFINITY;
+      if (aDate !== bDate) return aDate - bDate;
+
+      // Tie-breakers for deterministic ordering.
+      const byTitle = aTitle.localeCompare(bTitle);
+      if (byTitle) return byTitle;
+      return (a.path || '').localeCompare(b.path || '');
+    });
+
     return (
       <div className="video-series-episode-list">
-        {items.map((v) => {
+        {sorted.map((v) => {
           const title = getVideoTitle(v);
           const idx = typeof v.index_number === 'number' ? v.index_number : null;
           return (
@@ -270,24 +364,42 @@ function VideoSeries() {
                     key={lib.id}
                     type="button"
                     className={`video-explorer-library-btn ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedLibraryId(lib.id)}
+                    onClick={() => {
+                      setSelectedLibraryId(lib.id);
+                      const next = new URLSearchParams(searchParams);
+                      next.set(LIBRARY_ID_QUERY_KEY, String(lib.id));
+                      // Switching libraries invalidates any selected series/season.
+                      next.delete(SERIES_ID_QUERY_KEY);
+                      next.delete(SEASON_ID_QUERY_KEY);
+                      next.delete(SERIES_PATH_QUERY_KEY);
+                      next.delete(SEASON_PATH_QUERY_KEY);
+                      setSearchParams(next);
+                    }}
                     title={lib.path}
                   >
                     <span className="video-explorer-library-name">{lib.name}</span>
                     <span className="video-explorer-library-spacer" />
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       className={`video-explorer-star-btn ${isDefault ? 'active' : ''}`}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         setAsDefaultLibrary(lib.id);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setAsDefaultLibrary(lib.id);
+                        }
+                      }}
                       aria-label={isDefault ? 'Default folder' : 'Set as default folder'}
                       title={isDefault ? 'Default folder' : 'Set as default'}
                     >
                       <span className="material-icons">{isDefault ? 'star' : 'star_border'}</span>
-                    </button>
+                    </span>
                   </button>
                 );
               })}
@@ -318,7 +430,7 @@ function VideoSeries() {
                   const title = (s.title || 'Untitled').trim();
                   return (
                     <button
-                      key={s.full_path}
+                      key={s.id || s.full_path}
                       type="button"
                       className="video-series-tile video-explorer-thumb"
                       onClick={() => openSeries(s)}
@@ -387,9 +499,9 @@ function VideoSeries() {
                   <div className="video-series-season-buttons">
                     {selectedSeries.seasons.map((se) => (
                       <button
-                        key={se.full_path}
+                        key={se.id || se.full_path}
                         type="button"
-                        className={`btn ${selectedSeason?.full_path === se.full_path ? 'active' : ''}`}
+                        className={`btn ${(selectedSeason?.id && se.id && selectedSeason.id === se.id) || (!selectedSeason?.id && selectedSeason?.full_path === se.full_path) ? 'active' : ''}`}
                         onClick={() => selectSeason(se)}
                       >
                         {se.title}

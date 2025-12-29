@@ -17,6 +17,7 @@ from typing import Any
 
 @dataclass
 class Season:
+    id: str
     full_path: str
     title: str
     user_rating: float | None = None
@@ -28,6 +29,7 @@ class Season:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            'id': self.id,
             'full_path': self.full_path,
             'title': self.title,
             'user_rating': self.user_rating,
@@ -41,6 +43,7 @@ class Season:
 
 @dataclass
 class Series:
+    id: str
     full_path: str
     title: str
     user_rating: float | None = None
@@ -52,6 +55,7 @@ class Series:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            'id': self.id,
             'full_path': self.full_path,
             'title': self.title,
             'user_rating': self.user_rating,
