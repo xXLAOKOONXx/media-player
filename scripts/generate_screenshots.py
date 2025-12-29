@@ -6,8 +6,10 @@ This script generates screenshots of the media player UI for user documentation.
 It uses Playwright to automate a browser and capture screenshots of different UI states.
 
 Requirements:
-    pip install playwright
-    playwright install chromium
+    cd backend
+    python -m pip install uv
+    uv sync --extra screenshots
+    uv run playwright install chromium
 """
 
 import os
@@ -31,9 +33,11 @@ def check_dependencies():
         return True
     except ImportError:
         print("Error: Playwright is not installed.")
-        print("Install it with:")
-        print("  pip install playwright")
-        print("  playwright install chromium")
+        print("Install it with (recommended):")
+        print("  cd backend")
+        print("  python -m pip install uv")
+        print("  uv sync --extra screenshots")
+        print("  uv run playwright install chromium")
         return False
 
 
@@ -223,7 +227,7 @@ def main():
     if not args.no_wait:
         if not wait_for_server(args.url):
             print("\nPlease start the server first:")
-            print("  cd backend && python app.py")
+            print("  cd backend && uv run python app.py")
             sys.exit(1)
     
     # Generate screenshots

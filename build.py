@@ -83,6 +83,49 @@ def run_command(cmd, cwd=None, shell=False):
         return False, str(e)
 
 
+def find_backend_venv_python(backend_dir: Path) -> Path | None:
+    """Return the backend venv python path if present."""
+    candidates = [
+        backend_dir / '.venv' / 'Scripts' / 'python.exe',  # Windows
+        backend_dir / '.venv' / 'bin' / 'python',  # POSIX
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def ensure_backend_deps_with_uv(backend_dir: Path, extras: list[str] | None = None) -> Path | None:
+    """Ensure backend dependencies are installed via uv and return venv python path."""
+    is_windows = platform.system() == 'Windows'
+
+    extras = extras or []
+    extra_args: list[str] = []
+    for extra in extras:
+        extra_args += ['--extra', extra]
+
+    # If uv isn't available, return None so callers can fall back.
+    uv_ok, _ = run_command(['uv', '--version'], shell=is_windows)
+    if not uv_ok:
+        return None
+
+    print("Installing backend dependencies with uv (pyproject.toml)...")
+    success, output = run_command(
+        ['uv', 'sync', '--no-build-isolation', *extra_args],
+        cwd=backend_dir,
+        shell=is_windows,
+    )
+    if not success:
+        print_error(f"uv sync failed:\n{output}")
+        return None
+
+    venv_python = find_backend_venv_python(backend_dir)
+    if venv_python is None:
+        print_error("uv sync completed but backend venv python was not found (.venv)")
+        return None
+    return venv_python
+
+
 def remove_tree_with_retries(path: Path, retries: int = 5, delay_seconds: float = 1.0) -> bool:
     """Remove a directory tree, retrying on Windows file-lock errors."""
     if not path.exists():
@@ -188,30 +231,34 @@ def bundle_with_pyinstaller(backend_dir):
         print_warning("PyInstaller bundling is designed for Windows. Skipping on Unix systems.")
         return True
 
-    # Ensure backend runtime dependencies are available in the build environment.
-    # PyInstaller bundles what it can import/resolve from the current interpreter.
-    requirements_file = backend_dir / 'requirements.txt'
-    if requirements_file.exists():
-        print("Installing backend dependencies (requirements.txt)...")
-        success, output = run_command([sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)])
-        if not success:
-            print_error(f"Failed to install backend dependencies:\n{output}")
-            return False
-        print_success("Backend dependencies installed")
+    # Ensure backend runtime deps and build tooling are available in a venv.
+    # PyInstaller bundles what it can import/resolve from the interpreter that runs it.
+    venv_python = ensure_backend_deps_with_uv(backend_dir, extras=['build'])
+    if venv_python is None:
+        print_warning("uv not available or uv sync failed; falling back to pip + requirements.txt")
+        requirements_file = backend_dir / 'requirements.txt'
+        if requirements_file.exists():
+            print("Installing backend dependencies (requirements.txt)...")
+            success, output = run_command([sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)])
+            if not success:
+                print_error(f"Failed to install backend dependencies:\n{output}")
+                return False
+            print_success("Backend dependencies installed")
+        else:
+            print_warning(f"requirements.txt not found at {requirements_file}; continuing without installing backend deps")
+
+        pyinstaller_spec = importlib.util.find_spec('PyInstaller')
+        if pyinstaller_spec is None:
+            print_warning("PyInstaller is not installed.")
+            print("Installing PyInstaller...")
+            success, output = run_command([sys.executable, '-m', 'pip', 'install', 'pyinstaller>=6.0.0'])
+            if not success:
+                print_error(f"Failed to install PyInstaller:\n{output}")
+                return False
+            print_success("PyInstaller installed")
+        pyinstaller_python = Path(sys.executable)
     else:
-        print_warning(f"requirements.txt not found at {requirements_file}; continuing without installing backend deps")
-    
-    # Check if PyInstaller is installed using importlib for robustness
-    pyinstaller_spec = importlib.util.find_spec('PyInstaller')
-    
-    if pyinstaller_spec is None:
-        print_warning("PyInstaller is not installed.")
-        print("Installing PyInstaller...")
-        success, output = run_command([sys.executable, '-m', 'pip', 'install', 'pyinstaller>=6.0.0'])
-        if not success:
-            print_error(f"Failed to install PyInstaller:\n{output}")
-            return False
-        print_success("PyInstaller installed")
+        pyinstaller_python = venv_python
     
     # Check if spec file exists
     spec_file = backend_dir / 'media-player.spec'
@@ -247,7 +294,7 @@ def bundle_with_pyinstaller(backend_dir):
     # Run PyInstaller
     print("Running PyInstaller...")
     success, output = run_command(
-        [sys.executable, '-m', 'PyInstaller', '--noconfirm', str(spec_file)],
+        [str(pyinstaller_python), '-m', 'PyInstaller', '--noconfirm', str(spec_file)],
         cwd=backend_dir
     )
     
@@ -313,18 +360,14 @@ This package includes the Media Player application with a pre-built frontend.
 ## Installation
 
 1. Install Python 3.13
-2. Install dependencies:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+2. Install dependencies (recommended: uv + pyproject.toml):
+    ```bash
+    cd backend
+    python -m pip install uv
+    uv sync --no-build-isolation
+    ```
 
-   Or using uv (faster):
-   ```bash
-   cd backend
-   pip install uv
-   uv sync --no-build-isolation
-   ```
+    Legacy pip/requirements.txt is still supported if needed.
 
 ## Running the Application
 

@@ -10,27 +10,33 @@ Generates UI screenshots for documentation using Playwright automation.
 
 **Requirements:**
 ```bash
-pip install playwright requests
-playwright install chromium
+cd backend
+python -m pip install uv
+uv sync --extra screenshots
+uv run playwright install chromium
 ```
 
 **Usage:**
 ```bash
 # Make sure the server is running first
 cd backend
-python app.py
+uv run python app.py
 
 # In another terminal, generate screenshots
-python scripts/generate_screenshots.py
+cd backend
+uv run python ../scripts/generate_screenshots.py
 
 # Custom output directory
-python scripts/generate_screenshots.py --output docs/images
+cd backend
+uv run python ../scripts/generate_screenshots.py --output docs/images
 
 # Custom server URL
-python scripts/generate_screenshots.py --url http://localhost:3000
+cd backend
+uv run python ../scripts/generate_screenshots.py --url http://localhost:3000
 
 # Skip server check (if you know it's running)
-python scripts/generate_screenshots.py --no-wait
+cd backend
+uv run python ../scripts/generate_screenshots.py --no-wait
 ```
 
 **Output:**
