@@ -12,6 +12,8 @@ import os
 import platform
 import sys
 import hashlib
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -102,17 +104,53 @@ class DatabaseManager:
                 last_scan REAL
             )
         ''')
+
+        # Video series table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_series (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                folder_id INTEGER NOT NULL,
+                full_path TEXT NOT NULL,
+                title TEXT,
+                user_rating REAL,
+                tags TEXT,
+                artists TEXT,
+                cover TEXT,
+                UNIQUE (folder_id, full_path),
+                FOREIGN KEY (folder_id) REFERENCES video_folders (id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Video seasons table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_seasons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                series_id INTEGER NOT NULL,
+                full_path TEXT NOT NULL,
+                title TEXT,
+                user_rating REAL,
+                tags TEXT,
+                artists TEXT,
+                cover TEXT,
+                index_number INTEGER,
+                UNIQUE (series_id, full_path),
+                FOREIGN KEY (series_id) REFERENCES video_series (id) ON DELETE CASCADE
+            )
+        ''')
         
         # Video files table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 folder_id INTEGER NOT NULL,
+                series_id INTEGER,
+                season_id INTEGER,
                 media_id TEXT,
                 file_path TEXT NOT NULL UNIQUE,
                 file_name TEXT NOT NULL,
                 file_size INTEGER,
                 title TEXT,
+                index_number INTEGER,
                 duration REAL,
                 start_time_in_ms INTEGER,
                 end_time_in_ms INTEGER,
@@ -122,6 +160,7 @@ class DatabaseManager:
                 artist TEXT,
                 thumbnail BLOB,
                 thumbnail_mime_type TEXT,
+                thumbnail_file TEXT,
                 thumbnail_url TEXT,
                 description TEXT,
                 premiere_date TEXT,
@@ -172,13 +211,17 @@ class DatabaseManager:
             'artist': 'TEXT',
             'thumbnail': 'BLOB',
             'thumbnail_mime_type': 'TEXT',
+            'thumbnail_file': 'TEXT',
             'thumbnail_url': 'TEXT',
             'media_id': 'TEXT',
             'description': 'TEXT',
             'premiere_date': 'TEXT',
             'user_rating': 'REAL',
             'start_time_in_ms': 'INTEGER',
-            'end_time_in_ms': 'INTEGER'
+            'end_time_in_ms': 'INTEGER',
+            'index_number': 'INTEGER',
+            'series_id': 'INTEGER',
+            'season_id': 'INTEGER'
         }
         
         # Allowed column types for validation
@@ -239,6 +282,13 @@ class DatabaseManager:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_folder ON videos (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_path ON videos (file_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_media_id ON videos (media_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_series_id ON videos (series_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_season_id ON videos (season_id)')
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_series_folder ON video_series (folder_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_series_full_path ON video_series (full_path)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_seasons_series ON video_seasons (series_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_seasons_full_path ON video_seasons (full_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at)')
         
@@ -264,6 +314,86 @@ class DatabaseManager:
             pass
 
         return conn
+
+    def _get_db_dir(self) -> str:
+        return os.path.dirname(os.path.abspath(self.db_path))
+
+    def _get_thumbs_root_dir(self) -> str:
+        return os.path.join(self._get_db_dir(), 'thumbs')
+
+    @staticmethod
+    def _thumb_ext_from_mime(mime_type: str | None) -> str:
+        if not mime_type or not isinstance(mime_type, str):
+            return 'jpg'
+        mt = mime_type.lower().strip()
+        if 'png' in mt:
+            return 'png'
+        if 'webp' in mt:
+            return 'webp'
+        if 'gif' in mt:
+            return 'gif'
+        if 'jpeg' in mt or 'jpg' in mt:
+            return 'jpg'
+        return 'bin'
+
+    def _persist_thumbnail_file(self, media_id: str, data: bytes, mime_type: str | None) -> str:
+        """Write thumbnail bytes to disk and return a DB-storable relative path.
+
+        Layout: <db_dir>/thumbs/<first4>/<media_id>.<ext>
+        """
+        if not isinstance(media_id, str) or not media_id:
+            raise ValueError('media_id required')
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            raise ValueError('thumbnail bytes required')
+
+        prefix = media_id[:4] if len(media_id) >= 4 else media_id
+        ext = self._thumb_ext_from_mime(mime_type)
+
+        root = self._get_thumbs_root_dir()
+        subdir = os.path.join(root, prefix)
+        os.makedirs(subdir, exist_ok=True)
+
+        abs_path = os.path.join(subdir, f'{media_id}.{ext}')
+
+        fd, tmp_path = tempfile.mkstemp(prefix=f'{media_id}.', suffix='.tmp', dir=subdir)
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(data)
+            os.replace(tmp_path, abs_path)
+        finally:
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
+
+        return os.path.relpath(abs_path, self._get_db_dir())
+
+    def _read_thumbnail_file(self, thumbnail_file: str) -> bytes | None:
+        if not isinstance(thumbnail_file, str) or not thumbnail_file:
+            return None
+        abs_path = thumbnail_file
+        if not os.path.isabs(abs_path):
+            abs_path = os.path.join(self._get_db_dir(), thumbnail_file)
+        try:
+            if not os.path.exists(abs_path):
+                return None
+            with open(abs_path, 'rb') as f:
+                return f.read()
+        except Exception:
+            return None
+
+    def _delete_thumbnail_file(self, thumbnail_file: str | None) -> None:
+        if not thumbnail_file or not isinstance(thumbnail_file, str):
+            return
+        abs_path = thumbnail_file
+        if not os.path.isabs(abs_path):
+            abs_path = os.path.join(self._get_db_dir(), thumbnail_file)
+        try:
+            if os.path.exists(abs_path):
+                os.remove(abs_path)
+        except Exception:
+            pass
     
     # Configuration methods
     def get_config(self, key, default=None):
@@ -589,7 +719,17 @@ class DatabaseManager:
                 # Avoid unnecessary writes on every request; this reduces SQLite lock pressure.
                 if changed:
                     cursor.execute(
+                        'SELECT thumbnail_file FROM videos WHERE folder_id = ?',
+                        (folder_id,),
+                    )
+                    for (thumbnail_file,) in cursor.fetchall() or []:
+                        self._delete_thumbnail_file(thumbnail_file)
+                    cursor.execute(
                         'DELETE FROM videos WHERE folder_id = ?',
+                        (folder_id,),
+                    )
+                    cursor.execute(
+                        'DELETE FROM video_series WHERE folder_id = ?',
                         (folder_id,),
                     )
                     cursor.execute(
@@ -607,11 +747,24 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def cache_videos(self, folder_id, videos):
-        """Cache video metadata for a folder"""
+    def cache_videos(self, folder_id, videos, series_tree=None):
+        """Cache video metadata for a folder.
+
+        If `series_tree` is provided, Series and Seasons are persisted into
+        `video_series` and `video_seasons`, and videos will reference them via
+        `series_id` and `season_id`.
+        """
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
+
+            cursor.execute(
+                'SELECT path, recursive FROM video_folders WHERE id = ?',
+                (folder_id,),
+            )
+            folder_row = cursor.fetchone()
+            folder_path = folder_row[0] if folder_row else None
+            folder_recursive = bool(int(folder_row[1])) if folder_row and folder_row[1] is not None else False
 
             cursor.execute(
                 'UPDATE video_folders SET last_scan = ? WHERE id = ?',
@@ -619,9 +772,92 @@ class DatabaseManager:
             )
 
             cursor.execute(
+                'SELECT thumbnail_file FROM videos WHERE folder_id = ?',
+                (folder_id,),
+            )
+            for (thumbnail_file,) in cursor.fetchall() or []:
+                self._delete_thumbnail_file(thumbnail_file)
+
+            cursor.execute(
                 'DELETE FROM videos WHERE folder_id = ?',
                 (folder_id,)
             )
+
+            # Clear series/seasons for this folder; they will be rebuilt.
+            cursor.execute(
+                'DELETE FROM video_series WHERE folder_id = ?',
+                (folder_id,)
+            )
+
+            series_id_by_full_path: dict[str, int] = {}
+            season_id_by_full_path: dict[str, int] = {}
+
+            # Persist series/seasons only for recursive folders.
+            if folder_recursive and isinstance(series_tree, list) and folder_path:
+                for series in series_tree:
+                    if not isinstance(series, dict):
+                        continue
+                    full_path = series.get('full_path')
+                    if not isinstance(full_path, str) or not full_path:
+                        continue
+
+                    title = series.get('title') if isinstance(series.get('title'), str) else None
+                    user_rating = series.get('user_rating') if isinstance(series.get('user_rating'), (int, float)) else None
+                    tags = series.get('tags') if isinstance(series.get('tags'), list) else []
+                    artists = series.get('artists') if isinstance(series.get('artists'), list) else []
+                    cover = series.get('cover') if isinstance(series.get('cover'), str) else None
+
+                    cursor.execute(
+                        '''
+                            INSERT INTO video_series (folder_id, full_path, title, user_rating, tags, artists, cover)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''',
+                        (
+                            folder_id,
+                            os.path.normpath(full_path),
+                            title,
+                            float(user_rating) if isinstance(user_rating, (int, float)) else None,
+                            json.dumps(tags),
+                            json.dumps(artists),
+                            cover,
+                        ),
+                    )
+                    series_db_id = int(cursor.lastrowid)
+                    series_id_by_full_path[os.path.normpath(full_path)] = series_db_id
+
+                    seasons = series.get('seasons')
+                    if isinstance(seasons, list):
+                        for season in seasons:
+                            if not isinstance(season, dict):
+                                continue
+                            season_full_path = season.get('full_path')
+                            if not isinstance(season_full_path, str) or not season_full_path:
+                                continue
+                            season_title = season.get('title') if isinstance(season.get('title'), str) else None
+                            season_user_rating = season.get('user_rating') if isinstance(season.get('user_rating'), (int, float)) else None
+                            season_tags = season.get('tags') if isinstance(season.get('tags'), list) else []
+                            season_artists = season.get('artists') if isinstance(season.get('artists'), list) else []
+                            season_cover = season.get('cover') if isinstance(season.get('cover'), str) else None
+                            season_index = season.get('index_number') if isinstance(season.get('index_number'), int) else None
+
+                            cursor.execute(
+                                '''
+                                    INSERT INTO video_seasons (series_id, full_path, title, user_rating, tags, artists, cover, index_number)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                ''',
+                                (
+                                    series_db_id,
+                                    os.path.normpath(season_full_path),
+                                    season_title,
+                                    float(season_user_rating) if isinstance(season_user_rating, (int, float)) else None,
+                                    json.dumps(season_tags),
+                                    json.dumps(season_artists),
+                                    season_cover,
+                                    season_index,
+                                ),
+                            )
+                            season_db_id = int(cursor.lastrowid)
+                            season_id_by_full_path[os.path.normpath(season_full_path)] = season_db_id
 
             current_time = datetime.now().timestamp()
             rows = []
@@ -629,13 +865,44 @@ class DatabaseManager:
                 last_modified = video.get('modified') or video.get('last_modified')
                 normalized_path = os.path.normpath(video['path'])
                 media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+
+                thumb_blob = video.get('thumbnail')
+                thumb_mime = video.get('thumbnail_mime_type')
+                thumb_file = None
+                if isinstance(thumb_blob, (bytes, bytearray, memoryview)):
+                    try:
+                        thumb_file = self._persist_thumbnail_file(media_id, bytes(thumb_blob), thumb_mime)
+                        thumb_blob = None
+                    except Exception:
+                        # Fall back to DB blob on any failure.
+                        thumb_file = None
+
+                series_id = None
+                season_id = None
+                if folder_recursive and folder_path:
+                    try:
+                        rel = os.path.relpath(normalized_path, folder_path)
+                        parts = [p for p in rel.split(os.sep) if p and p not in ('.', '..')]
+                        if len(parts) >= 2:
+                            series_full_path = os.path.normpath(os.path.join(folder_path, parts[0]))
+                            series_id = series_id_by_full_path.get(series_full_path)
+                        if len(parts) >= 3:
+                            season_full_path = os.path.normpath(os.path.join(folder_path, parts[0], parts[1]))
+                            season_id = season_id_by_full_path.get(season_full_path)
+                    except Exception:
+                        series_id = None
+                        season_id = None
+
                 rows.append((
                     folder_id,
+                    series_id,
+                    season_id,
                     media_id,
                     normalized_path,
                     video['name'],
                     video.get('size', 0),
                     video.get('title'),
+                    video.get('index_number'),
                     video.get('duration'),
                     video.get('start_time_in_ms'),
                     video.get('end_time_in_ms'),
@@ -643,8 +910,9 @@ class DatabaseManager:
                     current_time,
                     json.dumps(video.get('tags', [])),
                     video.get('artist'),
-                    video.get('thumbnail'),  # Binary data
-                    video.get('thumbnail_mime_type'),
+                    thumb_blob,
+                    thumb_mime,
+                    thumb_file,
                     video.get('thumbnail_url'),
                     video.get('description'),
                     video.get('premiere_date'),
@@ -653,13 +921,365 @@ class DatabaseManager:
 
             cursor.executemany('''
                 INSERT INTO videos
-                (folder_id, media_id, file_path, file_name, file_size, title, duration,
+                (folder_id, series_id, season_id, media_id, file_path, file_name, file_size, title, index_number, duration,
                  start_time_in_ms, end_time_in_ms,
                  last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
-                 thumbnail_url, description, premiere_date, user_rating)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 thumbnail_file, thumbnail_url, description, premiere_date, user_rating)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', rows)
 
+            conn.commit()
+        finally:
+            conn.close()
+
+    def update_video_folder_last_scan(self, folder_id: int, timestamp: float | None = None) -> None:
+        """Update the folder's last_scan timestamp."""
+        if timestamp is None:
+            timestamp = datetime.now().timestamp()
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE video_folders SET last_scan = ? WHERE id = ?',
+                (float(timestamp), int(folder_id)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_video_cache_freshness(self, file_path: str) -> dict | None:
+        """Return minimal cache freshness info for a single video.
+
+        Returns dict with keys: cached_at, last_modified, folder_id.
+        """
+        if not isinstance(file_path, str) or not file_path:
+            return None
+        normalized_path = os.path.normpath(file_path)
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT folder_id, cached_at, last_modified FROM videos WHERE file_path = ?',
+                (normalized_path,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                'folder_id': row[0],
+                'cached_at': row[1],
+                'last_modified': row[2],
+            }
+        finally:
+            conn.close()
+
+    def get_cached_video_by_path(self, file_path: str) -> dict | None:
+        """Retrieve a single cached video dict by file path.
+
+        Returns None if not found.
+        """
+        if not isinstance(file_path, str) or not file_path:
+            return None
+        normalized_path = os.path.normpath(file_path)
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            try:
+                cursor.execute('''
+                    SELECT v.media_id, v.file_path, v.file_name, v.file_size, v.title, v.index_number, v.duration,
+                           v.start_time_in_ms, v.end_time_in_ms,
+                           v.last_modified, v.tags, v.artist, v.thumbnail, v.thumbnail_mime_type, v.thumbnail_file, v.thumbnail_url,
+                           v.description, v.premiere_date, v.user_rating,
+                           vs.full_path AS series_full_path,
+                           vsea.full_path AS season_full_path
+                    FROM videos v
+                    LEFT JOIN video_series vs ON vs.id = v.series_id
+                    LEFT JOIN video_seasons vsea ON vsea.id = v.season_id
+                    WHERE v.file_path = ?
+                ''', (normalized_path,))
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                series_full_path = row[19] if len(row) > 19 else None
+                season_full_path = row[20] if len(row) > 20 else None
+
+                video = {
+                    'media_id': row[0],
+                    'path': row[1],
+                    'name': row[2],
+                    'size': row[3],
+                    'title': row[4] or os.path.splitext(row[2])[0],
+                    'index_number': row[5],
+                    'duration': row[6],
+                    'start_time_in_ms': row[7],
+                    'end_time_in_ms': row[8],
+                    'modified': row[9],
+                    'tags': json.loads(row[10]) if row[10] else [],
+                    'artist': row[11],
+                    'has_thumbnail': (row[12] is not None) or (row[14] is not None),
+                    'thumbnail_url': row[15],
+                    'description': row[16],
+                    'premiere_date': row[17],
+                    'user_rating': row[18],
+                }
+                if isinstance(series_full_path, str) and series_full_path.strip():
+                    video['series'] = os.path.basename(series_full_path.strip())
+                if isinstance(season_full_path, str) and season_full_path.strip():
+                    video['season'] = os.path.basename(season_full_path.strip())
+                return video
+            except sqlite3.OperationalError:
+                try:
+                    cursor.execute('''
+                        SELECT media_id, file_path, file_name, file_size, title, index_number, duration,
+                               start_time_in_ms, end_time_in_ms,
+                               last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_file, thumbnail_url,
+                               description, premiere_date, user_rating
+                        FROM videos
+                        WHERE file_path = ?
+                    ''', (normalized_path,))
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
+                    return {
+                        'media_id': row[0],
+                        'path': row[1],
+                        'name': row[2],
+                        'size': row[3],
+                        'title': row[4] or os.path.splitext(row[2])[0],
+                        'index_number': row[5],
+                        'duration': row[6],
+                        'start_time_in_ms': row[7],
+                        'end_time_in_ms': row[8],
+                        'modified': row[9],
+                        'tags': json.loads(row[10]) if row[10] else [],
+                        'artist': row[11],
+                        'has_thumbnail': (row[12] is not None) or (row[14] is not None),
+                        'thumbnail_url': row[15],
+                        'description': row[16],
+                        'premiere_date': row[17],
+                        'user_rating': row[18],
+                    }
+                except sqlite3.OperationalError:
+                    cursor.execute('''
+                        SELECT media_id, file_path, file_name, file_size, title, index_number, duration,
+                               start_time_in_ms, end_time_in_ms,
+                               last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_url,
+                               description, premiere_date, user_rating
+                        FROM videos
+                        WHERE file_path = ?
+                    ''', (normalized_path,))
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
+                    return {
+                        'media_id': row[0],
+                        'path': row[1],
+                        'name': row[2],
+                        'size': row[3],
+                        'title': row[4] or os.path.splitext(row[2])[0],
+                        'index_number': row[5],
+                        'duration': row[6],
+                        'start_time_in_ms': row[7],
+                        'end_time_in_ms': row[8],
+                        'modified': row[9],
+                        'tags': json.loads(row[10]) if row[10] else [],
+                        'artist': row[11],
+                        'has_thumbnail': row[12] is not None,
+                        'thumbnail_url': row[14],
+                        'description': row[15],
+                        'premiere_date': row[16],
+                        'user_rating': row[17],
+                    }
+        finally:
+            conn.close()
+
+    def upsert_video(self, folder_id: int, video: dict, *, series_id: int | None = None, season_id: int | None = None) -> None:
+        """Insert or update a single video row."""
+        if not isinstance(video, dict):
+            return
+        file_path = video.get('path')
+        file_name = video.get('name')
+        if not isinstance(file_path, str) or not file_path:
+            return
+        if not isinstance(file_name, str) or not file_name:
+            return
+
+        normalized_path = os.path.normpath(file_path)
+        media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+        current_time = datetime.now().timestamp()
+        last_modified = video.get('modified') or video.get('last_modified')
+
+        thumb_blob = video.get('thumbnail')
+        thumb_mime = video.get('thumbnail_mime_type')
+        thumb_file = None
+        if isinstance(thumb_blob, (bytes, bytearray, memoryview)):
+            try:
+                thumb_file = self._persist_thumbnail_file(media_id, bytes(thumb_blob), thumb_mime)
+                thumb_blob = None
+            except Exception:
+                thumb_file = None
+
+        row = (
+            int(folder_id),
+            series_id,
+            season_id,
+            media_id,
+            normalized_path,
+            file_name,
+            video.get('size', 0),
+            video.get('title'),
+            video.get('index_number'),
+            video.get('duration'),
+            video.get('start_time_in_ms'),
+            video.get('end_time_in_ms'),
+            last_modified,
+            current_time,
+            json.dumps(video.get('tags', [])),
+            video.get('artist'),
+            thumb_blob,
+            thumb_mime,
+            thumb_file,
+            video.get('thumbnail_url'),
+            video.get('description'),
+            video.get('premiere_date'),
+            video.get('user_rating'),
+        )
+
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                '''
+                    UPDATE videos
+                    SET folder_id = ?,
+                        series_id = ?,
+                        season_id = ?,
+                        media_id = ?,
+                        file_name = ?,
+                        file_size = ?,
+                        title = ?,
+                        index_number = ?,
+                        duration = ?,
+                        start_time_in_ms = ?,
+                        end_time_in_ms = ?,
+                        last_modified = ?,
+                        cached_at = ?,
+                        tags = ?,
+                        artist = ?,
+                        thumbnail = ?,
+                        thumbnail_mime_type = ?,
+                        thumbnail_file = ?,
+                        thumbnail_url = ?,
+                        description = ?,
+                        premiere_date = ?,
+                        user_rating = ?
+                    WHERE file_path = ?
+                ''',
+                (
+                    row[0], row[1], row[2], row[3],
+                    row[5], row[6], row[7], row[8], row[9],
+                    row[10], row[11], row[12], row[13], row[14],
+                    row[15], row[16], row[17], row[18], row[19], row[20], row[21], row[22],
+                    row[4],
+                ),
+            )
+
+            if cursor.rowcount == 0:
+                cursor.execute(
+                    '''
+                        INSERT INTO videos
+                        (folder_id, series_id, season_id, media_id, file_path, file_name, file_size, title, index_number, duration,
+                         start_time_in_ms, end_time_in_ms,
+                         last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_file,
+                         thumbnail_url, description, premiere_date, user_rating)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    row,
+                )
+
+            conn.commit()
+        finally:
+            conn.close()
+
+    def delete_videos_not_in_paths(self, folder_id: int, existing_paths: set[str]) -> None:
+        """Delete cached video rows for a folder that are not present anymore."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT file_path, thumbnail_file FROM videos WHERE folder_id = ?', (int(folder_id),))
+            db_rows = cursor.fetchall()
+            db_paths = {os.path.normpath(row[0]) for row in db_rows if row and row[0]}
+            to_delete = db_paths - {os.path.normpath(p) for p in existing_paths}
+            if not to_delete:
+                return
+
+            for file_path, thumbnail_file in db_rows:
+                if not file_path:
+                    continue
+                if os.path.normpath(file_path) in to_delete:
+                    self._delete_thumbnail_file(thumbnail_file)
+            cursor.executemany(
+                'DELETE FROM videos WHERE folder_id = ? AND file_path = ?',
+                [(int(folder_id), p) for p in to_delete],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_video_series_id_map(self, folder_id: int) -> dict[str, int]:
+        """Return mapping of series full_path -> series id for a folder."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT id, full_path FROM video_series WHERE folder_id = ?',
+                (int(folder_id),),
+            )
+            out: dict[str, int] = {}
+            for row in cursor.fetchall():
+                if not row or not row[0] or not row[1]:
+                    continue
+                out[os.path.normpath(row[1])] = int(row[0])
+            return out
+        finally:
+            conn.close()
+
+    def get_video_season_id_map_for_folder(self, folder_id: int) -> dict[str, int]:
+        """Return mapping of season full_path -> season id for all seasons in a folder."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                '''
+                    SELECT vsn.id, vsn.full_path
+                    FROM video_seasons vsn
+                    JOIN video_series vs ON vs.id = vsn.series_id
+                    WHERE vs.folder_id = ?
+                ''',
+                (int(folder_id),),
+            )
+            out: dict[str, int] = {}
+            for row in cursor.fetchall():
+                if not row or not row[0] or not row[1]:
+                    continue
+                out[os.path.normpath(row[1])] = int(row[0])
+            return out
+        finally:
+            conn.close()
+
+    def update_video_series_season_links(self, folder_id: int, file_path: str, *, series_id: int | None, season_id: int | None) -> None:
+        """Update series_id/season_id for a specific video row."""
+        if not isinstance(file_path, str) or not file_path:
+            return
+        normalized_path = os.path.normpath(file_path)
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE videos SET series_id = ?, season_id = ? WHERE folder_id = ? AND file_path = ?',
+                (series_id, season_id, int(folder_id), normalized_path),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -679,17 +1299,34 @@ class DatabaseManager:
             conn.close()
             return None
         
-        cursor.execute('''
-             SELECT media_id, file_path, file_name, file_size, title, duration,
-                 start_time_in_ms, end_time_in_ms,
-                 last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_url,
-                 description, premiere_date, user_rating
-            FROM videos
-            WHERE folder_id = ?
-            ORDER BY title, file_name
-        ''', (folder_id,))
-        
-        rows = cursor.fetchall()
+        rows = []
+        try:
+            cursor.execute('''
+                   SELECT v.media_id, v.file_path, v.file_name, v.file_size, v.title, v.index_number, v.duration,
+                     v.start_time_in_ms, v.end_time_in_ms,
+                                         v.last_modified, v.tags, v.artist, v.thumbnail, v.thumbnail_mime_type, v.thumbnail_file, v.thumbnail_url,
+                     v.description, v.premiere_date, v.user_rating,
+                                         vs.full_path AS series_full_path,
+                                         vsea.full_path AS season_full_path
+                FROM videos v
+                LEFT JOIN video_series vs ON vs.id = v.series_id
+                LEFT JOIN video_seasons vsea ON vsea.id = v.season_id
+                WHERE v.folder_id = ?
+                ORDER BY v.title, v.file_name
+            ''', (folder_id,))
+            rows = cursor.fetchall()
+        except sqlite3.OperationalError:
+            # Backward compatibility if the DB lacks the new columns/tables.
+            cursor.execute('''
+                   SELECT media_id, file_path, file_name, file_size, title, index_number, duration,
+                     start_time_in_ms, end_time_in_ms,
+                                         last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_file, thumbnail_url,
+                     description, premiere_date, user_rating
+                FROM videos
+                WHERE folder_id = ?
+                ORDER BY title, file_name
+            ''', (folder_id,))
+            rows = cursor.fetchall()
         conn.close()
         
         if not rows:
@@ -697,27 +1334,269 @@ class DatabaseManager:
         
         videos = []
         for row in rows:
+            series_full_path = None
+            season_full_path = None
+            thumb_file = None
+
+            # Handle multiple schema variants (older DBs may not have thumbnail_file or series tables).
+            if len(row) >= 21:
+                thumb_file = row[14]
+                thumbnail_url = row[15]
+                description = row[16]
+                premiere_date = row[17]
+                user_rating = row[18]
+                series_full_path = row[19]
+                season_full_path = row[20]
+            elif len(row) >= 19:
+                thumb_file = row[14]
+                thumbnail_url = row[15]
+                description = row[16]
+                premiere_date = row[17]
+                user_rating = row[18]
+            else:
+                thumbnail_url = row[14] if len(row) > 14 else None
+                description = row[15] if len(row) > 15 else None
+                premiere_date = row[16] if len(row) > 16 else None
+                user_rating = row[17] if len(row) > 17 else None
+
             video = {
                 'media_id': row[0],
                 'path': row[1],
                 'name': row[2],
                 'size': row[3],
                 'title': row[4] or os.path.splitext(row[2])[0],
-                'duration': row[5],
-                'start_time_in_ms': row[6],
-                'end_time_in_ms': row[7],
-                'modified': row[8],
-                'tags': json.loads(row[9]) if row[9] else [],
-                'artist': row[10],
-                'has_thumbnail': row[11] is not None,  # Boolean flag instead of binary data
-                'thumbnail_url': row[13],
-                'description': row[14],
-                'premiere_date': row[15],
-                'user_rating': row[16]
+                'index_number': row[5],
+                'duration': row[6],
+                'start_time_in_ms': row[7],
+                'end_time_in_ms': row[8],
+                'modified': row[9],
+                'tags': json.loads(row[10]) if row[10] else [],
+                'artist': row[11],
+                'has_thumbnail': (row[12] is not None) or (thumb_file is not None),
+                'thumbnail_url': thumbnail_url,
+                'description': description,
+                'premiere_date': premiere_date,
+                'user_rating': user_rating,
             }
+
+            # Preserve the folder-name semantics for series/season.
+            # (The hierarchical /series endpoint provides the display titles.)
+            if isinstance(series_full_path, str) and series_full_path.strip():
+                video['series'] = os.path.basename(series_full_path.strip())
+            if isinstance(season_full_path, str) and season_full_path.strip():
+                video['season'] = os.path.basename(season_full_path.strip())
             videos.append(video)
         
         return videos
+
+    def cache_video_series_tree(self, folder_id: int, series_tree: list[dict]):
+        """Persist Series/Season rows for a folder without rewriting the videos table.
+
+        This is useful for upgrades/backfills when videos are already cached but
+        `video_series` / `video_seasons` are empty.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                'SELECT recursive FROM video_folders WHERE id = ?',
+                (folder_id,),
+            )
+            folder_row = cursor.fetchone()
+            folder_recursive = bool(int(folder_row[0])) if folder_row and folder_row[0] is not None else False
+
+            if not folder_recursive or not isinstance(series_tree, list):
+                return
+
+            cursor.execute(
+                'DELETE FROM video_series WHERE folder_id = ?',
+                (folder_id,),
+            )
+
+            # video_seasons rows are deleted via ON DELETE CASCADE on video_series.
+            for series in series_tree:
+                if not isinstance(series, dict):
+                    continue
+                full_path = series.get('full_path')
+                if not isinstance(full_path, str) or not full_path:
+                    continue
+
+                title = series.get('title') if isinstance(series.get('title'), str) else None
+                user_rating = series.get('user_rating') if isinstance(series.get('user_rating'), (int, float)) else None
+                tags = series.get('tags') if isinstance(series.get('tags'), list) else []
+                artists = series.get('artists') if isinstance(series.get('artists'), list) else []
+                cover = series.get('cover') if isinstance(series.get('cover'), str) else None
+
+                cursor.execute(
+                    '''
+                        INSERT INTO video_series (folder_id, full_path, title, user_rating, tags, artists, cover)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        folder_id,
+                        os.path.normpath(full_path),
+                        title,
+                        float(user_rating) if isinstance(user_rating, (int, float)) else None,
+                        json.dumps(tags),
+                        json.dumps(artists),
+                        cover,
+                    ),
+                )
+                series_db_id = int(cursor.lastrowid)
+
+                seasons = series.get('seasons')
+                if isinstance(seasons, list):
+                    for season in seasons:
+                        if not isinstance(season, dict):
+                            continue
+                        season_full_path = season.get('full_path')
+                        if not isinstance(season_full_path, str) or not season_full_path:
+                            continue
+                        season_title = season.get('title') if isinstance(season.get('title'), str) else None
+                        season_user_rating = season.get('user_rating') if isinstance(season.get('user_rating'), (int, float)) else None
+                        season_tags = season.get('tags') if isinstance(season.get('tags'), list) else []
+                        season_artists = season.get('artists') if isinstance(season.get('artists'), list) else []
+                        season_cover = season.get('cover') if isinstance(season.get('cover'), str) else None
+                        season_index = season.get('index_number') if isinstance(season.get('index_number'), int) else None
+
+                        cursor.execute(
+                            '''
+                                INSERT INTO video_seasons (series_id, full_path, title, user_rating, tags, artists, cover, index_number)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            ''',
+                            (
+                                series_db_id,
+                                os.path.normpath(season_full_path),
+                                season_title,
+                                float(season_user_rating) if isinstance(season_user_rating, (int, float)) else None,
+                                json.dumps(season_tags),
+                                json.dumps(season_artists),
+                                season_cover,
+                                season_index,
+                            ),
+                        )
+
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_cached_video_series_tree(self, folder_id):
+        """Return a cached Series -> Seasons -> Videos structure for a folder.
+
+        Returns:
+            - list[dict] when cache is valid
+            - [] when cache is valid but no series rows exist
+            - None when cache is invalid or DB doesn't support the schema
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT last_scan FROM video_folders WHERE id = ?', (folder_id,))
+        folder = cursor.fetchone()
+        if not folder or folder[0] is None:
+            conn.close()
+            return None
+
+        try:
+            cursor.execute('''
+                SELECT id, full_path, title, user_rating, tags, artists, cover
+                FROM video_series
+                WHERE folder_id = ?
+                ORDER BY COALESCE(title, full_path)
+            ''', (folder_id,))
+            series_rows = cursor.fetchall()
+
+            series_by_id: dict[int, dict] = {}
+            seasons_by_id: dict[int, dict] = {}
+
+            for row in series_rows:
+                sid = int(row[0])
+                series_by_id[sid] = {
+                    'full_path': row[1],
+                    'title': row[2] or (os.path.basename(row[1]) if row[1] else 'Untitled'),
+                    'user_rating': row[3],
+                    'tags': json.loads(row[4]) if row[4] else [],
+                    'artists': json.loads(row[5]) if row[5] else [],
+                    'cover': row[6],
+                    'seasons': [],
+                    'videos': [],
+                }
+
+            if series_by_id:
+                placeholders = ','.join(['?'] * len(series_by_id))
+                cursor.execute(
+                    f'''
+                        SELECT id, series_id, full_path, title, user_rating, tags, artists, cover, index_number
+                        FROM video_seasons
+                        WHERE series_id IN ({placeholders})
+                        ORDER BY COALESCE(index_number, 999999), COALESCE(title, full_path)
+                    ''',
+                    tuple(series_by_id.keys()),
+                )
+                season_rows = cursor.fetchall()
+                for row in season_rows:
+                    season_id = int(row[0])
+                    series_id = int(row[1])
+                    season_dict = {
+                        'full_path': row[2],
+                        'title': row[3] or (os.path.basename(row[2]) if row[2] else 'Untitled'),
+                        'user_rating': row[4],
+                        'tags': json.loads(row[5]) if row[5] else [],
+                        'artists': json.loads(row[6]) if row[6] else [],
+                        'cover': row[7],
+                        'index_number': row[8],
+                        'videos': [],
+                    }
+                    seasons_by_id[season_id] = season_dict
+                    parent = series_by_id.get(series_id)
+                    if parent is not None:
+                        parent['seasons'].append(season_dict)
+
+            cursor.execute('''
+                SELECT folder_id, series_id, season_id, media_id, file_path, file_name, file_size, title,
+                       index_number, duration, start_time_in_ms, end_time_in_ms, last_modified, tags, artist,
+                       thumbnail, thumbnail_mime_type, thumbnail_file, thumbnail_url, description, premiere_date, user_rating
+                FROM videos
+                WHERE folder_id = ?
+                ORDER BY COALESCE(series_id, 0), COALESCE(season_id, 0), COALESCE(index_number, 999999), COALESCE(title, file_name)
+            ''', (folder_id,))
+            video_rows = cursor.fetchall()
+
+            for row in video_rows:
+                v_series_id = row[1]
+                v_season_id = row[2]
+                video = {
+                    'media_id': row[3],
+                    'path': row[4],
+                    'name': row[5],
+                    'size': row[6],
+                    'title': row[7] or os.path.splitext(row[5])[0],
+                    'index_number': row[8],
+                    'duration': row[9],
+                    'start_time_in_ms': row[10],
+                    'end_time_in_ms': row[11],
+                    'modified': row[12],
+                    'tags': json.loads(row[13]) if row[13] else [],
+                    'artist': row[14],
+                    'has_thumbnail': (row[15] is not None) or (row[17] is not None),
+                    'thumbnail_url': row[18],
+                    'description': row[19],
+                    'premiere_date': row[20],
+                    'user_rating': row[21],
+                }
+
+                if isinstance(v_season_id, int) and v_season_id in seasons_by_id:
+                    seasons_by_id[v_season_id]['videos'].append(video)
+                elif isinstance(v_series_id, int) and v_series_id in series_by_id:
+                    series_by_id[v_series_id]['videos'].append(video)
+
+            conn.close()
+            return list(series_by_id.values())
+
+        except sqlite3.OperationalError:
+            conn.close()
+            return None
     
     def get_video_thumbnail(self, file_path):
         """Get thumbnail data for a specific video by file path
@@ -728,20 +1607,39 @@ class DatabaseManager:
         normalized_path = os.path.normpath(file_path)
         conn = self._get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute(
-            'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE file_path = ?',
-            (normalized_path,)
-        )
-        result = cursor.fetchone()
+
+        try:
+            cursor.execute(
+                'SELECT thumbnail, thumbnail_mime_type, thumbnail_file FROM videos WHERE file_path = ?',
+                (normalized_path,),
+            )
+            result = cursor.fetchone()
+        except sqlite3.OperationalError:
+            cursor.execute(
+                'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE file_path = ?',
+                (normalized_path,),
+            )
+            result = cursor.fetchone()
         conn.close()
-        
-        if result and result[0]:
-            thumbnail_blob = result[0]
+
+        if not result:
+            return None, None
+
+        thumbnail_blob = result[0] if len(result) > 0 else None
+        mime_type = result[1] if len(result) > 1 else None
+        thumbnail_file = result[2] if len(result) > 2 else None
+
+        if thumbnail_blob:
             if isinstance(thumbnail_blob, memoryview):
                 thumbnail_blob = thumbnail_blob.tobytes()
             if isinstance(thumbnail_blob, (bytes, bytearray)):
-                return bytes(thumbnail_blob), result[1]
+                return bytes(thumbnail_blob), mime_type
+
+        if thumbnail_file:
+            data = self._read_thumbnail_file(thumbnail_file)
+            if isinstance(data, (bytes, bytearray)) and data:
+                return bytes(data), mime_type
+
         return None, None
 
     def get_video_thumbnail_by_media_id(self, media_id: str):
@@ -753,19 +1651,38 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
 
-        cursor.execute(
-            'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE media_id = ?',
-            (media_id,)
-        )
-        result = cursor.fetchone()
+        try:
+            cursor.execute(
+                'SELECT thumbnail, thumbnail_mime_type, thumbnail_file FROM videos WHERE media_id = ?',
+                (media_id,),
+            )
+            result = cursor.fetchone()
+        except sqlite3.OperationalError:
+            cursor.execute(
+                'SELECT thumbnail, thumbnail_mime_type FROM videos WHERE media_id = ?',
+                (media_id,),
+            )
+            result = cursor.fetchone()
         conn.close()
 
-        if result and result[0]:
-            thumbnail_blob = result[0]
+        if not result:
+            return None, None
+
+        thumbnail_blob = result[0] if len(result) > 0 else None
+        mime_type = result[1] if len(result) > 1 else None
+        thumbnail_file = result[2] if len(result) > 2 else None
+
+        if thumbnail_blob:
             if isinstance(thumbnail_blob, memoryview):
                 thumbnail_blob = thumbnail_blob.tobytes()
             if isinstance(thumbnail_blob, (bytes, bytearray)):
-                return bytes(thumbnail_blob), result[1]
+                return bytes(thumbnail_blob), mime_type
+
+        if thumbnail_file:
+            data = self._read_thumbnail_file(thumbnail_file)
+            if isinstance(data, (bytes, bytearray)) and data:
+                return bytes(data), mime_type
+
         return None, None
 
     def get_video_file_path_by_media_id(self, media_id: str):
@@ -827,9 +1744,20 @@ class DatabaseManager:
         """Invalidate cache for a specific video folder"""
         conn = self._get_connection()
         cursor = conn.cursor()
+
+        cursor.execute(
+            'SELECT thumbnail_file FROM videos WHERE folder_id = ?',
+            (folder_id,),
+        )
+        for (thumbnail_file,) in cursor.fetchall() or []:
+            self._delete_thumbnail_file(thumbnail_file)
         
         cursor.execute(
             'DELETE FROM videos WHERE folder_id = ?',
+            (folder_id,)
+        )
+        cursor.execute(
+            'DELETE FROM video_series WHERE folder_id = ?',
             (folder_id,)
         )
         cursor.execute(
@@ -883,10 +1811,17 @@ class DatabaseManager:
         cursor.execute('DELETE FROM music_tracks')
         cursor.execute('DELETE FROM music_folders')
         cursor.execute('DELETE FROM videos')
+        cursor.execute('DELETE FROM video_seasons')
+        cursor.execute('DELETE FROM video_series')
         cursor.execute('DELETE FROM video_folders')
         
         conn.commit()
         conn.close()
+
+        try:
+            shutil.rmtree(self._get_thumbs_root_dir(), ignore_errors=True)
+        except Exception:
+            pass
     
     # User management methods
     def _init_default_users(self):
