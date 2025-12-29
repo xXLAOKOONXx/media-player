@@ -504,57 +504,59 @@ class DatabaseManager:
     def cache_videos(self, folder_id, videos):
         """Cache video metadata for a folder"""
         conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            'UPDATE video_folders SET last_scan = ? WHERE id = ?',
-            (datetime.now().timestamp(), folder_id)
-        )
-        
-        cursor.execute(
-            'DELETE FROM videos WHERE folder_id = ?',
-            (folder_id,)
-        )
-        
-        current_time = datetime.now().timestamp()
-        rows = []
-        for video in videos:
-            last_modified = video.get('modified') or video.get('last_modified')
-            normalized_path = os.path.normpath(video['path'])
-            media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
-            rows.append((
-                folder_id,
-                media_id,
-                normalized_path,
-                video['name'],
-                video.get('size', 0),
-                video.get('title'),
-                video.get('duration'),
-                video.get('start_time_in_ms'),
-                video.get('end_time_in_ms'),
-                last_modified,
-                current_time,
-                json.dumps(video.get('tags', [])),
-                video.get('artist'),
-                video.get('thumbnail'),  # Binary data
-                video.get('thumbnail_mime_type'),
-                video.get('thumbnail_url'),
-                video.get('description'),
-                video.get('premiere_date'),
-                video.get('user_rating'),
-            ))
-        
-        cursor.executemany('''
-            INSERT INTO videos
-            (folder_id, media_id, file_path, file_name, file_size, title, duration,
-             start_time_in_ms, end_time_in_ms,
-             last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
-             thumbnail_url, description, premiere_date, user_rating)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', rows)
-        
-        conn.commit()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                'UPDATE video_folders SET last_scan = ? WHERE id = ?',
+                (datetime.now().timestamp(), folder_id)
+            )
+
+            cursor.execute(
+                'DELETE FROM videos WHERE folder_id = ?',
+                (folder_id,)
+            )
+
+            current_time = datetime.now().timestamp()
+            rows = []
+            for video in videos:
+                last_modified = video.get('modified') or video.get('last_modified')
+                normalized_path = os.path.normpath(video['path'])
+                media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+                rows.append((
+                    folder_id,
+                    media_id,
+                    normalized_path,
+                    video['name'],
+                    video.get('size', 0),
+                    video.get('title'),
+                    video.get('duration'),
+                    video.get('start_time_in_ms'),
+                    video.get('end_time_in_ms'),
+                    last_modified,
+                    current_time,
+                    json.dumps(video.get('tags', [])),
+                    video.get('artist'),
+                    video.get('thumbnail'),  # Binary data
+                    video.get('thumbnail_mime_type'),
+                    video.get('thumbnail_url'),
+                    video.get('description'),
+                    video.get('premiere_date'),
+                    video.get('user_rating'),
+                ))
+
+            cursor.executemany('''
+                INSERT INTO videos
+                (folder_id, media_id, file_path, file_name, file_size, title, duration,
+                 start_time_in_ms, end_time_in_ms,
+                 last_modified, cached_at, tags, artist, thumbnail, thumbnail_mime_type,
+                 thumbnail_url, description, premiere_date, user_rating)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', rows)
+
+            conn.commit()
+        finally:
+            conn.close()
     
     def get_cached_videos(self, folder_id):
         """Retrieve cached videos for a folder"""
