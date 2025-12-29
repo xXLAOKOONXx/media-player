@@ -82,6 +82,50 @@ class TestNFOParsing:
             assert metadata['description'] == 'A great music video'
         finally:
             os.unlink(nfo_path)
+
+    def test_parse_nfo_uses_actor_names_for_artist(self):
+        """If <artist> is missing, use <actor><name>... as artist (joined)."""
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Actor Movie</title>
+    <actor>
+        <name>Michael Herbig</name>
+    </actor>
+    <actor>
+        <name>Rick Kavanian</name>
+    </actor>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            metadata = parse_nfo_file(nfo_path)
+            assert metadata['title'] == 'Actor Movie'
+            assert metadata['artist'] == 'Michael Herbig, Rick Kavanian'
+        finally:
+            os.unlink(nfo_path)
+
+    def test_parse_nfo_multiple_artist_tags_joined_with_commas(self):
+        """Multiple <artist> tags should be joined with commas."""
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Multi Artist Movie</title>
+    <artist>Artist One</artist>
+    <artist>Artist Two</artist>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            metadata = parse_nfo_file(nfo_path)
+            assert metadata['title'] == 'Multi Artist Movie'
+            assert metadata['artist'] == 'Artist One, Artist Two'
+        finally:
+            os.unlink(nfo_path)
     
     def test_parse_nfo_with_thumbnail(self):
         """Test parsing NFO with thumbnail URL."""
@@ -229,6 +273,66 @@ class TestVideoMetadataExtraction:
         metadata = vm.read_video_metadata(str(video_path), include_duration=False, check_nfo=False, include_thumbnail=False)
         assert metadata["start_time_in_ms"] == 1500
         assert metadata["end_time_in_ms"] == 2500
+
+    def test_read_metadata_from_mp4_artists_tag(self, tmp_path, monkeypatch):
+        """MP4 files can carry artists under the standard iTunes tag \xa9ART (mocked mutagen)."""
+        import services.video.video_metadata as vm
+
+        video_path = tmp_path / "artists.mp4"
+        video_path.write_bytes(b"")
+
+        class FakeMP4:
+            def __init__(self, _path):
+                self.tags = {
+                    vm.ARTISTS_TAG: ["Artist One", "Artist Two"],
+                }
+                self.info = None
+
+        monkeypatch.setattr(vm, "MUTAGEN_AVAILABLE", True, raising=False)
+        monkeypatch.setattr(vm, "MP4", FakeMP4, raising=False)
+
+        metadata = vm.read_video_metadata(str(video_path), include_duration=False, check_nfo=False, include_thumbnail=False)
+        assert metadata["artist"] == "Artist One, Artist Two"
+
+    def test_read_metadata_from_mp4_title_tag(self, tmp_path, monkeypatch):
+        """MP4 files can carry title under the standard iTunes tag \xa9nam (mocked mutagen)."""
+        import services.video.video_metadata as vm
+
+        video_path = tmp_path / "title.mp4"
+        video_path.write_bytes(b"")
+
+        class FakeMP4:
+            def __init__(self, _path):
+                self.tags = {
+                    vm.TITLE_TAG: ["Embedded Title"],
+                }
+                self.info = None
+
+        monkeypatch.setattr(vm, "MUTAGEN_AVAILABLE", True, raising=False)
+        monkeypatch.setattr(vm, "MP4", FakeMP4, raising=False)
+
+        metadata = vm.read_video_metadata(str(video_path), include_duration=False, check_nfo=False, include_thumbnail=False)
+        assert metadata["title"] == "Embedded Title"
+
+    def test_read_metadata_from_mp4_tags_field_populates_tags(self, tmp_path, monkeypatch):
+        """MP4 files can carry tags under a literal 'tags' field/key (mocked mutagen)."""
+        import services.video.video_metadata as vm
+
+        video_path = tmp_path / "tags.mp4"
+        video_path.write_bytes(b"")
+
+        class FakeMP4:
+            def __init__(self, _path):
+                self.tags = {
+                    vm.MP4_TAGS_FIELD: ["Action, Adventure"],
+                }
+                self.info = None
+
+        monkeypatch.setattr(vm, "MUTAGEN_AVAILABLE", True, raising=False)
+        monkeypatch.setattr(vm, "MP4", FakeMP4, raising=False)
+
+        metadata = vm.read_video_metadata(str(video_path), include_duration=False, check_nfo=False, include_thumbnail=False)
+        assert metadata["tags"] == ["Action", "Adventure"]
     
     def test_find_nfo_file_exists(self):
         """Test finding an existing NFO file."""

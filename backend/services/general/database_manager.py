@@ -223,7 +223,20 @@ class DatabaseManager:
     
     def _get_connection(self):
         """Get a database connection with configured timeout"""
-        return sqlite3.connect(self.db_path, timeout=self.timeout)
+        conn = sqlite3.connect(self.db_path, timeout=self.timeout)
+
+        # Reduce lock contention under concurrent read/write load.
+        # These pragmas are safe to apply per-connection; journal_mode is persisted per DB.
+        try:
+            conn.execute('PRAGMA foreign_keys = ON')
+            conn.execute(f'PRAGMA busy_timeout = {int(self.timeout * 1000)}')
+            conn.execute('PRAGMA journal_mode = WAL')
+            conn.execute('PRAGMA synchronous = NORMAL')
+        except sqlite3.OperationalError:
+            # Some environments (e.g., read-only DB or older SQLite builds) may reject pragmas.
+            pass
+
+        return conn
     
     # Configuration methods
     def get_config(self, key, default=None):
@@ -465,41 +478,49 @@ class DatabaseManager:
     def register_video_folder(self, folder_id, path, recursive):
         """Register a video folder in the database"""
         conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        recursive_int = 1 if recursive else 0
-        
-        cursor.execute(
-            'SELECT path, recursive FROM video_folders WHERE id = ?',
-            (folder_id,)
-        )
-        existing = cursor.fetchone()
-        
-        if existing is None:
-            cursor.execute('''
-                INSERT INTO video_folders (id, path, recursive, last_scan)
-                VALUES (?, ?, ?, NULL)
-            ''', (folder_id, path, recursive_int))
-        else:
-            existing_path, existing_recursive = existing[0], existing[1]
-            
-            if existing_path != path or int(existing_recursive) != recursive_int:
-                cursor.execute(
-                    'DELETE FROM videos WHERE folder_id = ?',
-                    (folder_id,)
-                )
-                cursor.execute(
-                    'UPDATE video_folders SET last_scan = NULL WHERE id = ?',
-                    (folder_id,)
-                )
-            
+        try:
+            cursor = conn.cursor()
+
+            recursive_int = 1 if recursive else 0
+
             cursor.execute(
-                'UPDATE video_folders SET path = ?, recursive = ? WHERE id = ?',
-                (path, recursive_int, folder_id)
+                'SELECT path, recursive FROM video_folders WHERE id = ?',
+                (folder_id,),
             )
-        
-        conn.commit()
-        conn.close()
+            existing = cursor.fetchone()
+
+            did_write = False
+
+            if existing is None:
+                cursor.execute('''
+                    INSERT INTO video_folders (id, path, recursive, last_scan)
+                    VALUES (?, ?, ?, NULL)
+                ''', (folder_id, path, recursive_int))
+                did_write = True
+            else:
+                existing_path, existing_recursive = existing[0], existing[1]
+                changed = (existing_path != path) or (int(existing_recursive) != recursive_int)
+
+                # Avoid unnecessary writes on every request; this reduces SQLite lock pressure.
+                if changed:
+                    cursor.execute(
+                        'DELETE FROM videos WHERE folder_id = ?',
+                        (folder_id,),
+                    )
+                    cursor.execute(
+                        'UPDATE video_folders SET last_scan = NULL WHERE id = ?',
+                        (folder_id,),
+                    )
+                    cursor.execute(
+                        'UPDATE video_folders SET path = ?, recursive = ? WHERE id = ?',
+                        (path, recursive_int, folder_id),
+                    )
+                    did_write = True
+
+            if did_write:
+                conn.commit()
+        finally:
+            conn.close()
     
     def cache_videos(self, folder_id, videos):
         """Cache video metadata for a folder"""

@@ -193,14 +193,39 @@ Visibility:
 ### Search filters
 
 Inputs:
+- Artist (text)
 - Title (text)
+- Tags (comma-separated text)
+- Min Duration (number, seconds)
+- Max Duration (number, seconds)
 
 Button:
 - **Clear Filters**
   - Resets all filter inputs to empty strings.
 
 Filtering behavior:
+- Artist filter matches substring against lowercased `video.artist`.
+  - Fallback (legacy): if `video.artist` is missing, match against `video.director`.
 - Title filter matches substring against `video.title` or `video.name`.
+- Tags filter splits by commas and checks if any video tag contains any search token.
+- Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
+
+Tag sources:
+- `video.tags` is populated from the `.nfo` file when present (e.g. `<Genre>` / `<genre>` entries).
+- If no `.nfo` provides tags and the file is `.mp4`/`.m4v`, tags may be read from embedded MP4 metadata under the literal `tags` field/key.
+- The MP4 genre tag is not used.
+
+### Video table columns
+
+The video table shows these columns:
+- Title
+- Artist
+  - Display: the first 30 characters of `video.artist` (fallback: `video.director`).
+  - The full artist string is still available via the cell tooltip/title.
+- Album (series)
+- Duration
+- Tags
+- Actions
 
 ### Thumbnails
 

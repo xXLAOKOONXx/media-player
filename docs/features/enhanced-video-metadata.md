@@ -49,7 +49,7 @@ The following NFO XML tags are recognized:
 | NFO Tag | Metadata Field | Type | Description |
 |---------|---------------|------|-------------|
 | `title` | title | string | Video title |
-| `artist` | artist | string | Director or artist name |
+| `artist` | artist | string | Director/artist name; if missing, uses `actor/name` values joined with `,` |
 | `plot` | description | string | Plot or description |
 | `premiered` | premiere_date | string | Release date (YYYY-MM-DD) |
 | `userscore` | user_rating | float | User rating (0.0-10.0) |
@@ -63,7 +63,7 @@ The following NFO XML tags are recognized:
 
 When you scan a video library:
 
-1. The system first looks for metadata in the video file itself (for MP4/M4V files)
+1. The system first looks for metadata in the video file itself (for MP4/M4V files). Title may be read from `\xa9nam` and artists from `\xa9ART`.
 2. Then it checks for an accompanying `.nfo` file
 3. NFO metadata takes precedence over embedded metadata
 4. All metadata is cached in the database for fast retrieval
