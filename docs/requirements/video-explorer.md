@@ -22,7 +22,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 - Each returned video object also includes stats fields: `playcount` and `last_played` (may be `null` when never played).
 - Each available tag in the selected library creates a carousel:
   - Tags are taken from each video’s `tags` array.
-  - Carousels are ordered alphabetically by tag name.
+  - Carousels are ordered randomly by tag name (the order is randomized when the library loads).
   - Each carousel shows video thumbnails.
     - The carousel row height is increased (taller tiles) for easier browsing (50% taller).
     - Each tile sizes to the cover aspect ratio so the full cover is visible without cropping.
