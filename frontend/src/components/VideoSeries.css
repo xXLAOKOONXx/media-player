@@ -1,0 +1,80 @@
+.video-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.video-series-tile {
+  width: 100%;
+  text-align: left;
+}
+
+.video-series-tile-image {
+  height: 210px;
+}
+
+.video-series-hint {
+  opacity: 0.85;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.video-series-seasons h4,
+.video-series-episodes h4 {
+  margin: 0 0 0.5rem 0;
+}
+
+.video-series-season-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.video-series-episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.video-series-episode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.video-series-episode-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.video-series-episode-title {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  overflow: hidden;
+}
+
+.video-series-episode-title span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-series-episode-index {
+  opacity: 0.9;
+}
+
+.video-series-episode-meta {
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.video-series-episode-actions {
+  flex: 0 0 auto;
+}

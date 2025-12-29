@@ -55,6 +55,14 @@ Features:
 - Select videos and create playlists
 - Add videos to current playback queue
 
+### Series Tab (URL: `/video/series`)
+
+See [video-series.md](video-series.md) for detailed requirements.
+
+Features:
+- Browse videos by inferred Series/Season structure (recursive libraries)
+- Select a series, optionally select a season, and start episodes/videos
+
 ## Video Playback Implementation
 
 Video playback uses **server-side rendering with MPV player** (similar to audio with pygame), providing HDMI output for Raspberry Pi setups. Falls back to client-side browser playback if MPV is unavailable.

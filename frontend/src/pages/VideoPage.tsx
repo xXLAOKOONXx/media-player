@@ -8,6 +8,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import VideoPlaybackControls from '../components/VideoPlaybackControls';
 import SettingsManager from '../components/SettingsManager';
 import VideoExplorer from '../components/VideoExplorer';
+import VideoSeries from '../components/VideoSeries';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -23,6 +24,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
   // Derive active tab from URL path
   const getActiveTabFromPath = () => {
     const path = location.pathname;
+    if (path.includes('/series')) return 'series';
     if (path.includes('/explorer')) return 'explorer';
     if (path.includes('/player')) return 'player';
     if (path.includes('/playlists')) return 'playlists';
@@ -31,7 +33,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer' | 'series'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -65,6 +67,12 @@ function VideoPage({ currentUser }: VideoPageProps) {
           onClick={() => handleTabChange('player')}
         >
           Player
+        </button>
+        <button 
+          className={activeTab === 'series' ? 'active' : ''} 
+          onClick={() => handleTabChange('series')}
+        >
+          Series
         </button>
         <button 
           className={activeTab === 'explorer' ? 'active' : ''} 
@@ -102,6 +110,10 @@ function VideoPage({ currentUser }: VideoPageProps) {
 
         {activeTab === 'explorer' && (
           <VideoExplorer />
+        )}
+
+        {activeTab === 'series' && (
+          <VideoSeries />
         )}
         
         {activeTab === 'playlists' && (

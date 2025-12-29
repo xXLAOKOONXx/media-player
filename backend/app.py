@@ -1372,6 +1372,93 @@ def get_library_videos(library_id):
             video['promotion_score'] = 0.0
     return jsonify(videos)
 
+
+@app.route('/api/video/libraries/<int:library_id>/series', methods=['GET'])
+def get_library_series(library_id):
+    """Get hierarchical series data for a library.
+
+    Intended for recursive libraries. Series/Season are inferred from folder structure:
+    - Series: top-level folder inside the library root
+    - Season: second-level folder inside a series folder
+    """
+    config = load_config()
+    libraries = config.get('video_libraries', [])
+    library = next((lib for lib in libraries if lib['id'] == library_id), None)
+
+    if not library:
+        return jsonify({'error': 'Video library not found'}), 404
+
+    if not library.get('recursive', False):
+        # Series/season inference only applies to recursive scans.
+        return jsonify([])
+
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
+
+    series = None
+
+    # Prefer the DB-backed series cache when available.
+    if not force_refresh and getattr(video_manager, 'cache', None) is not None:
+        try:
+            series = video_manager.cache.get_cached_series_tree(library_id)
+        except Exception:
+            series = None
+
+    if series is None:
+        # Cache miss/invalid (or refresh requested): build from scan/cached videos.
+        series = video_manager.build_series_tree(
+            library['path'],
+            folder_id=library_id,
+            force_refresh=force_refresh,
+        )
+
+        # If we didn't refresh, we may have built from cached videos; backfill
+        # Series/Season tables without rewriting videos.
+        if not force_refresh and getattr(video_manager, 'cache', None) is not None:
+            try:
+                video_manager.cache.cache_series_tree(library_id, series)
+            except Exception:
+                pass
+
+    # Optionally enrich nested videos with play stats (global).
+    try:
+        all_video_paths: list[str] = []
+        for s in series:
+            if not isinstance(s, dict):
+                continue
+            for v in (s.get('videos') or []):
+                if isinstance(v, dict) and isinstance(v.get('path'), str):
+                    all_video_paths.append(v['path'])
+            for season in (s.get('seasons') or []):
+                if not isinstance(season, dict):
+                    continue
+                for v in (season.get('videos') or []):
+                    if isinstance(v, dict) and isinstance(v.get('path'), str):
+                        all_video_paths.append(v['path'])
+
+        play_stats = stats_manager.get_media_play_stats(all_video_paths) if stats_manager else {}
+
+        def _apply_stats(video: dict):
+            stats = play_stats.get(video.get('path')) if isinstance(video.get('path'), str) else None
+            video['playcount'] = stats.get('playcount', 0) if stats else 0
+            video['last_played'] = stats.get('last_played') if stats else None
+
+        for s in series:
+            if not isinstance(s, dict):
+                continue
+            for v in (s.get('videos') or []):
+                if isinstance(v, dict):
+                    _apply_stats(v)
+            for season in (s.get('seasons') or []):
+                if not isinstance(season, dict):
+                    continue
+                for v in (season.get('videos') or []):
+                    if isinstance(v, dict):
+                        _apply_stats(v)
+    except Exception:
+        pass
+
+    return jsonify(series)
+
 # Video Playlist Management
 @app.route('/api/video/playlists', methods=['GET'])
 def get_video_playlists():

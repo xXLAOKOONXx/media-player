@@ -134,6 +134,11 @@ NFO_FIELD_MAP = {
     'Genre': 'tags',  # Map Genre to tags
     'genre': 'tags',  # Also support lowercase
     'artist': 'artist',
+    # Episode number / index fields (commonly used by Kodi/Jellyfin)
+    'episode': 'index_number',
+    'episode_number': 'index_number',
+    'track': 'index_number',
+    'index': 'index_number',
     'premiered': 'premiere_date',
     'plot': 'description',
     # NFO <thumb> is typically a URL or path reference, not raw image bytes.
@@ -199,6 +204,11 @@ def parse_nfo_file(nfo_path: str) -> dict[str, Any]:
                 if field_name == 'user_rating':
                     try:
                         metadata[field_name] = float(text_value)
+                    except ValueError:
+                        pass
+                elif field_name == 'index_number':
+                    try:
+                        metadata[field_name] = int(float(text_value))
                     except ValueError:
                         pass
                 elif field_name == 'tags':
