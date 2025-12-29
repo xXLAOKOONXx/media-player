@@ -421,6 +421,38 @@ class PlaybackController:
             pygame.mixer.music.stop()
         self.is_playing = False
         self.is_paused = False
+
+    def clear_playlist(self):
+        """Clear the current playlist/queue without changing user settings.
+
+        This resets the currently loaded playlist and related per-track state.
+        It does not change volume, shuffle, or repeat settings.
+        """
+        self.current_playlist = []
+        self.original_playlist = []
+        self.current_track_index = 0
+
+        # Reset per-track state
+        self.track_start_time = None
+        self.track_custom_start = None
+        self.track_custom_end = None
+        self.pause_time = None
+        self.total_pause_duration = 0
+        self.current_username = None
+        self.stats_recorded = False
+        self._reset_crossfade_state()
+
+        # Signal any monitor loop to exit quickly.
+        try:
+            self.stop_monitoring.set()
+        except Exception:
+            pass
+
+    def stop_and_clear_playlist(self):
+        """Stop playback and clear the current playlist/queue."""
+        self.stop()
+        self.clear_playlist()
+        return True
     
     def next(self):
         """Skip to next track"""

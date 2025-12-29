@@ -660,6 +660,35 @@ class VideoPlaybackController:
         self.is_paused = False
         self.current_position = 0
         return True
+
+    def clear_playlist(self):
+        """Clear the current playlist/queue without changing user settings.
+
+        This resets the currently loaded playlist and related per-track state.
+        It does not change volume, shuffle, or repeat settings.
+        """
+        self.current_playlist = []
+        self.original_playlist = []
+        self.current_track_index = 0
+        self.current_position = 0
+
+        # Reset per-track timing state
+        self.track_custom_start = None
+        self.track_custom_end = None
+        self._custom_end_time_triggered = False
+
+        # Reset stats state
+        self.current_username = None
+        self.stats_recorded = False
+        self.track_start_time = None
+        self.pause_start_time = None
+        self.total_pause_duration = 0
+
+    def stop_and_clear_playlist(self):
+        """Stop playback and clear the current playlist/queue."""
+        self.stop()
+        self.clear_playlist()
+        return True
     
     def next_track(self):
         """Skip to next track"""
