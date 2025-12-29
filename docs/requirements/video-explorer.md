@@ -8,13 +8,18 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 
 ## Video Library selection
 
-- The page shows one button per configured video library folder (from `GET /api/video/libraries`).
+- The top of the page shows a compact library selector (from `GET /api/video/libraries`).
+- The selector can be collapsed/expanded:
+  - When collapsed, it shows the currently selected library name and an expand toggle.
+  - When expanded, it shows one button per configured video library folder.
+- The selector is collapsed by default.
 - Each folder button displays the user-assigned folder name.
 - On the right side of each folder button there is a star icon:
   - Empty star (`star_border`) indicates the folder is not the default.
   - Filled star (`star`) indicates the folder is the default.
   - Clicking the star sets that folder as the default selection for future visits.
     - This is stored in browser `localStorage` under `videoExplorer.defaultLibraryId`.
+- The library selector header also shows a star icon for the currently selected library (same default behavior).
 - Clicking a folder button selects it and loads its videos.
 
 ## Browse view (Netflix-style)

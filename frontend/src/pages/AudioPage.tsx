@@ -7,6 +7,7 @@ import NowPlaying from '../components/NowPlaying';
 import SoundEffectsManager from '../components/SoundEffectsManager';
 import MusicManager from '../components/MusicManager';
 import SettingsManager from '../components/SettingsManager';
+import PageMenu from '../components/PageMenu';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -58,38 +59,19 @@ function AudioPage({ currentUser }: AudioPageProps) {
 
   return (
     <div className="audio-page">
-      <nav className="tabs">
-        <button 
-          className={activeTab === 'player' ? 'active' : ''} 
-          onClick={() => handleTabChange('player')}
-        >
-          Player
-        </button>
-        <button 
-          className={activeTab === 'playlists' ? 'active' : ''} 
-          onClick={() => handleTabChange('playlists')}
-        >
-          Playlists
-        </button>
-        <button 
-          className={activeTab === 'music' ? 'active' : ''} 
-          onClick={() => handleTabChange('music')}
-        >
-          Music
-        </button>
-        <button 
-          className={activeTab === 'soundeffects' ? 'active' : ''} 
-          onClick={() => handleTabChange('soundeffects')}
-        >
-          Sound Effects
-        </button>
-        <button 
-          className={activeTab === 'settings' ? 'active' : ''} 
-          onClick={() => handleTabChange('settings')}
-        >
-          Settings
-        </button>
-      </nav>
+      <PageMenu
+        items={[
+          { key: 'player', label: 'Player' },
+          { key: 'playlists', label: 'Playlists' },
+          { key: 'music', label: 'Music' },
+          { key: 'soundeffects', label: 'Sound Effects' },
+          { key: 'settings', label: 'Settings' },
+        ]}
+        activeKey={activeTab}
+        onSelect={handleTabChange}
+        storageKey="audio.pageMenu"
+        ariaLabel="Audio menu"
+      />
 
       <main className="App-main">
         {activeTab === 'player' && (

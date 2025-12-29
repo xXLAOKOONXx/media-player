@@ -9,6 +9,7 @@ import VideoPlaybackControls from '../components/VideoPlaybackControls';
 import SettingsManager from '../components/SettingsManager';
 import VideoExplorer from '../components/VideoExplorer';
 import VideoSeries from '../components/VideoSeries';
+import PageMenu from '../components/PageMenu';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -61,44 +62,20 @@ function VideoPage({ currentUser }: VideoPageProps) {
 
   return (
     <div className="video-page">
-      <nav className="tabs">
-        <button 
-          className={activeTab === 'player' ? 'active' : ''} 
-          onClick={() => handleTabChange('player')}
-        >
-          Player
-        </button>
-        <button 
-          className={activeTab === 'series' ? 'active' : ''} 
-          onClick={() => handleTabChange('series')}
-        >
-          Series
-        </button>
-        <button 
-          className={activeTab === 'explorer' ? 'active' : ''} 
-          onClick={() => handleTabChange('explorer')}
-        >
-          Explorer
-        </button>
-        <button 
-          className={activeTab === 'playlists' ? 'active' : ''} 
-          onClick={() => handleTabChange('playlists')}
-        >
-          Playlists
-        </button>
-        <button 
-          className={activeTab === 'library' ? 'active' : ''} 
-          onClick={() => handleTabChange('library')}
-        >
-          Library
-        </button>
-        <button 
-          className={activeTab === 'settings' ? 'active' : ''} 
-          onClick={() => handleTabChange('settings')}
-        >
-          Settings
-        </button>
-      </nav>
+      <PageMenu
+        items={[
+          { key: 'player', label: 'Player' },
+          { key: 'series', label: 'Series' },
+          { key: 'explorer', label: 'Explorer' },
+          { key: 'playlists', label: 'Playlists' },
+          { key: 'library', label: 'Library' },
+          { key: 'settings', label: 'Settings' },
+        ]}
+        activeKey={activeTab}
+        onSelect={handleTabChange}
+        storageKey="video.pageMenu"
+        ariaLabel="Video menu"
+      />
 
       <main className="video-main">
         {activeTab === 'player' && (

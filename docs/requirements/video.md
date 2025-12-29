@@ -11,11 +11,18 @@ The Video view provides video playback functionality with library management, pl
 
 ## Layout
 
-The Video page uses a tabbed interface with four main sections:
+The Video page uses a consistent (shared) navigation menu component, matching the Audio page.
 
-### Navigation Tabs
+### Navigation Menu
 
+- The menu can be collapsed/expanded.
+- The menu is collapsed by default (unless a previous user preference is stored in the browser).
+- On mobile-width screens, the menu opens as a drawer and closes after selecting an item.
+
+Menu items:
 - **Player** - Video player with playback controls
+- **Series** - Series/Season browser
+- **Explorer** - Browse tagged videos with carousels
 - **Playlists** - Video playlist management
 - **Library** - Video library and collection management
 - **Settings** - Application settings (shared with Audio view)

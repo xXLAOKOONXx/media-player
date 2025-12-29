@@ -63,6 +63,8 @@ function VideoExplorer() {
   const [selectedLibraryId, setSelectedLibraryId] = useState<number | null>(null);
   const [defaultLibraryId, setDefaultLibraryId] = useState<number | null>(null);
 
+  const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
+
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoadingLibraries, setIsLoadingLibraries] = useState(false);
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -256,6 +258,11 @@ function VideoExplorer() {
     window.localStorage.setItem(DEFAULT_LIBRARY_STORAGE_KEY, String(libraryId));
   };
 
+  const selectedLibraryName = useMemo(() => {
+    const lib = libraries.find(l => l.id === selectedLibraryId);
+    return (lib?.name || '').trim() || 'Select library';
+  }, [libraries, selectedLibraryId]);
+
   const scrollCarousel = (tag: string, direction: -1 | 1) => {
     const el = carouselRefs.current[tag];
     if (!el) return;
@@ -323,8 +330,6 @@ function VideoExplorer() {
   return (
     <div className="video-explorer">
       <div className="card video-explorer-card">
-        <h2>Video Explorer</h2>
-
         {error && (
           <div className="video-explorer-error">
             <span className="material-icons">error_outline</span>
@@ -333,13 +338,48 @@ function VideoExplorer() {
         )}
 
         <div className="video-explorer-libraries">
-          <h3>Video Libraries</h3>
+          <div className="video-library-picker-header">
+            <button
+              type="button"
+              className="video-library-picker-toggle"
+              onClick={() => {
+                if (libraries.length > 0 && !isLoadingLibraries) {
+                  setIsLibraryPickerOpen(prev => !prev);
+                }
+              }}
+              aria-expanded={libraries.length > 0 && !isLoadingLibraries ? isLibraryPickerOpen : true}
+              aria-controls="video-explorer-library-grid"
+              disabled={libraries.length === 0 || isLoadingLibraries}
+              title={libraries.length === 0 ? 'No libraries available' : 'Toggle library selection'}
+            >
+              <span className="material-icons">
+                {isLibraryPickerOpen ? 'expand_less' : 'expand_more'}
+              </span>
+              <span className="video-library-picker-title">{selectedLibraryName}</span>
+            </button>
+
+            <span className="video-library-picker-spacer" />
+
+            {selectedLibraryId != null && (
+              <button
+                type="button"
+                className={`video-explorer-star-btn ${defaultLibraryId === selectedLibraryId ? 'active' : ''}`}
+                onClick={() => setAsDefaultLibrary(selectedLibraryId)}
+                aria-label={defaultLibraryId === selectedLibraryId ? 'Default folder' : 'Set as default folder'}
+                title={defaultLibraryId === selectedLibraryId ? 'Default folder' : 'Set as default'}
+              >
+                <span className="material-icons">
+                  {defaultLibraryId === selectedLibraryId ? 'star' : 'star_border'}
+                </span>
+              </button>
+            )}
+          </div>
 
           {isLoadingLibraries ? (
             <div className="video-explorer-loading">Loading libraries…</div>
           ) : libraries.length === 0 ? (
             <div className="video-explorer-empty">No video libraries configured.</div>
-          ) : (
+          ) : isLibraryPickerOpen ? (
             <div className="video-explorer-library-grid">
               {libraries.map((lib) => {
                 const isSelected = selectedLibraryId === lib.id;
@@ -355,24 +395,32 @@ function VideoExplorer() {
                   >
                     <span className="video-explorer-library-name">{lib.name}</span>
                     <span className="video-explorer-library-spacer" />
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       className={`video-explorer-star-btn ${isDefault ? 'active' : ''}`}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         setAsDefaultLibrary(lib.id);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setAsDefaultLibrary(lib.id);
+                        }
+                      }}
                       aria-label={isDefault ? 'Default folder' : 'Set as default folder'}
                       title={isDefault ? 'Default folder' : 'Set as default'}
                     >
                       <span className="material-icons">{isDefault ? 'star' : 'star_border'}</span>
-                    </button>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
