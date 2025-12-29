@@ -26,7 +26,10 @@ function AppHeader({ user, onLogout }: AppHeaderProps) {
 
   return (
     <header className="App-header">
-      <h1><span className="material-icons">music_note</span>Media Player</h1>
+      <h1>
+        <img className="app-title-icon" src="/favicon.svg" alt="" aria-hidden="true" />
+        Media Player
+      </h1>
       <nav className="main-nav">
         <Link 
           to="/audio/player" 

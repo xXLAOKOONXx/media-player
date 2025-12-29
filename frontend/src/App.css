@@ -22,9 +22,11 @@
   align-items: center;
 }
 
-.App-header h1 .material-icons {
-  vertical-align: middle;
+.app-title-icon {
+  width: 28px;
+  height: 28px;
   margin-right: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .main-nav {
