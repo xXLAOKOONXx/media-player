@@ -90,3 +90,32 @@ def test_custom_end_time_advances_to_next_track(tmp_path, monkeypatch):
     controller._check_custom_end_time()
 
     assert controller.current_track_index == 1
+
+
+def test_stop_and_clear_playlist_empties_queue(tmp_path, monkeypatch):
+    """Stop command should also clear the current playlist/queue."""
+    monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
+
+    controller = VideoPlaybackController(video_config={"fullscreen": True, "preferred_screen": None})
+    controller.player = None
+    controller.video_available = False
+
+    p1 = tmp_path / "a.mp4"
+    p2 = tmp_path / "b.mp4"
+    p1.write_bytes(b"")
+    p2.write_bytes(b"")
+
+    controller.current_playlist = [
+        {"path": str(p1), "title": "a.mp4", "duration": 10.0, "start_time": None, "end_time": None},
+        {"path": str(p2), "title": "b.mp4", "duration": 10.0, "start_time": None, "end_time": None},
+    ]
+    controller.original_playlist = list(controller.current_playlist)
+    controller.current_track_index = 1
+    controller.is_playing = True
+    controller.is_paused = False
+
+    assert controller.stop_and_clear_playlist() is True
+    assert controller.current_playlist == []
+    assert controller.original_playlist == []
+    assert controller.current_track_index == 0
+    assert controller.is_playing is False

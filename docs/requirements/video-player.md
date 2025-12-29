@@ -107,6 +107,7 @@ Buttons:
   - Play: POST `/api/video/playback/play` with an empty JSON body `{}`.
   - Pause: POST `/api/video/playback/pause`.
 - **Stop**: POST `/api/video/playback/stop`.
+  - Stop also clears the current playlist/queue.
 - **Next**: POST `/api/video/playback/next`.
 
 After each transport/mode action above, the UI triggers `onUpdate()` to refresh status.

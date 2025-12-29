@@ -979,7 +979,7 @@ def pause():
 @app.route('/api/audio/playback/stop', methods=['POST'])
 def stop():
     """Stop playback"""
-    playback_controller.stop()
+    playback_controller.stop_and_clear_playlist()
     return jsonify({'status': 'stopped'})
 
 @app.route('/api/audio/playback/next', methods=['POST'])
@@ -1758,7 +1758,7 @@ def video_pause():
 @app.route('/api/video/playback/stop', methods=['POST'])
 def video_stop():
     """Stop video playback"""
-    video_playback_controller.stop()
+    video_playback_controller.stop_and_clear_playlist()
     return jsonify({'status': 'stopped'})
 
 @app.route('/api/video/playback/next', methods=['POST'])
