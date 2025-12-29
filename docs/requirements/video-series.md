@@ -15,6 +15,9 @@ A **Series** is inferred from folder structure when the library is configured as
 - A star icon allows setting a default library for future visits.
   - Stored in browser `localStorage` under `videoSeries.defaultLibraryId`.
 
+URL behavior:
+- The selected video library is reflected in the URL as `libraryId=<video_library.id>`.
+
 ## Series listing
 
 - For the selected library, series are loaded from:
@@ -30,8 +33,11 @@ A **Series** is inferred from folder structure when the library is configured as
 
 - Clicking a series tile opens a modal-style popup.
 - The opened series is reflected in the URL via query parameters:
-  - `series=<series.full_path>`
-  - Optionally `season=<season.full_path>` when a season is selected.
+  - `seriesId=<series.id>`
+  - Optionally `seasonId=<season.id>` when a season is selected.
+
+Backward compatibility:
+- Existing deep-links using `series=<series.full_path>` and `season=<season.full_path>` should still open the correct series/season.
 
 ## Seasons and episodes
 
@@ -40,6 +46,11 @@ A **Series** is inferred from folder structure when the library is configured as
   - Selecting a season shows the season’s episode/video list.
 - If the series has no seasons:
   - The popup shows the series’ `videos` list.
+
+Episode/video ordering in the popup:
+- If any items in the shown list have `index_number`, the list is sorted by `index_number` ascending.
+- If no items have `index_number`, the list is sorted by `premiere_date` ascending (oldest first).
+- When values are missing or ties occur, the UI uses a stable fallback (title/path) to keep ordering deterministic.
 
 ## Playback
 

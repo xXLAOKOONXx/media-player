@@ -19,6 +19,10 @@ def api_server():
     """Ensure API server is running."""
     try:
         response = requests.get(f"{API_BASE}/api/playback/status", timeout=2)
+        if response.status_code != 200:
+            pytest.skip(
+                f"Flask server is not running (or wrong service/auth). Expected 200 from /api/playback/status, got {response.status_code}"
+            )
         yield API_BASE
     except requests.exceptions.RequestException:
         pytest.skip("Flask server is not running. Start with: cd backend && python app.py")
