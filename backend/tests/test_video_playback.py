@@ -119,3 +119,35 @@ def test_stop_and_clear_playlist_empties_queue(tmp_path, monkeypatch):
     assert controller.original_playlist == []
     assert controller.current_track_index == 0
     assert controller.is_playing is False
+
+
+def test_load_playlist_shuffle_enabled_randomizes_first_track(tmp_path, monkeypatch):
+    # Run in state-only mode (no external player)
+    monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
+
+    # Make shuffling deterministic for the test.
+    def reverse_shuffle(items):
+        items.reverse()
+
+    monkeypatch.setattr(video_playback_controller.random, "shuffle", reverse_shuffle)
+    monkeypatch.setattr(video_playback_controller, "get_video_duration", lambda _path: 10.0)
+
+    controller = VideoPlaybackController(video_config={"fullscreen": True, "preferred_screen": None})
+    controller.player = None
+    controller.video_available = False
+    controller.shuffle_enabled = True
+
+    v1 = tmp_path / "1.mp4"
+    v2 = tmp_path / "2.mp4"
+    v3 = tmp_path / "3.mp4"
+    v1.write_bytes(b"")
+    v2.write_bytes(b"")
+    v3.write_bytes(b"")
+
+    playlist = tmp_path / "list.m3u"
+    playlist.write_text(f"{v1.name}\n{v2.name}\n{v3.name}\n", encoding="utf-8")
+
+    assert controller.load_playlist(str(playlist), track_index=0) is True
+    assert controller.current_track_index == 0
+    # reverse_shuffle makes the first track the last entry.
+    assert controller.current_playlist[0]["path"].endswith("3.mp4")
