@@ -25,9 +25,19 @@ URL behavior:
 - If the selected library is not recursive, the API returns an empty list and the UI shows:
   - “No series found in this library.”
   - A hint that series require recursive scanning.
-- The page shows all returned series as cover tiles (similar visual style to Video Explorer tiles).
-  - If a series has a cover URL, it is displayed.
+- The page groups Series into horizontal carousel rows, similar to the Video Explorer tag rows.
+- Each Series is shown as a cover tile.
+  - If a Series has a cover URL, it is displayed.
   - Otherwise a placeholder icon is shown.
+
+### Carousel rows
+
+- The top row is **Recently Watched**.
+  - It shows up to 10 Series, sorted by the most recent `last_played` timestamp found among any episodes/videos in that Series.
+  - Only Series with at least one `last_played` are included.
+- Below that, one carousel row is shown per Series tag.
+  - A Series appears in every row for each tag it has.
+  - Tag rows match the carousel interaction pattern from Video Explorer (arrow buttons when the row is scrollable).
 
 ### Series tile watch status
 

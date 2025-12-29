@@ -56,6 +56,8 @@ interface Series {
 
 const DEFAULT_LIBRARY_STORAGE_KEY = 'videoSeries.defaultLibraryId';
 
+const RECENT_SERIES_ROW_KEY = '__recent_series__';
+
 const SERIES_ID_QUERY_KEY = 'seriesId';
 const SEASON_ID_QUERY_KEY = 'seasonId';
 const LIBRARY_ID_QUERY_KEY = 'libraryId';
@@ -137,6 +139,12 @@ function VideoSeries() {
   const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(new Set());
   const [thumbnailAspectRatios, setThumbnailAspectRatios] = useState<Map<string, number>>(new Map());
 
+  const [seriesCarouselScrollState, setSeriesCarouselScrollState] = useState<
+    Record<string, { canScrollLeft: boolean; canScrollRight: boolean }>
+  >({});
+
+  const seriesCarouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const CAROUSEL_TILE_HEIGHT_PX = 210;
   const episodesCarouselRef = useRef<HTMLDivElement | null>(null);
   const [episodesCanScroll, setEpisodesCanScroll] = useState({ canScrollLeft: false, canScrollRight: false });
@@ -154,6 +162,27 @@ function VideoSeries() {
   const selectedSeasonId = searchParams.get(SEASON_ID_QUERY_KEY) || '';
   const selectedSeriesPath = searchParams.get(SERIES_PATH_QUERY_KEY) || '';
   const selectedSeasonPath = searchParams.get(SEASON_PATH_QUERY_KEY) || '';
+
+  const updateSeriesCarouselScrollState = (rowKey: string) => {
+    const el = seriesCarouselRefs.current[rowKey];
+    if (!el) return;
+    const canScrollLeft = el.scrollLeft > 1;
+    const canScrollRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setSeriesCarouselScrollState(prev => {
+      const existing = prev[rowKey];
+      if (existing && existing.canScrollLeft === canScrollLeft && existing.canScrollRight === canScrollRight) {
+        return prev;
+      }
+      return { ...prev, [rowKey]: { canScrollLeft, canScrollRight } };
+    });
+  };
+
+  const scrollSeriesCarousel = (rowKey: string, direction: -1 | 1) => {
+    const el = seriesCarouselRefs.current[rowKey];
+    if (!el) return;
+    el.scrollBy({ left: direction * 420, behavior: 'smooth' });
+    window.setTimeout(() => updateSeriesCarouselScrollState(rowKey), 350);
+  };
 
   useEffect(() => {
     const stored = window.localStorage.getItem(DEFAULT_LIBRARY_STORAGE_KEY);
@@ -251,6 +280,73 @@ function VideoSeries() {
       setSeriesList([]);
     }
   }, [selectedLibraryId]);
+
+  const seriesTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of seriesList) {
+      for (const t of s.tags || []) {
+        const trimmed = (t || '').trim();
+        if (trimmed) set.add(trimmed);
+      }
+    }
+
+    // Randomize tag row order (stable until `seriesList` changes), matching Video Explorer behavior.
+    const arr = Array.from(set);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, [seriesList]);
+
+  const seriesByTag = useMemo(() => {
+    const map = new Map<string, Series[]>();
+    for (const tag of seriesTags) map.set(tag, []);
+    for (const s of seriesList) {
+      for (const t of s.tags || []) {
+        const trimmed = (t || '').trim();
+        if (!trimmed) continue;
+        if (!map.has(trimmed)) map.set(trimmed, []);
+        map.get(trimmed)?.push(s);
+      }
+    }
+
+    for (const bucket of map.values()) {
+      bucket.sort((a, b) => {
+        const byTitle = (a.title || '').localeCompare(b.title || '');
+        if (byTitle) return byTitle;
+        return (a.full_path || '').localeCompare(b.full_path || '');
+      });
+    }
+
+    return map;
+  }, [seriesList, seriesTags]);
+
+  const recentSeries = useMemo(() => {
+    const items = seriesList
+      .map((s) => {
+        const all: Video[] = [];
+        if (Array.isArray(s.videos)) all.push(...s.videos);
+        if (Array.isArray(s.seasons)) {
+          for (const season of s.seasons) {
+            if (Array.isArray(season.videos)) all.push(...season.videos);
+          }
+        }
+        let maxLastPlayed: number | null = null;
+        for (const v of all) {
+          const lp = v.last_played;
+          if (lp == null || !Number.isFinite(lp)) continue;
+          if (maxLastPlayed == null || lp > maxLastPlayed) maxLastPlayed = lp;
+        }
+        return { series: s, maxLastPlayed };
+      })
+      .filter(x => x.maxLastPlayed != null)
+      .sort((a, b) => (b.maxLastPlayed as number) - (a.maxLastPlayed as number))
+      .slice(0, 10)
+      .map(x => x.series);
+
+    return items;
+  }, [seriesList]);
 
   const selectedSeries = useMemo(() => {
     if (selectedSeriesId) {
@@ -382,6 +478,135 @@ function VideoSeries() {
     const ratio = thumbnailAspectRatios.get(key) || (16 / 9);
     const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : (16 / 9);
     return Math.max(1, Math.round(CAROUSEL_TILE_HEIGHT_PX * safeRatio));
+  };
+
+  useEffect(() => {
+    // Cover image loads can change widths; recompute arrow visibility on the next frame.
+    const raf = window.requestAnimationFrame(() => {
+      if (recentSeries.length > 0) updateSeriesCarouselScrollState(RECENT_SERIES_ROW_KEY);
+      for (const tag of seriesTags) updateSeriesCarouselScrollState(tag);
+    });
+    return () => window.cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seriesTags, recentSeries.length, thumbnailAspectRatios]);
+
+  const renderSeriesCarouselRow = (rowKey: string, title: string, items: Series[]) => {
+    if (items.length === 0) return null;
+    const canScrollLeft = seriesCarouselScrollState[rowKey]?.canScrollLeft ?? false;
+    const canScrollRight = seriesCarouselScrollState[rowKey]?.canScrollRight ?? true;
+
+    return (
+      <div key={rowKey} className="video-explorer-carousel-section">
+        <div className="video-explorer-carousel-title">
+          <h4>{title}</h4>
+        </div>
+
+        <div className="video-explorer-carousel-container">
+          {canScrollLeft && (
+            <button
+              type="button"
+              className="video-explorer-carousel-arrow video-explorer-carousel-arrow-left"
+              onClick={() => scrollSeriesCarousel(rowKey, -1)}
+              aria-label={`Scroll ${title} left`}
+            >
+              <span className="material-icons">chevron_left</span>
+            </button>
+          )}
+
+          <div
+            className="video-explorer-carousel"
+            onWheel={handleCarouselWheel}
+            onScroll={() => updateSeriesCarouselScrollState(rowKey)}
+            ref={(el) => {
+              seriesCarouselRefs.current[rowKey] = el;
+              if (el) window.requestAnimationFrame(() => updateSeriesCarouselScrollState(rowKey));
+            }}
+          >
+            {items.map((s) => {
+              const cover = normalizeCoverSrc(s.cover);
+              const showCover = !!cover;
+              const seriesTitle = (s.title || 'Untitled').trim();
+              const watchedState = getSeriesWatchedState(s);
+              const key = s.id || s.full_path;
+              const brokenKey = key || seriesTitle;
+              const cardWidth = getCardWidthPx(brokenKey);
+
+              return (
+                <button
+                  key={`${brokenKey}-${rowKey}`}
+                  type="button"
+                  className="video-series-tile video-explorer-thumb"
+                  onClick={() => openSeries(s)}
+                  title={seriesTitle}
+                  style={{ width: `${cardWidth}px` }}
+                >
+                  <div className="video-explorer-thumb-image video-series-tile-image">
+                    {showCover ? (
+                      <img
+                        src={cover as string}
+                        alt={seriesTitle}
+                        loading="lazy"
+                        onLoad={(e) => {
+                          const img = e.currentTarget as HTMLImageElement;
+                          const w = img.naturalWidth;
+                          const h = img.naturalHeight;
+                          if (!w || !h) return;
+                          const ratio = w / h;
+                          if (!Number.isFinite(ratio) || ratio <= 0) return;
+                          setThumbnailAspectRatios(prev => {
+                            if (prev.get(brokenKey) === ratio) return prev;
+                            const next = new Map(prev);
+                            next.set(brokenKey, ratio);
+                            return next;
+                          });
+                        }}
+                        onError={() => {
+                          setBrokenThumbnails(prev => {
+                            const next = new Set(prev);
+                            next.add(brokenKey);
+                            return next;
+                          });
+                        }}
+                      />
+                    ) : (
+                      <div className="video-explorer-thumb-placeholder">
+                        <span className="material-icons">collections</span>
+                      </div>
+                    )}
+
+                    {watchedState.isStarted && (
+                      <div className="video-series-thumb-status" aria-hidden title="Started watching">
+                        <span className="material-icons">play_arrow</span>
+                      </div>
+                    )}
+                    {watchedState.isFullyWatched && (
+                      <div className="video-series-thumb-status" aria-hidden title="Fully watched">
+                        <span className="material-icons">visibility</span>
+                      </div>
+                    )}
+
+                    <div className="video-explorer-thumb-title" aria-hidden>
+                      {seriesTitle}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {canScrollRight && (
+            <button
+              type="button"
+              className="video-explorer-carousel-arrow video-explorer-carousel-arrow-right"
+              onClick={() => scrollSeriesCarousel(rowKey, 1)}
+              aria-label={`Scroll ${title} right`}
+            >
+              <span className="material-icons">chevron_right</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const scrollEpisodesCarousel = (direction: -1 | 1) => {
@@ -695,46 +920,12 @@ function VideoSeries() {
             </div>
           ) : (
             <div className="card">
-              <div className="video-series-grid">
-                {seriesList.map((s) => {
-                  const cover = normalizeCoverSrc(s.cover);
-                  const showCover = !!cover;
-                  const title = (s.title || 'Untitled').trim();
-                  const watchedState = getSeriesWatchedState(s);
-                  return (
-                    <button
-                      key={s.id || s.full_path}
-                      type="button"
-                      className="video-series-tile video-explorer-thumb"
-                      onClick={() => openSeries(s)}
-                      title={title}
-                    >
-                      <div className="video-explorer-thumb-image video-series-tile-image">
-                        {showCover ? (
-                          <img src={cover} alt={title} loading="lazy" />
-                        ) : (
-                          <div className="video-explorer-thumb-placeholder">
-                            <span className="material-icons">collections</span>
-                          </div>
-                        )}
-                        {watchedState.isStarted && (
-                          <div className="video-series-thumb-status" aria-hidden title="Started watching">
-                            <span className="material-icons">play_arrow</span>
-                          </div>
-                        )}
-                        {watchedState.isFullyWatched && (
-                          <div className="video-series-thumb-status" aria-hidden title="Fully watched">
-                            <span className="material-icons">visibility</span>
-                          </div>
-                        )}
-                        <div className="video-explorer-thumb-title" aria-hidden>
-                          {title}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              {renderSeriesCarouselRow(RECENT_SERIES_ROW_KEY, 'Recently Watched', recentSeries)}
+
+              {seriesTags.map((tag) => {
+                const items = seriesByTag.get(tag) || [];
+                return renderSeriesCarouselRow(tag, tag, items);
+              })}
             </div>
           )}
         </div>
