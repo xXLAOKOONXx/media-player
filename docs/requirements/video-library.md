@@ -57,6 +57,11 @@ When `playlistFolder` changes and is non-empty:
 - Else if global search is enabled: load videos from all folders:
   - For each folder in `videoLibraries`, GET `/api/video/libraries/{libraryId}/videos` concurrently.
 
+Backend caching behavior:
+- `GET /api/video/libraries/{libraryId}/videos` returns the cached video list from the app database when available.
+- The backend does not rescan the filesystem on normal loads.
+- Filesystem changes (new/deleted files, updated `.nfo` metadata) become visible after the user triggers **Refresh** for that library.
+
 During loading:
 - Show a loading spinner and the text "Loading videos...".
 
