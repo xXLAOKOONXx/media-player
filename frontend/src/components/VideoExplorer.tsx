@@ -32,6 +32,7 @@ interface Video {
 }
 
 const DEFAULT_LIBRARY_STORAGE_KEY = 'videoExplorer.defaultLibraryId';
+const DAILY_SUGGESTIONS_ROW_KEY = '__daily_suggestions__';
 
 const formatDuration = (seconds?: number) => {
   if (seconds == null || Number.isNaN(seconds)) return '—';
@@ -208,6 +209,19 @@ function VideoExplorer() {
     return arr;
   }, [videos]);
 
+  const dailySuggestions = useMemo(() => {
+    const sorted = [...videos];
+    sorted.sort((a, b) => {
+      const aScore = Number.isFinite(a.promotion_score as number) ? (a.promotion_score as number) : 0;
+      const bScore = Number.isFinite(b.promotion_score as number) ? (b.promotion_score as number) : 0;
+      if (bScore !== aScore) return bScore - aScore;
+      const byTitle = getTitle(a).localeCompare(getTitle(b));
+      if (byTitle) return byTitle;
+      return (a.path || '').localeCompare(b.path || '');
+    });
+    return sorted.slice(0, 50);
+  }, [videos]);
+
   const videosByTag = useMemo(() => {
     const map = new Map<string, Video[]>();
     for (const tag of tags) map.set(tag, []);
@@ -254,12 +268,13 @@ function VideoExplorer() {
   useEffect(() => {
     // Thumbnails loading can change widths, which can change scrollability.
     // Recompute arrow visibility on the next frame.
-    if (tags.length === 0) return;
+    if (tags.length === 0 && dailySuggestions.length === 0) return;
     const raf = window.requestAnimationFrame(() => {
+      if (dailySuggestions.length > 0) updateCarouselScrollState(DAILY_SUGGESTIONS_ROW_KEY);
       for (const tag of tags) updateCarouselScrollState(tag);
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [tags, thumbnailAspectRatios]);
+  }, [tags, dailySuggestions.length, thumbnailAspectRatios]);
 
   const handleCarouselWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     // Prevent horizontal scrolling; navigation is via arrow buttons.
@@ -364,7 +379,6 @@ function VideoExplorer() {
       {selectedLibraryId != null && (
         <div className="video-explorer-browse">
           <div className="video-explorer-browse-header">
-            <h3>Browse by Tag</h3>
             {isLoadingVideos && <div className="video-explorer-loading">Loading videos…</div>}
           </div>
 
@@ -373,43 +387,155 @@ function VideoExplorer() {
               <div className="video-explorer-empty">No tagged videos found in this library.</div>
             </div>
           ) : (
-            tags.map((tag) => {
-              const items = videosByTag.get(tag) || [];
-              if (items.length === 0) return null;
+            <>
+              {dailySuggestions.length > 0 && (
+                (() => {
+                  const rowKey = DAILY_SUGGESTIONS_ROW_KEY;
+                  const items = dailySuggestions;
+                  const canScrollLeft = carouselScrollState[rowKey]?.canScrollLeft ?? false;
+                  const canScrollRight = carouselScrollState[rowKey]?.canScrollRight ?? true;
 
-              const canScrollLeft = carouselScrollState[tag]?.canScrollLeft ?? false;
-              const canScrollRight = carouselScrollState[tag]?.canScrollRight ?? true;
+                  return (
+                    <div key={rowKey} className="video-explorer-carousel-section">
+                      <div className="video-explorer-carousel-title">
+                        <h4>Daily Suggestions</h4>
+                      </div>
 
-              return (
-                <div key={tag} className="video-explorer-carousel-section">
-                  <div className="video-explorer-carousel-title">
-                    <h4>{tag}</h4>
-                  </div>
+                      <div className="video-explorer-carousel-container">
+                        {canScrollLeft && (
+                          <button
+                            type="button"
+                            className="video-explorer-carousel-arrow video-explorer-carousel-arrow-left"
+                            onClick={() => scrollCarousel(rowKey, -1)}
+                            aria-label="Scroll Daily Suggestions left"
+                          >
+                            <span className="material-icons">chevron_left</span>
+                          </button>
+                        )}
 
-                  <div className="video-explorer-carousel-container">
-                    {canScrollLeft && (
-                      <button
-                        type="button"
-                        className="video-explorer-carousel-arrow video-explorer-carousel-arrow-left"
-                        onClick={() => scrollCarousel(tag, -1)}
-                        aria-label={`Scroll ${tag} left`}
+                        <div
+                          className="video-explorer-carousel"
+                          onWheel={handleCarouselWheel}
+                          onScroll={() => updateCarouselScrollState(rowKey)}
+                          ref={(el) => {
+                            carouselRefs.current[rowKey] = el;
+                            if (el) {
+                              window.requestAnimationFrame(() => updateCarouselScrollState(rowKey));
+                            }
+                          }}
+                        >
+                          {items.map((video) => {
+                            const thumb = getThumbnailSrc(video);
+                            const title = getTitle(video);
+                            const brokenKey = video.media_id || video.path;
+                            const showImage = !!thumb && !brokenThumbnails.has(brokenKey);
+                            const cardWidth = getCardWidthPx(brokenKey);
+
+                            return (
+                              <button
+                                key={`${video.path}-${rowKey}`}
+                                type="button"
+                                className="video-explorer-thumb"
+                                onClick={() => setSelectedVideo(video)}
+                                title={title}
+                                style={{ width: `${cardWidth}px` }}
+                              >
+                                <div className="video-explorer-thumb-image" style={{ height: `${CAROUSEL_TILE_HEIGHT_PX}px` }}>
+                                  {showImage ? (
+                                    <img
+                                      src={thumb}
+                                      alt={title}
+                                      loading="lazy"
+                                      onLoad={(e) => {
+                                        const img = e.currentTarget as HTMLImageElement;
+                                        const w = img.naturalWidth;
+                                        const h = img.naturalHeight;
+                                        if (!w || !h) return;
+                                        const ratio = w / h;
+                                        if (!Number.isFinite(ratio) || ratio <= 0) return;
+                                        setThumbnailAspectRatios(prev => {
+                                          if (prev.get(brokenKey) === ratio) return prev;
+                                          const next = new Map(prev);
+                                          next.set(brokenKey, ratio);
+                                          return next;
+                                        });
+                                      }}
+                                      onError={() => {
+                                        setBrokenThumbnails(prev => {
+                                          const next = new Set(prev);
+                                          next.add(brokenKey);
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  ) : null}
+                                  {!showImage && (
+                                    <div className="video-explorer-thumb-placeholder">
+                                      <span className="material-icons">movie</span>
+                                    </div>
+                                  )}
+                                  <div className="video-explorer-thumb-title" aria-hidden>
+                                    {title}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {canScrollRight && (
+                          <button
+                            type="button"
+                            className="video-explorer-carousel-arrow video-explorer-carousel-arrow-right"
+                            onClick={() => scrollCarousel(rowKey, 1)}
+                            aria-label="Scroll Daily Suggestions right"
+                          >
+                            <span className="material-icons">chevron_right</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+
+              {tags.map((tag) => {
+                const items = videosByTag.get(tag) || [];
+                if (items.length === 0) return null;
+
+                const canScrollLeft = carouselScrollState[tag]?.canScrollLeft ?? false;
+                const canScrollRight = carouselScrollState[tag]?.canScrollRight ?? true;
+
+                return (
+                  <div key={tag} className="video-explorer-carousel-section">
+                    <div className="video-explorer-carousel-title">
+                      <h4>{tag}</h4>
+                    </div>
+
+                    <div className="video-explorer-carousel-container">
+                      {canScrollLeft && (
+                        <button
+                          type="button"
+                          className="video-explorer-carousel-arrow video-explorer-carousel-arrow-left"
+                          onClick={() => scrollCarousel(tag, -1)}
+                          aria-label={`Scroll ${tag} left`}
+                        >
+                          <span className="material-icons">chevron_left</span>
+                        </button>
+                      )}
+
+                      <div
+                        className="video-explorer-carousel"
+                        onWheel={handleCarouselWheel}
+                        onScroll={() => updateCarouselScrollState(tag)}
+                        ref={(el) => {
+                          carouselRefs.current[tag] = el;
+                          if (el) {
+                            window.requestAnimationFrame(() => updateCarouselScrollState(tag));
+                          }
+                        }}
                       >
-                        <span className="material-icons">chevron_left</span>
-                      </button>
-                    )}
-
-                    <div
-                      className="video-explorer-carousel"
-                      onWheel={handleCarouselWheel}
-                      onScroll={() => updateCarouselScrollState(tag)}
-                      ref={(el) => {
-                        carouselRefs.current[tag] = el;
-                        if (el) {
-                          window.requestAnimationFrame(() => updateCarouselScrollState(tag));
-                        }
-                      }}
-                    >
-                      {items.map((video) => {
+                        {items.map((video) => {
                       const thumb = getThumbnailSrc(video);
                       const title = getTitle(video);
                       const brokenKey = video.media_id || video.path;
@@ -481,8 +607,9 @@ function VideoExplorer() {
                     )}
                   </div>
                 </div>
-              );
-            })
+                );
+              })}
+            </>
           )}
         </div>
       )}
