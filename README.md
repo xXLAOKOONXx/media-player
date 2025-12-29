@@ -486,7 +486,8 @@ The media player features intelligent crossfading with real overlap between trac
    ```bash
    sudo apt install -y python3 python3-pip python3-pygame
    cd ~/media-player/backend
-   pip3 install -r requirements.txt
+   pip3 install uv
+   uv sync --no-build-isolation
    ```
 
 3. **Install Node.js** (for building frontend)
@@ -580,7 +581,7 @@ media-player/
 │   ├── library_manager.py  # Playlist and library management
 │   ├── sound_effects_manager.py # Sound effects management
 │   ├── playback_controller.py # Audio playback control
-│   ├── requirements.txt    # Python dependencies
+│   ├── pyproject.toml      # Python dependencies (uv)
 │   └── tests/              # Pytest test suite
 │       ├── conftest.py     # Test fixtures
 │       ├── test_api.py     # API endpoint tests
