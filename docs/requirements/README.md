@@ -11,16 +11,15 @@ The application now uses URL-based navigation:
 
 ### Audio Routes
 - [`/audio/player`](player.md) - Player view with playback controls
-- [`/audio/tracks`](track-times.md) - Track Times editor
 - [`/audio/playlists`](playlists.md) - Playlist management
 - [`/audio/music`](music.md) - Music library
 - [`/audio/soundeffects`](sound-effects.md) - Sound effects
-- [`/audio/storage`](storage.md) - Storage management (admin only)
 - [`/audio/settings`](settings.md) - Application settings (includes user management for admin)
 
 ### Video Routes
 - [`/video/player`](video-player.md) - Video player view with playback controls
 - [`/video/explorer`](video-explorer.md) - Video Explorer (browse by tags with carousels)
+- [`/video/series`](video-series.md) - Video Series/Season browser
 - [`/video/playlists`](video.md#playlists-tab) - Video playlist management
 - [`/video/library`](video-library.md) - Video library management
 - [`/video/settings`](settings.md) - Application settings (includes user management for admin)

@@ -12,8 +12,8 @@ Provides a centralized location for configuring all application settings, includ
 ## Access
 
 The Settings view is accessible from both:
-- Audio page: `/audio/settings` - via the "Settings" tab in the audio navigation
-- Video page: `/video/settings` - via the "Settings" tab in the video navigation
+- Audio page: `/audio/settings` - via the "Settings" item in the audio navigation menu
+- Video page: `/video/settings` - via the "Settings" item in the video navigation menu
 
 Both routes display the same Settings component with all configuration options.
 

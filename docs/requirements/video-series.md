@@ -10,7 +10,11 @@ A **Series** is inferred from folder structure when the library is configured as
 
 ## Video Library selection
 
-- The page shows one button per configured video library folder (from `GET /api/video/libraries`).
+- The top of the page shows a compact library selector (from `GET /api/video/libraries`).
+- The selector can be collapsed/expanded:
+  - When collapsed, it shows the currently selected library name and an expand toggle.
+  - When expanded, it shows one button per configured video library folder.
+- The selector is collapsed by default.
 - The user can select a library.
 - A star icon allows setting a default library for future visits.
   - Stored in browser `localStorage` under `videoSeries.defaultLibraryId`.
