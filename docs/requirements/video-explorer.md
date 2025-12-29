@@ -19,11 +19,12 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 
 - Below the folder selection, a browsing section appears.
 - The selected library’s videos are loaded from `GET /api/video/libraries/<id>/videos`.
-- Each returned video object also includes stats fields: `playcount` and `last_played` (may be `null` when never played).
+- Each returned video object also includes fields: `playcount`, `last_played` (may be `null` when never played), and `promotion_score`.
 - Each available tag in the selected library creates a carousel:
   - Tags are taken from each video’s `tags` array.
   - Carousels are ordered randomly by tag name (the order is randomized when the library loads).
   - Each carousel shows video thumbnails.
+    - Videos within each carousel are sorted by `promotion_score` (highest to lowest).
     - The carousel row height is increased (taller tiles) for easier browsing (50% taller).
     - Each tile sizes to the cover aspect ratio so the full cover is visible without cropping.
     - Video titles are not shown by default on the thumbnails.

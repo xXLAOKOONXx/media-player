@@ -16,6 +16,11 @@ http://raspberrypi.local:5000/api/audio
 
 **Note:** All API endpoints are under the `/api/audio/*` prefix.
 
+### Video API
+```
+http://localhost:5000/api/video
+```
+
 ## Frontend Routes
 
 The application supports URL-based navigation:
@@ -34,6 +39,16 @@ The application supports URL-based navigation:
 Currently, the API does not require authentication. In a production environment, you should add authentication mechanisms.
 
 ## Endpoints
+
+### Video Library
+
+#### Get Videos in a Video Library
+
+```http
+GET /video/libraries/:id/videos
+```
+
+Each returned video includes playback stats fields (`playcount`, `last_played`) and a computed `promotion_score`.
 
 ### Network Storage Management
 

@@ -17,6 +17,9 @@ def test_video_library_videos_includes_playcount_and_last_played(monkeypatch):
         )
     import app as app_module
 
+    # Keep the test deterministic by fixing the promotion score calculation.
+    monkeypatch.setattr(app_module, 'calculate_promotion_score', lambda **_kwargs: 1234.5)
+
     with tempfile.TemporaryDirectory() as temp_dir:
         video_path = os.path.join(temp_dir, "movie.mp4")
         open(video_path, "wb").close()
@@ -83,3 +86,4 @@ def test_video_library_videos_includes_playcount_and_last_played(monkeypatch):
         assert video["path"] == video_path
         assert video["playcount"] == 2
         assert video["last_played"] == 2000.0
+        assert video["promotion_score"] == 1234.5
