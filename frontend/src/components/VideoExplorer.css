@@ -2,8 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .video-explorer-card h2 {
@@ -100,13 +99,15 @@
 .video-explorer-carousel-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 1rem;
   margin: 0 0 0.5rem 0;
 }
 
 .video-explorer-carousel-title h4 {
   margin: 0;
+  width: 100%;
+  text-align: center;
 }
 
 .video-explorer-carousel-controls {
@@ -117,6 +118,9 @@
 
 .video-explorer-carousel-container {
   position: relative;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  padding: 0.25rem;
 }
 
 .video-explorer-carousel {
