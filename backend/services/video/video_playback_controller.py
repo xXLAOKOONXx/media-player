@@ -449,6 +449,31 @@ class VideoPlaybackController:
             self.play()
         
         return True
+
+    def play_single_video(self, video_path: str) -> bool:
+        """Replace the current playlist with a single video and start playback."""
+        if not isinstance(video_path, str) or not video_path.strip():
+            return False
+
+        if not os.path.exists(video_path):
+            return False
+
+        # Stop current playback (does not clear playlist).
+        self.stop()
+
+        # Replace playlist with just this one video.
+        self.current_playlist = []
+        self.original_playlist = []
+        self.current_track_index = 0
+        self.current_position = 0
+
+        self.add_tracks([video_path])
+
+        # Ensure playback is started (add_tracks auto-starts only in specific cases).
+        if self.current_playlist and not self.is_playing and not self.is_paused:
+            self.play()
+
+        return bool(self.current_playlist)
     
     def pause(self):
         """Pause playback"""

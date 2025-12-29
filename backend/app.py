@@ -1550,6 +1550,23 @@ def add_video_tracks():
         'playlist_length': len(video_playback_controller.get_playlist())
     })
 
+
+@app.route('/api/video/playback/play-video', methods=['POST'])
+def play_single_video():
+    """Replace the current playlist with a single video and start playback.
+
+    Expects JSON: { "video_path": "..." } (also accepts { "path": "..." }).
+    """
+    data = request.get_json(silent=True) or {}
+    video_path = data.get('video_path') or data.get('path')
+    if not video_path or not isinstance(video_path, str):
+        return jsonify({'error': 'video_path is required'}), 400
+
+    if not video_playback_controller.play_single_video(video_path):
+        return jsonify({'error': 'Video not found or failed to start playback'}), 404
+
+    return jsonify({'status': 'playing'})
+
 @app.route('/api/video/stream/<path:video_path>')
 def stream_video(video_path):
     """Stream a video file"""
