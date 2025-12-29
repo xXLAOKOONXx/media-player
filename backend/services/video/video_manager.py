@@ -7,11 +7,17 @@ import os
 from pathlib import Path
 import hashlib
 import re
+import time
+import logging
+from collections import defaultdict
 
 from services.video.video_cache import VideoCache
 from services.video.video_metadata import read_video_metadata
 from services.video.video_metadata import find_nfo_file
 from services.video.video_series_schema import Series, Season
+
+
+logger = logging.getLogger(__name__)
 
 
 class VideoManager:
@@ -42,6 +48,8 @@ class VideoManager:
             List of dicts with file information
         """
 
+        t0 = time.perf_counter()
+
         # If no cache context, fall back to the original behavior.
         if not self.cache or folder_id is None:
             video_files = self._scan_video_files(path, recursive)
@@ -50,7 +58,16 @@ class VideoManager:
                     if not isinstance(video, dict):
                         continue
                     self._add_series_and_season_fields(video, library_root=path)
-            return [self._sanitize_video_for_api(v) for v in video_files]
+            out = [self._sanitize_video_for_api(v) for v in video_files]
+            logger.info(
+                "VideoManager.get_video_files timing mode=no-cache folder_id=%s recursive=%s force_refresh=%s videos=%s total=%.3fs",
+                folder_id,
+                bool(recursive),
+                bool(force_refresh),
+                len(out),
+                time.perf_counter() - t0,
+            )
+            return out
 
         # Cache-aware incremental processing.
         self.cache.register_folder(folder_id, path, recursive)
@@ -70,31 +87,83 @@ class VideoManager:
                 if cached_videos is not None:
                     return cached_videos
 
+            t_scan0 = time.perf_counter()
             video_files = self._scan_video_files(path, recursive)
+            t_scan = time.perf_counter() - t_scan0
             if recursive:
                 for video in video_files:
                     if not isinstance(video, dict):
                         continue
                     self._add_series_and_season_fields(video, library_root=path)
 
+            t_sanitize0 = time.perf_counter()
             sanitized_videos = [self._sanitize_video_for_api(v) for v in video_files]
+            t_sanitize = time.perf_counter() - t_sanitize0
 
             series_tree = None
+            t_tree = None
             if recursive:
                 try:
+                    t_tree0 = time.perf_counter()
                     series_tree = self._build_series_tree_from_videos(path, sanitized_videos)
+                    t_tree = time.perf_counter() - t_tree0
                 except Exception:
                     series_tree = None
+                    t_tree = None
 
             try:
+                t_cache0 = time.perf_counter()
                 self.cache.cache_videos(folder_id, video_files, series_tree=series_tree)
+                t_cache = time.perf_counter() - t_cache0
             except Exception as e:
                 print(f"Warning: Failed to cache videos for folder {folder_id}: {e}")
+                t_cache = None
+
+            logger.info(
+                "VideoManager.get_video_files timing mode=cache-stub folder_id=%s recursive=%s force_refresh=%s videos=%s scan=%.3fs sanitize=%.3fs series_tree=%s cache_write=%s total=%.3fs",
+                folder_id,
+                bool(recursive),
+                bool(force_refresh),
+                len(sanitized_videos),
+                t_scan,
+                t_sanitize,
+                (f"{t_tree:.3f}s" if isinstance(t_tree, float) else "n/a"),
+                (f"{t_cache:.3f}s" if isinstance(t_cache, float) else "n/a"),
+                time.perf_counter() - t0,
+            )
 
             return sanitized_videos
 
+        # Fast path: if we already have a valid cached list for this folder and
+        # the caller did not explicitly request a refresh, return it immediately
+        # without walking the filesystem.
+        #
+        # This matches the Video Library UX expectation that filesystem changes
+        # (new/deleted files, updated NFOs) are only reflected after a refresh.
+        if not force_refresh:
+            try:
+                t_cache_list0 = time.perf_counter()
+                cached_videos = self.cache.get_cached_videos(folder_id)
+                t_cache_list = time.perf_counter() - t_cache_list0
+                if cached_videos is not None:
+                    logger.info(
+                        "VideoManager.get_video_files timing mode=cache-only folder_id=%s recursive=%s force_refresh=%s videos=%s cache_list=%.3fs total=%.3fs",
+                        folder_id,
+                        bool(recursive),
+                        bool(force_refresh),
+                        len(cached_videos) if isinstance(cached_videos, list) else -1,
+                        t_cache_list,
+                        time.perf_counter() - t0,
+                    )
+                    return cached_videos
+            except Exception:
+                pass
+
         processed_videos: list[dict] = []
         seen_paths: set[str] = set()
+
+        counts: dict[str, int] = defaultdict(int)
+        timings: dict[str, float] = defaultdict(float)
 
         def _latest_source_mtime(video_path: str) -> float:
             file_mtime = 0.0
@@ -116,28 +185,41 @@ class VideoManager:
             if ext not in self.VIDEO_EXTENSIONS:
                 return
 
+            counts['files_supported'] += 1
+
             normalized_path = os.path.normpath(full_path)
             seen_paths.add(normalized_path)
 
             # 1) Check DB registration + freshness
             if not force_refresh:
                 try:
+                    t_fresh0 = time.perf_counter()
                     freshness = self.cache.get_video_cache_freshness(normalized_path)
+                    timings['cache_freshness'] += time.perf_counter() - t_fresh0
                     cached_at = freshness.get('cached_at') if isinstance(freshness, dict) else None
                     if isinstance(cached_at, (int, float)):
+                        t_mtime0 = time.perf_counter()
                         latest_change = _latest_source_mtime(normalized_path)
+                        timings['source_mtime'] += time.perf_counter() - t_mtime0
                         if float(cached_at) >= float(latest_change):
+                            t_get0 = time.perf_counter()
                             cached_video = self.cache.get_cached_video_by_path(normalized_path)
+                            timings['cache_get_video'] += time.perf_counter() - t_get0
                             if isinstance(cached_video, dict):
+                                counts['files_skipped_cache'] += 1
                                 processed_videos.append(cached_video)
                                 return
                 except Exception:
+                    counts['cache_check_errors'] += 1
                     pass
 
             # 2) Not skipped => extract metadata
             try:
+                t_stat0 = time.perf_counter()
                 stat = os.stat(normalized_path)
+                timings['os_stat'] += time.perf_counter() - t_stat0
             except OSError:
+                counts['os_stat_errors'] += 1
                 return
 
             video_info = {
@@ -149,63 +231,93 @@ class VideoManager:
             }
 
             try:
+                t_meta0 = time.perf_counter()
                 metadata = read_video_metadata(
                     normalized_path,
                     include_duration=True,
                     check_nfo=True,
                     include_thumbnail=True,
                 )
+                timings['read_video_metadata'] += time.perf_counter() - t_meta0
                 for key, value in metadata.items():
                     if value is not None:
                         video_info[key] = value
             except Exception:
+                counts['metadata_errors'] += 1
                 pass
 
             if 'index_number' not in video_info or video_info.get('index_number') is None:
+                t_idx0 = time.perf_counter()
                 inferred = self._infer_index_number_from_filename(file_name)
+                timings['infer_index_number'] += time.perf_counter() - t_idx0
                 if inferred is not None:
                     video_info['index_number'] = inferred
 
             if recursive:
+                t_series0 = time.perf_counter()
                 self._add_series_and_season_fields(video_info, library_root=path)
+                timings['infer_series_season'] += time.perf_counter() - t_series0
 
             # 3) Write directly into DB (upsert)
             try:
+                t_upsert0 = time.perf_counter()
                 self.cache.upsert_video(folder_id, video_info)
+                timings['cache_upsert_video'] += time.perf_counter() - t_upsert0
             except Exception as e:
+                counts['cache_upsert_errors'] += 1
                 print(f"Warning: Failed to upsert video {normalized_path}: {e}")
 
+            t_s0 = time.perf_counter()
             processed_videos.append(self._sanitize_video_for_api(video_info))
+            timings['sanitize'] += time.perf_counter() - t_s0
+            counts['files_processed'] += 1
 
         try:
             if recursive:
+                t_walk0 = time.perf_counter()
                 for root, _, files in os.walk(path):
                     for file_name in files:
                         handle_file(os.path.join(root, file_name), file_name)
+                timings['os_walk'] += time.perf_counter() - t_walk0
             else:
+                t_scan0 = time.perf_counter()
                 with os.scandir(path) as entries:
                     for entry in entries:
                         if entry.is_file():
                             handle_file(entry.path, entry.name)
+                timings['os_scandir'] += time.perf_counter() - t_scan0
         except Exception as e:
             print(f"Error scanning video directory {path}: {e}")
 
         # Remove files that no longer exist.
         try:
+            t_del0 = time.perf_counter()
             self.cache.delete_videos_not_in_paths(folder_id, seen_paths)
+            timings['cache_delete_missing'] += time.perf_counter() - t_del0
         except Exception:
+            counts['cache_delete_errors'] += 1
             pass
 
         # Rebuild cached series/seasons + refresh per-video links.
         if recursive:
+            t_series0 = time.perf_counter()
             sanitized_for_series = [self._sanitize_video_for_api(v) for v in processed_videos]
+            timings['sanitize_for_series'] += time.perf_counter() - t_series0
             try:
+                t_tree0 = time.perf_counter()
                 series_tree = self._build_series_tree_from_videos(path, sanitized_for_series)
-                self.cache.cache_series_tree(folder_id, series_tree)
+                timings['build_series_tree'] += time.perf_counter() - t_tree0
 
+                t_cache_tree0 = time.perf_counter()
+                self.cache.cache_series_tree(folder_id, series_tree)
+                timings['cache_series_tree'] += time.perf_counter() - t_cache_tree0
+
+                t_map0 = time.perf_counter()
                 series_id_by_path = self.cache.get_video_series_id_map(folder_id)
                 season_id_by_path = self.cache.get_video_season_id_map_for_folder(folder_id)
+                timings['cache_series_season_maps'] += time.perf_counter() - t_map0
 
+                t_links0 = time.perf_counter()
                 for v in processed_videos:
                     if not isinstance(v, dict):
                         continue
@@ -231,16 +343,57 @@ class VideoManager:
                         )
                     except Exception:
                         continue
+                timings['cache_update_links'] += time.perf_counter() - t_links0
             except Exception:
+                counts['series_tree_errors'] += 1
                 pass
 
         try:
+            t_last_scan0 = time.perf_counter()
             self.cache.update_folder_last_scan(folder_id)
+            timings['cache_update_folder_last_scan'] += time.perf_counter() - t_last_scan0
         except Exception:
+            counts['cache_update_last_scan_errors'] += 1
             pass
 
+        t_sort0 = time.perf_counter()
         processed_videos.sort(key=lambda x: (x.get('title') or x.get('name') or '').lower() if isinstance(x, dict) else '')
-        return [v if isinstance(v, dict) and 'has_thumbnail' in v else self._sanitize_video_for_api(v) for v in processed_videos]
+        timings['sort'] += time.perf_counter() - t_sort0
+
+        out = [v if isinstance(v, dict) and 'has_thumbnail' in v else self._sanitize_video_for_api(v) for v in processed_videos]
+
+        logger.info(
+            "VideoManager.get_video_files timing mode=cache-aware folder_id=%s recursive=%s force_refresh=%s videos=%s supported=%s skipped_cache=%s processed=%s total=%.3fs phase=%s",
+            folder_id,
+            bool(recursive),
+            bool(force_refresh),
+            len(out),
+            counts.get('files_supported', 0),
+            counts.get('files_skipped_cache', 0),
+            counts.get('files_processed', 0),
+            time.perf_counter() - t0,
+            {
+                'walk': round(timings.get('os_walk', 0.0), 3),
+                'scandir': round(timings.get('os_scandir', 0.0), 3),
+                'freshness': round(timings.get('cache_freshness', 0.0), 3),
+                'mtime': round(timings.get('source_mtime', 0.0), 3),
+                'get_cached': round(timings.get('cache_get_video', 0.0), 3),
+                'stat': round(timings.get('os_stat', 0.0), 3),
+                'metadata': round(timings.get('read_video_metadata', 0.0), 3),
+                'upsert': round(timings.get('cache_upsert_video', 0.0), 3),
+                'delete_missing': round(timings.get('cache_delete_missing', 0.0), 3),
+                'series_tree': round(timings.get('build_series_tree', 0.0), 3),
+                'cache_series_tree': round(timings.get('cache_series_tree', 0.0), 3),
+                'cache_maps': round(timings.get('cache_series_season_maps', 0.0), 3),
+                'cache_links': round(timings.get('cache_update_links', 0.0), 3),
+                'update_last_scan': round(timings.get('cache_update_folder_last_scan', 0.0), 3),
+                'sanitize': round(timings.get('sanitize', 0.0), 3),
+                'sanitize_for_series': round(timings.get('sanitize_for_series', 0.0), 3),
+                'sort': round(timings.get('sort', 0.0), 3),
+            },
+        )
+
+        return out
 
     def _build_series_tree_from_videos(self, library_root: str, videos: list[dict]) -> list[dict]:
         """Build a hierarchical Series -> Seasons -> Videos structure.
@@ -423,7 +576,11 @@ class VideoManager:
         Returns:
             List of dicts with file information
         """
+        t0 = time.perf_counter()
         video_files = []
+
+        counts: dict[str, int] = defaultdict(int)
+        timings: dict[str, float] = defaultdict(float)
         
         try:
             if not os.path.exists(path):
@@ -434,9 +591,14 @@ class VideoManager:
                 if ext not in self.VIDEO_EXTENSIONS:
                     return
 
+                counts['files_supported'] += 1
+
                 try:
+                    t_stat0 = time.perf_counter()
                     stat = os.stat(full_path)
+                    timings['os_stat'] += time.perf_counter() - t_stat0
                 except OSError:
+                    counts['os_stat_errors'] += 1
                     return
 
                 # Create track info with basic file metadata
@@ -450,44 +612,70 @@ class VideoManager:
                 
                 # Extract metadata from video file and NFO file
                 try:
+                    t_meta0 = time.perf_counter()
                     metadata = read_video_metadata(
                         full_path,
                         include_duration=True,
                         check_nfo=True,
                         include_thumbnail=True
                     )
+                    timings['read_video_metadata'] += time.perf_counter() - t_meta0
                     # Merge metadata, keeping existing values if not in metadata
                     for key, value in metadata.items():
                         if value is not None:
                             video_info[key] = value
                 except Exception as e:
                     # If metadata extraction fails, continue with basic info
+                    counts['metadata_errors'] += 1
                     pass
 
                 # Best-effort index number extraction (episodes, parts, etc).
                 if 'index_number' not in video_info or video_info.get('index_number') is None:
+                    t_idx0 = time.perf_counter()
                     inferred = self._infer_index_number_from_filename(file_name)
+                    timings['infer_index_number'] += time.perf_counter() - t_idx0
                     if inferred is not None:
                         video_info['index_number'] = inferred
                 
                 video_files.append(video_info)
+                counts['files_added'] += 1
 
             if recursive:
+                t_walk0 = time.perf_counter()
                 for root, dirs, files in os.walk(path):
                     for file_name in files:
                         full_path = os.path.join(root, file_name)
                         handle_file(full_path, file_name)
+                timings['os_walk'] += time.perf_counter() - t_walk0
             else:
+                t_scan0 = time.perf_counter()
                 with os.scandir(path) as entries:
                     for entry in entries:
                         if entry.is_file():
                             handle_file(entry.path, entry.name)
+                timings['os_scandir'] += time.perf_counter() - t_scan0
                             
         except Exception as e:
             print(f"Error scanning video directory {path}: {e}")
         
         # Sort by name
+        t_sort0 = time.perf_counter()
         video_files.sort(key=lambda x: x['name'].lower())
+        timings['sort'] += time.perf_counter() - t_sort0
+
+        logger.info(
+            "VideoManager._scan_video_files timing recursive=%s path=%s supported=%s added=%s walk=%.3fs scandir=%.3fs stat=%.3fs metadata=%.3fs sort=%.3fs total=%.3fs",
+            bool(recursive),
+            path,
+            counts.get('files_supported', 0),
+            counts.get('files_added', 0),
+            timings.get('os_walk', 0.0),
+            timings.get('os_scandir', 0.0),
+            timings.get('os_stat', 0.0),
+            timings.get('read_video_metadata', 0.0),
+            timings.get('sort', 0.0),
+            time.perf_counter() - t0,
+        )
         return video_files
 
     @staticmethod

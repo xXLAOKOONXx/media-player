@@ -9,6 +9,7 @@ import os
 import json
 import sys
 import logging
+import time
 from pathlib import Path
 from io import BytesIO
 import re
@@ -53,6 +54,8 @@ static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'
 app = Flask(__name__, static_folder=None)
 
 _configure_logging()
+
+logger = logging.getLogger(__name__)
 
 # Validate static folder exists
 if not os.path.exists(static_folder):
@@ -1294,6 +1297,7 @@ def refresh_video_library(library_id):
 
     This endpoint exists primarily for the Video Library UI "Refresh" action.
     """
+    t0 = time.perf_counter()
     config = load_config()
     libraries = config.get('video_libraries', [])
     library = next((lib for lib in libraries if lib['id'] == library_id), None)
@@ -1303,11 +1307,21 @@ def refresh_video_library(library_id):
 
     # Force refresh - invalidate cache and rescan
     video_manager.invalidate_cache(library_id)
+    t_scan0 = time.perf_counter()
     videos = video_manager.get_video_files(
         library['path'],
         library.get('recursive', False),
         folder_id=library_id,
         force_refresh=True,
+    )
+
+    logger.info(
+        "Video library refresh timing library_id=%s recursive=%s videos=%s scan=%.3fs total=%.3fs",
+        library_id,
+        bool(library.get('recursive', False)),
+        len(videos) if isinstance(videos, list) else -1,
+        time.perf_counter() - t_scan0,
+        time.perf_counter() - t0,
     )
 
     return jsonify({
@@ -1319,6 +1333,7 @@ def refresh_video_library(library_id):
 @app.route('/api/video/libraries/<int:library_id>/videos', methods=['GET'])
 def get_library_videos(library_id):
     """Get all videos in a library"""
+    t0 = time.perf_counter()
     config = load_config()
     libraries = config.get('video_libraries', [])
     library = next((lib for lib in libraries if lib['id'] == library_id), None)
@@ -1328,19 +1343,30 @@ def get_library_videos(library_id):
     
     # Check if force refresh is requested
     force_refresh = request.args.get('refresh', '').lower() == 'true'
-    
+
+    logger.info(
+        "Library videos request library_id=%s refresh=%s recursive=%s path=%s",
+        library_id,
+        bool(force_refresh),
+        bool(library.get('recursive', False)),
+        library.get('path'),
+    )
+
+    t_scan0 = time.perf_counter()
     videos = video_manager.get_video_files(
         library['path'],
         library.get('recursive', False),
         folder_id=library_id,
         force_refresh=force_refresh
     )
+    t_scan = time.perf_counter() - t_scan0
 
     # Enrich each video with playback stats (global across all users).
     # Fields:
     # - playcount: number of plays recorded in media-player-stats DB
     # - last_played: latest play timestamp (unix epoch seconds)
     try:
+        t_stats0 = time.perf_counter()
         video_paths = [v.get('path') for v in videos if isinstance(v, dict)]
         play_stats = stats_manager.get_media_play_stats(video_paths) if stats_manager else {}
         for video in videos:
@@ -1349,14 +1375,17 @@ def get_library_videos(library_id):
             stats = play_stats.get(video.get('path'))
             video['playcount'] = stats.get('playcount', 0) if stats else 0
             video['last_played'] = stats.get('last_played') if stats else None
+        t_stats = time.perf_counter() - t_stats0
     except Exception:
         # Stats are optional; avoid breaking video listings if stats DB is unavailable.
+        t_stats = None
         for video in videos:
             if isinstance(video, dict):
                 video.setdefault('playcount', 0)
                 video.setdefault('last_played', None)
 
     # Add a promotion score for ranking/recommendations.
+    t_score0 = time.perf_counter()
     for video in videos:
         if not isinstance(video, dict):
             continue
@@ -1370,6 +1399,17 @@ def get_library_videos(library_id):
             )
         except Exception:
             video['promotion_score'] = 0.0
+    t_score = time.perf_counter() - t_score0
+
+    logger.info(
+        "Library videos timing library_id=%s videos=%s scan=%.3fs stats=%s score=%.3fs total=%.3fs",
+        library_id,
+        len(videos) if isinstance(videos, list) else -1,
+        t_scan,
+        (f"{t_stats:.3f}s" if isinstance(t_stats, float) else "err" if t_stats is None else "n/a"),
+        t_score,
+        time.perf_counter() - t0,
+    )
     return jsonify(videos)
 
 
