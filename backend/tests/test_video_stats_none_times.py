@@ -10,8 +10,8 @@ class DummyStats:
     def is_initialized(self):
         return True
 
-    def record_media_stat(self, file_path, username):
-        self.calls.append((file_path, username))
+    def record_media_stat(self, file_path, username, media_id=None):
+        self.calls.append((file_path, username, media_id))
         return True
 
 

@@ -78,6 +78,7 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS music_tracks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 folder_id INTEGER NOT NULL,
+                media_id TEXT,
                 file_path TEXT NOT NULL UNIQUE,
                 file_name TEXT NOT NULL,
                 file_size INTEGER,
@@ -154,6 +155,16 @@ class DatabaseManager:
         # Migrate existing videos table to add new columns if they don't exist
         cursor.execute("PRAGMA table_info(videos)")
         existing_columns = {row[1] for row in cursor.fetchall()}
+
+        # Migrate existing music_tracks table to add media_id if missing
+        cursor.execute("PRAGMA table_info(music_tracks)")
+        existing_music_columns = {row[1] for row in cursor.fetchall()}
+        if 'media_id' not in existing_music_columns:
+            try:
+                cursor.execute('ALTER TABLE music_tracks ADD COLUMN media_id TEXT')
+                existing_music_columns.add('media_id')
+            except sqlite3.OperationalError:
+                pass
         
         # Define new columns with their types (hardcoded for safety)
         new_columns = {
@@ -205,10 +216,26 @@ class DatabaseManager:
             except sqlite3.OperationalError:
                 # In case the column isn't actually present (corrupt/partial migrations), ignore.
                 pass
+
+        # Backfill media_id for existing music tracks
+        if 'media_id' in existing_music_columns:
+            try:
+                cursor.execute('SELECT file_path FROM music_tracks WHERE media_id IS NULL OR media_id = ""')
+                music_paths_to_backfill = [row[0] for row in cursor.fetchall() if row and row[0]]
+                for file_path in music_paths_to_backfill:
+                    normalized_path = os.path.normpath(file_path)
+                    media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+                    cursor.execute(
+                        'UPDATE music_tracks SET media_id = ? WHERE file_path = ? AND (media_id IS NULL OR media_id = "")',
+                        (media_id, normalized_path),
+                    )
+            except sqlite3.OperationalError:
+                pass
         
         # Create indexes for faster lookups
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_folder ON music_tracks (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_path ON music_tracks (file_path)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_music_tracks_media_id ON music_tracks (media_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_folder ON videos (folder_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_path ON videos (file_path)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_media_id ON videos (media_id)')
@@ -353,9 +380,14 @@ class DatabaseManager:
         rows = []
         for track in tracks:
             last_modified = track.get('last_modified')
+            file_path = os.path.normpath(track['path'])
+            media_id = track.get('media_id')
+            if not media_id and isinstance(file_path, str) and file_path:
+                media_id = hashlib.sha256(file_path.encode('utf-8', errors='replace')).hexdigest()
             rows.append((
                 folder_id,
-                track['path'],
+                media_id,
+                file_path,
                 track['name'],
                 track.get('size', 0),
                 track.get('artist'),
@@ -369,9 +401,9 @@ class DatabaseManager:
         
         cursor.executemany('''
             INSERT INTO music_tracks 
-            (folder_id, file_path, file_name, file_size, artist, title, album,
+            (folder_id, media_id, file_path, file_name, file_size, artist, title, album,
              duration, tags, last_modified, cached_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', rows)
         
         conn.commit()
@@ -393,7 +425,7 @@ class DatabaseManager:
             return None
         
         cursor.execute('''
-            SELECT file_path, file_name, file_size, artist, title, album,
+            SELECT media_id, file_path, file_name, file_size, artist, title, album,
                    duration, tags, last_modified
             FROM music_tracks
             WHERE folder_id = ?
@@ -409,14 +441,15 @@ class DatabaseManager:
         tracks = []
         for row in rows:
             track = {
-                'path': row[0],
-                'name': row[1],
-                'size': row[2],
-                'artist': row[3],
-                'title': row[4],
-                'album': row[5],
-                'duration': row[6],
-                'tags': json.loads(row[7]) if row[7] else []
+                'media_id': row[0],
+                'path': row[1],
+                'name': row[2],
+                'size': row[3],
+                'artist': row[4],
+                'title': row[5],
+                'album': row[6],
+                'duration': row[7],
+                'tags': json.loads(row[8]) if row[8] else []
             }
             tracks.append(track)
         
@@ -473,6 +506,58 @@ class DatabaseManager:
             'tracks': track_count,
             'total_size_bytes': total_size
         }
+
+    def get_music_file_path_by_media_id(self, media_id: str):
+        """Resolve a music media_id to a file path from the cache."""
+        if not isinstance(media_id, str) or not media_id:
+            return None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT file_path FROM music_tracks WHERE media_id = ? LIMIT 1', (media_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    def get_music_tracks_by_media_ids(self, media_ids):
+        """Return cached track info for a set of media_ids.
+
+        Returns dict: { media_id: { path, name, artist, title, album, duration, tags } }
+        """
+        if not isinstance(media_ids, list) or not media_ids:
+            return {}
+
+        filtered = [mid for mid in media_ids if isinstance(mid, str) and mid]
+        if not filtered:
+            return {}
+
+        placeholders = ','.join(['?'] * len(filtered))
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            f'''
+                SELECT media_id, file_path, file_name, artist, title, album, duration, tags
+                FROM music_tracks
+                WHERE media_id IN ({placeholders})
+            ''',
+            tuple(filtered),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        result = {}
+        for row in rows:
+            mid = row[0]
+            result[mid] = {
+                'path': row[1],
+                'name': row[2],
+                'artist': row[3],
+                'title': row[4],
+                'album': row[5],
+                'duration': row[6],
+                'tags': json.loads(row[7]) if row[7] else [],
+            }
+        return result
     
     # Video folder methods
     def register_video_folder(self, folder_id, path, recursive):
@@ -682,6 +767,61 @@ class DatabaseManager:
             if isinstance(thumbnail_blob, (bytes, bytearray)):
                 return bytes(thumbnail_blob), result[1]
         return None, None
+
+    def get_video_file_path_by_media_id(self, media_id: str):
+        """Resolve a video's file path by its stable media_id.
+
+        Returns:
+            Normalized file path string, or None if not found.
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT file_path FROM videos WHERE media_id = ?', (media_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row or not row[0]:
+            return None
+        return os.path.normpath(row[0])
+
+    def get_videos_by_media_ids(self, media_ids):
+        """Fetch minimal video info for a set of media_ids.
+
+        Returns:
+            Dict mapping media_id -> {'path': str, 'title': str, 'name': str}
+        """
+        if not media_ids:
+            return {}
+
+        unique_ids = []
+        seen = set()
+        for mid in media_ids:
+            if not isinstance(mid, str) or not mid:
+                continue
+            if mid in seen:
+                continue
+            seen.add(mid)
+            unique_ids.append(mid)
+        if not unique_ids:
+            return {}
+
+        placeholders = ','.join(['?'] * len(unique_ids))
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            f'SELECT media_id, file_path, title, file_name FROM videos WHERE media_id IN ({placeholders})',
+            tuple(unique_ids),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        results = {}
+        for media_id, file_path, title, file_name in rows:
+            results[media_id] = {
+                'path': os.path.normpath(file_path) if file_path else None,
+                'title': title,
+                'name': file_name,
+            }
+        return results
     
     def invalidate_video_folder(self, folder_id):
         """Invalidate cache for a specific video folder"""

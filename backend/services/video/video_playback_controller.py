@@ -637,7 +637,11 @@ class VideoPlaybackController:
             try:
                 # Get the full path with correct casing and record it
                 actual_path = get_actual_path_with_correct_case(video_path)
-                if self.stats_manager.record_media_stat(actual_path, self.current_username):
+                if self.stats_manager.record_media_stat(
+                    actual_path,
+                    self.current_username,
+                    media_id=current_track.get('media_id'),
+                ):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {video_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
             except Exception as e:

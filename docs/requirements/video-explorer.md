@@ -19,6 +19,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 
 - Below the folder selection, a browsing section appears.
 - The selected library’s videos are loaded from `GET /api/video/libraries/<id>/videos`.
+- Each returned video object also includes stats fields: `playcount` and `last_played` (may be `null` when never played).
 - Each available tag in the selected library creates a carousel:
   - Tags are taken from each video’s `tags` array.
   - Carousels are ordered alphabetically by tag name.
@@ -49,7 +50,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 ## Playback
 
 - Clicking `Play` starts the selected video immediately by calling:
-  - `POST /api/video/playback/play-video` with `{ "video_path": "..." }`
+  - `POST /api/video/playback/play-video` with `{ "media_id": "..." }`
 - On success the popup closes.
 
 ## Thumbnails

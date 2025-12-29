@@ -18,6 +18,7 @@ import random
 import copy
 import logging
 import re
+import hashlib
 
 from services.audio.audio_metadata import MUTAGEN_AVAILABLE, display_title, read_audio_metadata
 from services.general.basic_file_operation import get_actual_path_with_correct_case
@@ -584,7 +585,16 @@ class PlaybackController:
             try:
                 # Get the full path with correct casing and record it
                 actual_path = get_actual_path_with_correct_case(track_path)
-                if self.stats_manager.record_media_stat(actual_path, self.current_username):
+                media_id = None
+                if isinstance(actual_path, str) and actual_path:
+                    normalized_path = os.path.normpath(actual_path)
+                    media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+
+                if self.stats_manager.record_media_stat(
+                    actual_path,
+                    self.current_username,
+                    media_id=media_id,
+                ):
                     self.stats_recorded = True
                     logger.info(f"Recorded stats for {track_path} (played {elapsed:.1f}s of {effective_duration:.1f}s)")
             except Exception as e:

@@ -121,7 +121,7 @@ Buttons:
 - **Create Playlist** (submit)
   - POST `/api/audio/music/playlists/create` with:
     - `playlist_name: newPlaylistName`
-    - `tracks: <selected track objects>` (derived from the currently filtered list)
+    - `media_ids: <selected track media_id values>` (derived from the currently filtered list)
   - On success:
     - `alert('Playlist created successfully!')`
     - Close modal
@@ -141,7 +141,7 @@ Controls:
 
 Buttons:
 - **Add to Playlist** (submit)
-  - POST `/api/audio/music/playlists/{selectedPlaylist}/add-track` with `{ track: trackToAdd }`.
+  - POST `/api/audio/music/playlists/{selectedPlaylist}/add-track` with `{ media_id: trackToAdd.media_id }`.
   - On success:
     - `alert('Track added to playlist successfully!')`
     - Close modal and clear selection state.
@@ -211,17 +211,19 @@ Filtering behavior:
 
 ### Selection controls
 
-- Each row has a checkbox that toggles selection for that track path.
+- Each row has a checkbox that toggles selection for that track `media_id`.
+- If a track has no `media_id`, its checkbox is disabled.
 - A “Select All (N track(s))” checkbox:
-  - If checked when not all are selected, selects all currently filtered tracks.
-  - If checked when all are selected, clears selection.
+  - Only counts/selects filtered tracks that have a `media_id`.
+  - If checked when not all selectable tracks are selected, selects all selectable filtered tracks.
+  - If checked when all selectable tracks are selected, clears selection.
 
 ### Bulk actions
 
 When `selectedTracks.size > 0`, show:
 - **Create Playlist (N)** (opens modal)
 - **Add to Current Playlist (N)**
-  - POST `/api/audio/playback/add-tracks` with `{ track_paths: <selected track paths> }`.
+  - POST `/api/audio/playback/add-tracks` with `{ media_ids: <selected track media_ids> }`.
   - On success: `alert('Added X track(s) to current playlist...')` and clears selection.
   - On failure: `alert('Failed to add tracks to current playlist')`.
 
@@ -233,9 +235,11 @@ Per track row, Actions column:
     - Sets `trackToAdd` to that track.
     - Opens the “Add Track to Playlist” modal.
   - Disabled when:
+    - the track has no `media_id`, OR
     - `playlistFolder` is not configured, OR
     - there are zero available playlists.
   - Tooltip/title:
+    - “Track is missing media id” if the track has no `media_id`
     - “Configure playlist folder first” if playlistFolder is missing
     - “Create a playlist first” if no playlists exist
     - “Add to playlist” otherwise

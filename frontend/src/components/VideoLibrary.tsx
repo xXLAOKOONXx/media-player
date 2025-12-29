@@ -15,6 +15,7 @@ interface VideoLibrary {
 interface Video {
   name: string;
   path: string;
+  media_id?: string;
   size: number;
   director?: string;
   artist?: string;
@@ -327,30 +328,31 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
   };
 
-  const toggleVideoSelection = (trackPath: string) => {
+  const toggleVideoSelection = (mediaId: string) => {
     const newSelection = new Set(selectedVideos);
-    if (newSelection.has(trackPath)) {
-      newSelection.delete(trackPath);
+    if (newSelection.has(mediaId)) {
+      newSelection.delete(mediaId);
     } else {
-      newSelection.add(trackPath);
+      newSelection.add(mediaId);
     }
     setSelectedVideos(newSelection);
   };
 
   const toggleSelectAll = () => {
-    if (selectedVideos.size === filteredVideos.length) {
+    const selectable = filteredVideos.filter(t => !!t.media_id);
+    if (selectedVideos.size === selectable.length) {
       // Deselect all
       setSelectedVideos(new Set());
     } else {
       // Select all filtered videos
-      const allPaths = new Set(filteredVideos.map(t => t.path));
-      setSelectedVideos(allPaths);
+      const allIds = new Set(selectable.map(t => t.media_id as string));
+      setSelectedVideos(allIds);
     }
   };
 
   const handleAddToCurrentPlaylist = async () => {
     try {
-      const videoPaths = Array.from(selectedVideos);
+      const mediaIds = Array.from(selectedVideos);
       
       const response = await fetch(`${API_BASE_URL}/api/video/playback/add-videos`, {
         method: 'POST',
@@ -358,12 +360,12 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          video_paths: videoPaths
+          media_ids: mediaIds
         })
       });
       
       if (response.ok) {
-        alert(`Added ${videoPaths.length} video(s) to current playlist.`);
+        alert(`Added ${mediaIds.length} video(s) to current playlist.`);
         setSelectedVideos(new Set()); // Clear selection
       } else {
         alert('Failed to add videos to current playlist');
@@ -388,16 +390,20 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
 
     try {
-      const selectedVideoObjects = filteredVideos.filter(t => 
-        selectedVideos.has(t.path)
-      );
+      const selectedVideoObjects = filteredVideos.filter(t => t.media_id && selectedVideos.has(t.media_id));
+      const mediaIds = selectedVideoObjects.map(v => v.media_id).filter(Boolean);
+
+      if (mediaIds.length === 0) {
+        alert('Selected videos are missing media_id');
+        return;
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/video/playlists/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           playlist_name: newPlaylistName,
-          videos: selectedVideoObjects
+          media_ids: mediaIds
         })
       });
 
@@ -424,13 +430,18 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       return;
     }
 
+    if (!videoToAdd.media_id) {
+      alert('Selected video is missing media_id');
+      return;
+    }
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/video/playlists/${selectedPlaylist}/add-video`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ video: videoToAdd })
+          body: JSON.stringify({ media_id: videoToAdd.media_id })
         }
       );
 
@@ -908,7 +919,10 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   <label>
                     <input
                       type="checkbox"
-                      checked={selectedVideos.size === filteredVideos.length && filteredVideos.length > 0}
+                      checked={
+                        selectedVideos.size === filteredVideos.filter(t => !!t.media_id).length &&
+                        filteredVideos.filter(t => !!t.media_id).length > 0
+                      }
                       onChange={toggleSelectAll}
                     />
                     <span className="select-all-text">Select All ({filteredVideos.length} video(s))</span>
@@ -933,8 +947,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       <td>
                         <input
                           type="checkbox"
-                          checked={selectedVideos.has(track.path)}
-                          onChange={() => toggleVideoSelection(track.path)}
+                          checked={!!track.media_id && selectedVideos.has(track.media_id)}
+                          disabled={!track.media_id}
+                          onChange={() => track.media_id && toggleVideoSelection(track.media_id)}
                         />
                       </td>
                       <td data-label="Title">{track.title || track.name}</td>

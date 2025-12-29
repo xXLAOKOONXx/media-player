@@ -60,6 +60,12 @@ When `playlistFolder` changes and is non-empty:
 During loading:
 - Show a loading spinner and the text "Loading videos...".
 
+### Video object fields
+
+The video objects returned by `GET /api/video/libraries/{libraryId}/videos` include playback statistics fields sourced from the `media-player-stats.db` database:
+- `playcount`: number of plays recorded for this video path
+- `last_played`: latest play timestamp (Unix epoch seconds) or `null` if never played
+
 ## Configure Playlist Folder modal
 
 Opens via **Configure Playlist Folder**.
@@ -121,7 +127,7 @@ Buttons:
 - **Create Playlist** (submit)
   - POST `/api/video/playlists/create` with:
     - `playlist_name: newPlaylistName`
-    - `videos: <selected video objects>` (derived from the currently filtered list)
+    - `media_ids: <selected video media ids>` (derived from the currently filtered list)
   - On success:
     - `alert('Playlist created successfully!')`
     - Close modal
@@ -141,7 +147,7 @@ Controls:
 
 Buttons:
 - **Add to Playlist** (submit)
-  - POST `/api/video/playlists/{selectedPlaylist}/add-video` with `{ video: videoToAdd }`.
+  - POST `/api/video/playlists/{selectedPlaylist}/add-video` with `{ media_id: <selected video media id> }`.
   - On success:
     - `alert('Video added to playlist successfully!')`
     - Close modal and clear selection state.
@@ -231,16 +237,15 @@ The video table shows these columns:
 
 Videos may have an associated thumbnail image.
 
-- The video list response includes `has_thumbnail: boolean`.
 - The video list response includes `has_thumbnail: boolean` and `media_id: string`.
 - When `has_thumbnail` is true, the UI should fetch the image via `GET /api/video/thumbnail/by-id/{media_id}`.
-- Fallback: `POST /api/video/thumbnail` with `{ "video_path": "<absolute path>" }`.
-- (Optional/legacy) `GET /api/video/thumbnail/<video_path>` may also be supported, but URL-encoding absolute paths can be fragile on some platforms.
+- Fallback: `POST /api/video/thumbnail` with `{ "media_id": "<id>" }`.
+- Legacy: `GET /api/video/thumbnail/<...>` no longer accepts file paths; it only accepts a `media_id`.
 - The thumbnail image is served directly as an `image/*` response (not JSON) and is read from the backend cache/database.
 
 ### Selection controls
 
-- Each row has a checkbox that toggles selection for that video path.
+- Each row has a checkbox that toggles selection for that video `media_id`.
 - A "Select All (N video(s))" checkbox:
   - If checked when not all are selected, selects all currently filtered videos.
   - If checked when all are selected, clears selection.
@@ -250,7 +255,7 @@ Videos may have an associated thumbnail image.
 When `selectedVideos.size > 0`, show:
 - **Create Playlist (N)** (opens modal)
 - **Add to Current Playlist (N)**
-  - POST `/api/video/playback/add-tracks` with `{ track_paths: <selected video paths> }`.
+  - POST `/api/video/playback/add-videos` with `{ media_ids: <selected media ids> }`.
   - On success: `alert('Added X video(s) to current playlist...')` and clears selection.
   - On failure: `alert('Failed to add videos to current playlist')`.
 

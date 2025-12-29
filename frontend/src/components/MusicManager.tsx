@@ -15,6 +15,7 @@ interface MusicFolder {
 interface Track {
   name: string;
   path: string;
+  media_id?: string;
   size: number;
   artist?: string;
   title?: string;
@@ -313,30 +314,31 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
     }
   };
 
-  const toggleTrackSelection = (trackPath: string) => {
+  const toggleTrackSelection = (mediaId: string) => {
     const newSelection = new Set(selectedTracks);
-    if (newSelection.has(trackPath)) {
-      newSelection.delete(trackPath);
+    if (newSelection.has(mediaId)) {
+      newSelection.delete(mediaId);
     } else {
-      newSelection.add(trackPath);
+      newSelection.add(mediaId);
     }
     setSelectedTracks(newSelection);
   };
 
   const toggleSelectAll = () => {
-    if (selectedTracks.size === filteredTracks.length) {
+    const selectable = filteredTracks.filter(t => !!t.media_id);
+    if (selectedTracks.size === selectable.length) {
       // Deselect all
       setSelectedTracks(new Set());
     } else {
       // Select all filtered tracks
-      const allPaths = new Set(filteredTracks.map(t => t.path));
-      setSelectedTracks(allPaths);
+      const allIds = new Set(selectable.map(t => t.media_id as string));
+      setSelectedTracks(allIds);
     }
   };
 
   const handleAddToCurrentPlaylist = async () => {
     try {
-      const trackPaths = Array.from(selectedTracks);
+      const mediaIds = Array.from(selectedTracks);
       
       const response = await fetch(`${API_BASE_URL}/api/audio/playback/add-tracks`, {
         method: 'POST',
@@ -344,7 +346,7 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          track_paths: trackPaths
+          media_ids: mediaIds
         })
       });
       
@@ -375,16 +377,20 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
     }
 
     try {
-      const selectedTrackObjects = filteredTracks.filter(t => 
-        selectedTracks.has(t.path)
-      );
+      const selectedTrackObjects = filteredTracks.filter(t => t.media_id && selectedTracks.has(t.media_id));
+      const mediaIds = selectedTrackObjects.map(t => t.media_id).filter(Boolean);
+
+      if (mediaIds.length === 0) {
+        alert('Selected tracks are missing media_id');
+        return;
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/audio/music/playlists/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           playlist_name: newPlaylistName,
-          tracks: selectedTrackObjects
+          media_ids: mediaIds
         })
       });
 
@@ -411,13 +417,18 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
       return;
     }
 
+    if (!trackToAdd.media_id) {
+      alert('Selected track is missing media_id');
+      return;
+    }
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/audio/music/playlists/${selectedPlaylist}/add-track`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ track: trackToAdd })
+          body: JSON.stringify({ media_id: trackToAdd.media_id })
         }
       );
 
@@ -895,10 +906,15 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                   <label>
                     <input
                       type="checkbox"
-                      checked={selectedTracks.size === filteredTracks.length && filteredTracks.length > 0}
+                      checked={
+                        filteredTracks.some(t => !!t.media_id) &&
+                        filteredTracks.filter(t => !!t.media_id).every(t => selectedTracks.has(t.media_id as string))
+                      }
                       onChange={toggleSelectAll}
                     />
-                    <span className="select-all-text">Select All ({filteredTracks.length} track(s))</span>
+                    <span className="select-all-text">
+                      Select All ({filteredTracks.filter(t => !!t.media_id).length} track(s))
+                    </span>
                   </label>
                 </div>
               </div>
@@ -920,8 +936,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                       <td>
                         <input
                           type="checkbox"
-                          checked={selectedTracks.has(track.path)}
-                          onChange={() => toggleTrackSelection(track.path)}
+                          checked={!!track.media_id && selectedTracks.has(track.media_id)}
+                          onChange={() => track.media_id && toggleTrackSelection(track.media_id)}
+                          disabled={!track.media_id}
                         />
                       </td>
                       <td data-label="Title">{track.title || track.name}</td>
@@ -943,9 +960,11 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                             setTrackToAdd(track);
                             setShowAddToPlaylistForm(true);
                           }}
-                          disabled={!playlistFolder || availablePlaylists.length === 0}
+                          disabled={!track.media_id || !playlistFolder || availablePlaylists.length === 0}
                           title={
-                            !playlistFolder 
+                            !track.media_id
+                              ? 'Track is missing media id'
+                              : !playlistFolder 
                               ? 'Configure playlist folder first'
                               : availablePlaylists.length === 0
                                 ? 'Create a playlist first'

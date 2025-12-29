@@ -152,7 +152,9 @@ Video objects returned by the API now include:
   "thumbnail": "https://example.com/poster.jpg",
   "description": "Movie description...",
   "premiere_date": "2023-12-15",
-  "user_rating": 8.5
+    "user_rating": 8.5,
+    "playcount": 12,
+    "last_played": 1735412345.0
 }
 ```
 

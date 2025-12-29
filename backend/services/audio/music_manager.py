@@ -9,6 +9,7 @@ to MPEG frames and is extremely slow over SMB for large collections.
 """
 
 import os
+import hashlib
 from pathlib import Path
 
 from services.audio.audio_metadata import (
@@ -98,16 +99,20 @@ class MusicManager:
                 except OSError:
                     return
 
+                normalized_path = os.path.normpath(full_path)
+                media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+
                 file_info = {
                     'name': file_name,
-                    'path': full_path,
+                    'path': normalized_path,
+                    'media_id': media_id,
                     'size': stat.st_size,
                     'last_modified': stat.st_mtime,
                 }
 
                 if MUTAGEN_AVAILABLE:
                     metadata = read_audio_metadata(
-                        full_path,
+                        normalized_path,
                         include_duration=include_duration,
                         include_times=False,
                         include_tags=True,
