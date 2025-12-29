@@ -651,14 +651,19 @@ function VideoSeries() {
     window.setTimeout(() => updateEpisodesScrollState(), 350);
   };
 
-  const addVideosToQueue = async (mediaIds: string[]) => {
+  const addVideosToQueue = async (
+    mediaIds: string[],
+    options?: { manageLoadingState?: boolean }
+  ) => {
     const ids = (Array.isArray(mediaIds) ? mediaIds : []).filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
     if (ids.length === 0) {
       setError('No playable videos to add to the queue');
       return;
     }
 
-    setIsAddingToQueue(true);
+    const manageLoadingState = options?.manageLoadingState !== false;
+
+    if (manageLoadingState) setIsAddingToQueue(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/video/playback/add-videos`, {
         method: 'POST',
@@ -673,8 +678,55 @@ function VideoSeries() {
     } catch {
       setError('Failed to add videos to the queue');
     } finally {
-      setIsAddingToQueue(false);
+      if (manageLoadingState) setIsAddingToQueue(false);
     }
+  };
+
+  const stopAndResetPlaybackModes = async () => {
+    try {
+      const stopRes = await fetch(`${API_BASE_URL}/api/video/playback/stop`, {
+        method: 'POST'
+      });
+      if (!stopRes.ok) {
+        setError('Failed to stop playback');
+        return false;
+      }
+    } catch {
+      setError('Failed to stop playback');
+      return false;
+    }
+
+    try {
+      const shuffleRes = await fetch(`${API_BASE_URL}/api/video/playback/shuffle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false })
+      });
+      if (!shuffleRes.ok) {
+        setError('Failed to disable shuffle');
+        return false;
+      }
+    } catch {
+      setError('Failed to disable shuffle');
+      return false;
+    }
+
+    try {
+      const repeatRes = await fetch(`${API_BASE_URL}/api/video/playback/repeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'none' })
+      });
+      if (!repeatRes.ok) {
+        setError('Failed to set repeat mode');
+        return false;
+      }
+    } catch {
+      setError('Failed to set repeat mode');
+      return false;
+    }
+
+    return true;
   };
 
   const continueWatching = async () => {
@@ -739,7 +791,15 @@ function VideoSeries() {
       return;
     }
 
-    await addVideosToQueue(mediaIds);
+    setIsAddingToQueue(true);
+    try {
+      const ok = await stopAndResetPlaybackModes();
+      if (!ok) return;
+
+      await addVideosToQueue(mediaIds, { manageLoadingState: false });
+    } finally {
+      setIsAddingToQueue(false);
+    }
   };
 
   const playRandomFromDisplayed = async (unseenOnly: boolean) => {

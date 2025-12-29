@@ -107,10 +107,13 @@ Tile behavior:
 
 Below the episode carousel, the popup provides three buttons:
 
-- **Continue watching**
   - Finds the most recently watched video across the entire selected Series (based on `last_played`).
   - Determines the “next” episode in that same season/group and adds it, plus every remaining episode until the end of that season, to the current watching queue.
-  - Adds the selected set using `POST /api/video/playback/add-videos` with `{ "media_ids": ["..."] }`.
+  - Before adding episodes to the queue:
+    - POST `/api/video/playback/stop`.
+    - POST `/api/video/playback/shuffle` with `{ "enabled": false }`.
+    - POST `/api/video/playback/repeat` with `{ "mode": "none" }`.
+  - Then adds all episodes after the most recently watched episode to the current queue.
 
 - **Play Random**
   - Adds one random episode from the currently displayed episode list (current season if selected, otherwise the series-level videos list) to the current watching queue.
