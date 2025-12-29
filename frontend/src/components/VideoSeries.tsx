@@ -28,6 +28,7 @@ interface Video {
   premiere_date?: string;
   playcount?: number;
   last_played?: number | null;
+  promotion_score?: number;
 }
 
 interface Season {
@@ -122,6 +123,29 @@ const getSeriesWatchedState = (series: Series) => {
     isFullyWatched: total > 0 && watched === total,
     isStarted: watched > 0 && watched < total,
   };
+};
+
+const getSeriesPromotionScore = (series: Series) => {
+  let maxScore = 0;
+  let hasAnyScore = false;
+
+  const consider = (video: Video) => {
+    const score = video.promotion_score;
+    if (score == null || !Number.isFinite(score)) return;
+    if (!hasAnyScore) {
+      maxScore = score;
+      hasAnyScore = true;
+      return;
+    }
+    if (score > maxScore) maxScore = score;
+  };
+
+  for (const v of series.videos || []) consider(v);
+  for (const season of series.seasons || []) {
+    for (const v of season.videos || []) consider(v);
+  }
+
+  return hasAnyScore ? maxScore : 0;
 };
 
 function VideoSeries() {
@@ -313,6 +337,10 @@ function VideoSeries() {
 
     for (const bucket of map.values()) {
       bucket.sort((a, b) => {
+        const aScore = getSeriesPromotionScore(a);
+        const bScore = getSeriesPromotionScore(b);
+        if (bScore !== aScore) return bScore - aScore;
+
         const byTitle = (a.title || '').localeCompare(b.title || '');
         if (byTitle) return byTitle;
         return (a.full_path || '').localeCompare(b.full_path || '');

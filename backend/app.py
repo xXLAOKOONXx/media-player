@@ -1506,6 +1506,44 @@ def get_library_series(library_id):
     except Exception:
         pass
 
+    # Add a promotion score for ranking/recommendations (matching /videos endpoint).
+    try:
+        for s in series:
+            if not isinstance(s, dict):
+                continue
+            for v in (s.get('videos') or []):
+                if not isinstance(v, dict):
+                    continue
+                file_path = v.get('path') or v.get('name') or ''
+                try:
+                    v['promotion_score'] = calculate_promotion_score(
+                        file_path=file_path,
+                        playcount=v.get('playcount'),
+                        last_played=v.get('last_played'),
+                        user_rating=v.get('user_rating'),
+                    )
+                except Exception:
+                    v['promotion_score'] = 0.0
+            for season in (s.get('seasons') or []):
+                if not isinstance(season, dict):
+                    continue
+                for v in (season.get('videos') or []):
+                    if not isinstance(v, dict):
+                        continue
+                    file_path = v.get('path') or v.get('name') or ''
+                    try:
+                        v['promotion_score'] = calculate_promotion_score(
+                            file_path=file_path,
+                            playcount=v.get('playcount'),
+                            last_played=v.get('last_played'),
+                            user_rating=v.get('user_rating'),
+                        )
+                    except Exception:
+                        v['promotion_score'] = 0.0
+    except Exception:
+        # Promotion scores are optional; avoid breaking the series listing.
+        pass
+
     return jsonify(series)
 
 # Video Playlist Management

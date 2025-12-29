@@ -38,6 +38,9 @@ URL behavior:
 - Below that, one carousel row is shown per Series tag.
   - A Series appears in every row for each tag it has.
   - Tag rows match the carousel interaction pattern from Video Explorer (arrow buttons when the row is scrollable).
+  - Within a tag row, Series are sorted by a recommendation score (highest first), following the same concept as the Video Explorer rows:
+    - The UI derives a Series score from its episodes/videos (using their `promotion_score`).
+    - Ties are broken deterministically (title/path).
 
 ### Series tile watch status
 
