@@ -43,6 +43,7 @@ from services.video.video_manager import VideoManager
 from services.general.database_manager import DatabaseManager
 from services.general.user_manager import UserManager, require_admin, require_auth
 from services.general.stats_manager import StatsManager
+from services.general.promotion_score import calculate_promotion_score
 
 # Configure Flask to serve static files from the static folder
 # Disable automatic static file serving to prevent Flask's catch-all route
@@ -1354,6 +1355,21 @@ def get_library_videos(library_id):
             if isinstance(video, dict):
                 video.setdefault('playcount', 0)
                 video.setdefault('last_played', None)
+
+    # Add a promotion score for ranking/recommendations.
+    for video in videos:
+        if not isinstance(video, dict):
+            continue
+        file_path = video.get('path') or video.get('name') or ''
+        try:
+            video['promotion_score'] = calculate_promotion_score(
+                file_path=file_path,
+                playcount=video.get('playcount'),
+                last_played=video.get('last_played'),
+                user_rating=video.get('user_rating'),
+            )
+        except Exception:
+            video['promotion_score'] = 0.0
     return jsonify(videos)
 
 # Video Playlist Management

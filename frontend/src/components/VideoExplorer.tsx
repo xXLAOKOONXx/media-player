@@ -25,6 +25,10 @@ interface Video {
   thumbnail_url?: string;
   has_thumbnail?: boolean;
   media_id?: string;
+  playcount?: number;
+  last_played?: number | null;
+  user_rating?: number;
+  promotion_score?: number;
 }
 
 const DEFAULT_LIBRARY_STORAGE_KEY = 'videoExplorer.defaultLibraryId';
@@ -215,6 +219,19 @@ function VideoExplorer() {
         const bucket = map.get(trimmed);
         if (bucket) bucket.push(v);
       }
+    }
+
+    // Sort each carousel row by highest promotion score first.
+    // Add a stable tie-breaker for deterministic ordering.
+    for (const bucket of map.values()) {
+      bucket.sort((a, b) => {
+        const aScore = Number.isFinite(a.promotion_score as number) ? (a.promotion_score as number) : 0;
+        const bScore = Number.isFinite(b.promotion_score as number) ? (b.promotion_score as number) : 0;
+        if (bScore !== aScore) return bScore - aScore;
+        const byTitle = getTitle(a).localeCompare(getTitle(b));
+        if (byTitle) return byTitle;
+        return (a.path || '').localeCompare(b.path || '');
+      });
     }
 
     return map;
