@@ -20,6 +20,8 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 - Below the folder selection, a browsing section appears.
 - The selected library’s videos are loaded from `GET /api/video/libraries/<id>/videos`.
 - Each returned video object also includes fields: `playcount`, `last_played` (may be `null` when never played), and `promotion_score`.
+- A "Daily Suggestions" carousel is shown above the tag rows:
+  - It includes the top 50 videos in the selected library by `promotion_score`.
 - Each available tag in the selected library creates a carousel:
   - Tags are taken from each video’s `tags` array.
   - Carousels are ordered randomly by tag name (the order is randomized when the library loads).
