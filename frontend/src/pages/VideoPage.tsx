@@ -7,6 +7,7 @@ import VideoPlaylistManager from '../components/VideoPlaylistManager';
 import VideoPlayer from '../components/VideoPlayer';
 import VideoPlaybackControls from '../components/VideoPlaybackControls';
 import SettingsManager from '../components/SettingsManager';
+import VideoExplorer from '../components/VideoExplorer';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -22,6 +23,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
   // Derive active tab from URL path
   const getActiveTabFromPath = () => {
     const path = location.pathname;
+    if (path.includes('/explorer')) return 'explorer';
     if (path.includes('/player')) return 'player';
     if (path.includes('/playlists')) return 'playlists';
     if (path.includes('/library')) return 'library';
@@ -29,7 +31,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -65,6 +67,12 @@ function VideoPage({ currentUser }: VideoPageProps) {
           Player
         </button>
         <button 
+          className={activeTab === 'explorer' ? 'active' : ''} 
+          onClick={() => handleTabChange('explorer')}
+        >
+          Explorer
+        </button>
+        <button 
           className={activeTab === 'playlists' ? 'active' : ''} 
           onClick={() => handleTabChange('playlists')}
         >
@@ -90,6 +98,10 @@ function VideoPage({ currentUser }: VideoPageProps) {
             <VideoPlayer status={playbackStatus} />
             <VideoPlaybackControls status={playbackStatus} onUpdate={() => {}} />
           </div>
+        )}
+
+        {activeTab === 'explorer' && (
+          <VideoExplorer />
         )}
         
         {activeTab === 'playlists' && (

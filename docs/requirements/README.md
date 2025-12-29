@@ -20,6 +20,7 @@ The application now uses URL-based navigation:
 
 ### Video Routes
 - [`/video/player`](video-player.md) - Video player view with playback controls
+- [`/video/explorer`](video-explorer.md) - Video Explorer (browse by tags with carousels)
 - [`/video/playlists`](video.md#playlists-tab) - Video playlist management
 - [`/video/library`](video-library.md) - Video library management
 - [`/video/settings`](settings.md) - Application settings (includes user management for admin)
