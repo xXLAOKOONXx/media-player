@@ -1916,6 +1916,22 @@ def get_video_thumbnail_by_id(media_id: str):
     )
 
 
+@app.route('/api/video/thumbnail/by-art-id/<string:art_id>', methods=['GET'])
+@require_auth(user_manager)
+def get_video_artwork_thumbnail_by_id(art_id: str):
+    """Get thumbnail for a Series/Season poster by its stable art_id."""
+    thumbnail_data, mime_type = db.get_video_artwork_thumbnail(art_id)
+
+    if thumbnail_data is None:
+        return jsonify({'error': 'Thumbnail not found'}), 404
+
+    return send_file(
+        BytesIO(thumbnail_data),
+        mimetype=mime_type or 'image/jpeg',
+        as_attachment=False
+    )
+
+
 def _normalize_media_path_from_url(video_path: str) -> str:
     """Normalize a media path coming from a Flask <path:...> URL segment.
 
