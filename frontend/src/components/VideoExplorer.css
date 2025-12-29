@@ -237,6 +237,27 @@
   opacity: 0.9;
 }
 
+.video-explorer-thumb-watched {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #4a5d54; /* greenish gray (success accent) */
+  border: 1px solid rgba(74, 93, 84, 0.55);
+  z-index: 3;
+}
+
+.video-explorer-thumb-watched .material-icons {
+  font-size: 20px;
+  line-height: 1;
+}
+
 .video-explorer-thumb-title {
   position: absolute;
   left: 0;

@@ -32,6 +32,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
     - The carousel row height is increased (taller tiles) for easier browsing (50% taller).
     - Each tile sizes to the cover aspect ratio so the full cover is visible without cropping.
     - Video titles are not shown by default on the thumbnails.
+    - If the current logged-in user has watched a video (i.e., `playcount > 0`), the thumbnail tile shows a green eye (`visibility`) indicator overlay.
   - The carousel does not show a horizontal scrollbar.
   - Navigation through the carousel is done via left/right arrow buttons positioned on the left and right border of the row.
     - The arrow buttons overlay the covers, span the full row height, and are partially transparent.

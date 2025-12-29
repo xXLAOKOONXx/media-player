@@ -1361,14 +1361,23 @@ def get_library_videos(library_id):
     )
     t_scan = time.perf_counter() - t_scan0
 
-    # Enrich each video with playback stats (global across all users).
+    # Enrich each video with playback stats.
     # Fields:
     # - playcount: number of plays recorded in media-player-stats DB
     # - last_played: latest play timestamp (unix epoch seconds)
     try:
         t_stats0 = time.perf_counter()
         video_paths = [v.get('path') for v in videos if isinstance(v, dict)]
-        play_stats = stats_manager.get_media_play_stats(video_paths) if stats_manager else {}
+
+        session_id = request.cookies.get('session_id')
+        user = user_manager.get_user_from_session(session_id) if session_id else None
+        username = user.get('username') if isinstance(user, dict) else None
+
+        play_stats = (
+            stats_manager.get_media_play_stats(video_paths, username=username)
+            if stats_manager
+            else {}
+        )
         for video in videos:
             if not isinstance(video, dict):
                 continue
