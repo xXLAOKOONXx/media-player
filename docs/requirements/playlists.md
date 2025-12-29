@@ -90,5 +90,6 @@ Per playlist row:
 - Display playlist name + full path.
 - Button: **Play**
   - POST `/api/audio/playback/play` with JSON `{ "playlist_path": <playlist.path>, "track_index": 0 }`.
+  - If shuffle is enabled, the first track is chosen randomly (shuffle affects the first track too).
   - On success: `alert('Playlist started!')`.
   - On failure: `alert('Error playing playlist')`.

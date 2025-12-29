@@ -47,6 +47,7 @@ Features:
 - Manage video playlist folders
 - Browse available `.m3u` playlists
 - Start playback from playlists
+   - If shuffle is enabled, the first video started from a playlist is chosen randomly (shuffle affects the first track too).
 - Rename/delete playlist folders
 
 Similar to audio playlist management, adapted for videos.

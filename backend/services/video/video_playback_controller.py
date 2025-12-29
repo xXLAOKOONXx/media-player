@@ -415,6 +415,23 @@ class VideoPlaybackController:
         self.original_playlist = copy.deepcopy(tracks)
         self.current_track_index = min(track_index, len(tracks) - 1)
         self.current_position = 0
+
+        # If shuffle is already enabled, apply it to the newly loaded playlist.
+        # When starting a playlist from the Playlists page we typically start at track_index=0,
+        # and users expect the first track to be random as well.
+        if self.shuffle_enabled and self.current_playlist:
+            if self.current_track_index != 0:
+                current_track = self.current_playlist[self.current_track_index]
+                remaining_tracks = [
+                    t for i, t in enumerate(self.current_playlist)
+                    if i != self.current_track_index
+                ]
+                random.shuffle(remaining_tracks)
+                self.current_playlist = [current_track] + remaining_tracks
+            else:
+                random.shuffle(self.current_playlist)
+
+            self.current_track_index = 0
         
         logger.info(f"Loaded playlist with {len(tracks)} videos")
         return True
