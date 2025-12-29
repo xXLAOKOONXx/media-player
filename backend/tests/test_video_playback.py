@@ -1,5 +1,5 @@
-import video_playback_controller
-from video_playback_controller import VideoPlaybackController
+import services.video.video_playback_controller as video_playback_controller
+from services.video.video_playback_controller import VideoPlaybackController
 
 
 def test_video_play_controller_play_state_only_mode(tmp_path, monkeypatch):

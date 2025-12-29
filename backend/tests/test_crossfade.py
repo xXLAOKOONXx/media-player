@@ -8,7 +8,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from playback_controller import PlaybackController
+from services.audio.playback_controller import PlaybackController
 
 
 class TestAudioMetadata:

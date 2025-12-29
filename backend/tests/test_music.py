@@ -8,7 +8,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from music_manager import MusicManager
+from services.audio.music_manager import MusicManager
 
 
 class TestAudioFileScanning:

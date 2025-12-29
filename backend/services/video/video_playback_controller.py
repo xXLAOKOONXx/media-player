@@ -27,8 +27,8 @@ import copy
 import logging
 import time
 
-from services.basic_file_operation import get_actual_path_with_correct_case
-from video_metadata import read_video_metadata
+from services.general.basic_file_operation import get_actual_path_with_correct_case
+from services.video.video_metadata import read_video_metadata
 
 # Configure logging
 logger = logging.getLogger('VideoPlaybackController')

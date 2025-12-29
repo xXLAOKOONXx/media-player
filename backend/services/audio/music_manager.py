@@ -11,14 +11,14 @@ to MPEG frames and is extremely slow over SMB for large collections.
 import os
 from pathlib import Path
 
-from audio_metadata import (
+from services.audio.audio_metadata import (
     MUTAGEN_AVAILABLE,
     compute_duration_seconds,
     display_title,
     read_audio_metadata,
 )
 
-from music_cache import MusicCache
+from services.audio.music_cache import MusicCache
 
 
 class MusicManager:

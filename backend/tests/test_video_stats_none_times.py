@@ -1,4 +1,5 @@
-from video_playback_controller import VideoPlaybackController
+import services.video.video_playback_controller as video_playback_controller
+from services.video.video_playback_controller import VideoPlaybackController
 
 
 class DummyStats:
@@ -14,7 +15,9 @@ class DummyStats:
         return True
 
 
-def test_stats_check_handles_none_times(tmp_path):
+def test_stats_check_handles_none_times(tmp_path, monkeypatch):
+    monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
+
     controller = VideoPlaybackController(video_config={"fullscreen": False}, stats_manager=DummyStats())
     controller.player = None
     controller.video_available = False

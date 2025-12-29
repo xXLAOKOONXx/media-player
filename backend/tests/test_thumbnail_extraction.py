@@ -4,7 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from video_metadata import (
+from services.video.video_metadata import (
     find_poster_file,
     extract_embedded_thumbnail,
     read_thumbnail_data,

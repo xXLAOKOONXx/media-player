@@ -9,8 +9,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from audio_metadata import display_title
-from database_manager import DatabaseManager
+from services.audio.audio_metadata import display_title
+from services.general.database_manager import DatabaseManager
 
 
 class MusicCache:

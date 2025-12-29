@@ -7,7 +7,7 @@ import pytest
 import tempfile
 import shutil
 import sqlite3
-from stats_manager import StatsManager
+from services.general.stats_manager import StatsManager
 
 
 class TestStatsManager:

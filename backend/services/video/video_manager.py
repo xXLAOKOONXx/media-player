@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 import hashlib
 
-from video_cache import VideoCache
-from video_metadata import read_video_metadata
+from services.video.video_cache import VideoCache
+from services.video.video_metadata import read_video_metadata
 
 
 class VideoManager:
