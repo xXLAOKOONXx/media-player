@@ -257,10 +257,14 @@ function VideoExplorer() {
   const startPlayback = async (video: Video) => {
     setIsStartingPlayback(true);
     try {
+      if (!video.media_id) {
+        setError('Missing media_id for selected video');
+        return;
+      }
       const res = await fetch(`${API_BASE_URL}/api/video/playback/play-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_path: video.path })
+        body: JSON.stringify({ media_id: video.media_id })
       });
 
       if (!res.ok) {

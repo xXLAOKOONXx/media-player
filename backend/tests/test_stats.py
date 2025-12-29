@@ -51,6 +51,23 @@ class TestStatsManager:
         assert stats[0]['username'] == 'testuser'
         assert 'timestamp' in stats[0]
         assert 'id' in stats[0]
+
+    def test_record_media_stat_with_media_id(self, temp_stats_folder):
+        """Recording a stat should optionally persist media_id when supported."""
+        manager = StatsManager(temp_stats_folder)
+
+        success = manager.record_media_stat(
+            '/path/to/media/file.mp4',
+            'testuser',
+            media_id='abc123',
+        )
+        assert success
+
+        stats = manager.get_media_stats(limit=1)
+        assert len(stats) == 1
+        assert stats[0]['file_path'] == '/path/to/media/file.mp4'
+        assert stats[0]['username'] == 'testuser'
+        assert stats[0].get('media_id') == 'abc123'
     
     def test_record_multiple_stats(self, temp_stats_folder):
         """Test recording multiple stats"""
@@ -145,11 +162,13 @@ class TestStatsManager:
         assert manager.is_initialized()
 
         # Should write a file path into the legacy column without failing
-        success = manager.record_media_stat('/path/to/media/file.mp4', 'testuser')
+        success = manager.record_media_stat('/path/to/media/file.mp4', 'testuser', media_id='legacy-mid')
         assert success
 
         stats = manager.get_media_stats(limit=1)
         assert stats and stats[0]['file_path'] == '/path/to/media/file.mp4'
+        # Legacy DBs should be migrated to include media_id when possible.
+        assert stats[0].get('media_id') == 'legacy-mid'
 
 
 class TestStatsTracking:

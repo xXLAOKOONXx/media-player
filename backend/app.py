@@ -151,6 +151,26 @@ video_config = config.get('video', {
 })
 video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager)
 
+
+_MEDIA_ID_RE = re.compile(r'^[0-9a-fA-F]{64}$')
+
+
+def _require_media_id(value):
+    """Validate and return a media_id string, else return (None, error_response)."""
+    if not value or not isinstance(value, str):
+        return None, (jsonify({'error': 'media_id is required'}), 400)
+    if not _MEDIA_ID_RE.match(value):
+        return None, (jsonify({'error': 'Invalid media_id'}), 400)
+    return value, None
+
+
+def _resolve_video_path_from_media_id(media_id: str):
+    """Resolve a media_id to an on-disk video file path."""
+    video_path = db.get_video_file_path_by_media_id(media_id)
+    if not video_path:
+        return None
+    return video_path
+
 # Authentication APIs
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -716,13 +736,13 @@ def create_music_playlist():
     data = request.json
     
     playlist_name = data.get('playlist_name')
-    tracks = data.get('tracks', [])
+    media_ids = data.get('media_ids', [])
     
     if not playlist_name:
         return jsonify({'error': 'playlist_name is required'}), 400
     
-    if not tracks:
-        return jsonify({'error': 'tracks list cannot be empty'}), 400
+    if not media_ids or not isinstance(media_ids, list):
+        return jsonify({'error': 'media_ids list cannot be empty'}), 400
     
     # Get playlist folder from config
     config = load_config()
@@ -738,6 +758,28 @@ def create_music_playlist():
     # Check if playlist already exists
     if os.path.exists(playlist_path):
         return jsonify({'error': 'Playlist already exists'}), 400
+
+    # Resolve media_ids to track info via cache
+    info_by_id = db.get_music_tracks_by_media_ids(media_ids)
+    missing = [mid for mid in media_ids if isinstance(mid, str) and mid and mid not in info_by_id]
+    if missing:
+        return jsonify({'error': 'One or more media_ids were not found', 'missing_media_ids': missing}), 404
+
+    tracks = []
+    for mid in media_ids:
+        info = info_by_id.get(mid)
+        if not info or not info.get('path'):
+            continue
+        tracks.append({
+            'path': info.get('path'),
+            'name': info.get('name'),
+            'artist': info.get('artist'),
+            'title': info.get('title') or info.get('name'),
+            'album': info.get('album'),
+            'duration': info.get('duration') or 0,
+            'tags': info.get('tags') or [],
+            'media_id': mid,
+        })
     
     # Create the playlist with relative paths
     success = music_manager.create_playlist(
@@ -760,10 +802,9 @@ def create_music_playlist():
 def add_track_to_music_playlist(playlist_name):
     """Add a track to an existing playlist"""
     data = request.json
-    track = data.get('track')
-    
-    if not track:
-        return jsonify({'error': 'track is required'}), 400
+    media_id = data.get('media_id')
+    if not media_id or not isinstance(media_id, str):
+        return jsonify({'error': 'media_id is required'}), 400
     
     # Get playlist folder from config
     config = load_config()
@@ -777,6 +818,21 @@ def add_track_to_music_playlist(playlist_name):
     
     if not os.path.exists(playlist_path):
         return jsonify({'error': 'Playlist not found'}), 404
+
+    info = db.get_music_tracks_by_media_ids([media_id]).get(media_id)
+    if not info or not info.get('path'):
+        return jsonify({'error': 'media_id not found'}), 404
+
+    track = {
+        'path': info.get('path'),
+        'name': info.get('name'),
+        'artist': info.get('artist'),
+        'title': info.get('title') or info.get('name'),
+        'album': info.get('album'),
+        'duration': info.get('duration') or 0,
+        'tags': info.get('tags') or [],
+        'media_id': media_id,
+    }
     
     # Add track to playlist
     success = music_manager.add_track_to_playlist(
@@ -794,10 +850,19 @@ def add_track_to_music_playlist(playlist_name):
 def add_tracks_to_current_playlist():
     """Add tracks to the current playing playlist"""
     data = request.json
-    track_paths = data.get('track_paths', [])
-    
+    media_ids = data.get('media_ids', [])
+
+    if not media_ids or not isinstance(media_ids, list):
+        return jsonify({'error': 'media_ids is required'}), 400
+
+    info_by_id = db.get_music_tracks_by_media_ids(media_ids)
+    missing = [mid for mid in media_ids if isinstance(mid, str) and mid and mid not in info_by_id]
+    if missing:
+        return jsonify({'error': 'One or more media_ids were not found', 'missing_media_ids': missing}), 404
+
+    track_paths = [info_by_id[mid]['path'] for mid in media_ids if mid in info_by_id and info_by_id[mid].get('path')]
     if not track_paths:
-        return jsonify({'error': 'No tracks provided'}), 400
+        return jsonify({'error': 'No valid tracks resolved from media_ids'}), 400
     
     # Validate that all track files exist and enrich with metadata (same tooling as Music tab)
     valid_tracks = []
@@ -1269,6 +1334,26 @@ def get_library_videos(library_id):
         folder_id=library_id,
         force_refresh=force_refresh
     )
+
+    # Enrich each video with playback stats (global across all users).
+    # Fields:
+    # - playcount: number of plays recorded in media-player-stats DB
+    # - last_played: latest play timestamp (unix epoch seconds)
+    try:
+        video_paths = [v.get('path') for v in videos if isinstance(v, dict)]
+        play_stats = stats_manager.get_media_play_stats(video_paths) if stats_manager else {}
+        for video in videos:
+            if not isinstance(video, dict):
+                continue
+            stats = play_stats.get(video.get('path'))
+            video['playcount'] = stats.get('playcount', 0) if stats else 0
+            video['last_played'] = stats.get('last_played') if stats else None
+    except Exception:
+        # Stats are optional; avoid breaking video listings if stats DB is unavailable.
+        for video in videos:
+            if isinstance(video, dict):
+                video.setdefault('playcount', 0)
+                video.setdefault('last_played', None)
     return jsonify(videos)
 
 # Video Playlist Management
@@ -1372,13 +1457,13 @@ def create_video_playlist():
     data = request.json
     
     playlist_name = data.get('playlist_name')
-    videos = data.get('videos', [])
+    media_ids = data.get('media_ids', [])
     
     if not playlist_name:
         return jsonify({'error': 'playlist_name is required'}), 400
     
-    if not videos:
-        return jsonify({'error': 'videos list cannot be empty'}), 400
+    if not media_ids or not isinstance(media_ids, list):
+        return jsonify({'error': 'media_ids list cannot be empty'}), 400
     
     config = load_config()
     playlist_folder = config.get('video_playlist_folder_path')
@@ -1391,7 +1476,24 @@ def create_video_playlist():
     
     if os.path.exists(playlist_path):
         return jsonify({'error': 'Playlist already exists'}), 400
-    
+
+    # Resolve media_ids to paths/titles using the cached video DB.
+    info_by_id = db.get_videos_by_media_ids(media_ids)
+    missing = [mid for mid in media_ids if isinstance(mid, str) and mid and mid not in info_by_id]
+    if missing:
+        return jsonify({'error': 'One or more media_ids were not found', 'missing_media_ids': missing}), 404
+
+    videos = []
+    for mid in media_ids:
+        info = info_by_id.get(mid)
+        if not info:
+            continue
+        videos.append({
+            'path': info.get('path'),
+            'title': info.get('title') or os.path.splitext(info.get('name') or '')[0] or mid,
+            'media_id': mid,
+        })
+
     success = video_manager.create_playlist(playlist_path, videos, base_path=playlist_folder)
     
     if success:
@@ -1404,10 +1506,9 @@ def create_video_playlist():
 def add_video_to_playlist(playlist_name):
     """Add a video to an existing playlist"""
     data = request.json
-    video = data.get('video')
-    
-    if not video:
-        return jsonify({'error': 'video is required'}), 400
+    media_id, err = _require_media_id(data.get('media_id'))
+    if err:
+        return err
     
     config = load_config()
     playlist_folder = config.get('video_playlist_folder_path')
@@ -1421,11 +1522,15 @@ def add_video_to_playlist(playlist_name):
         return jsonify({'error': 'Playlist not found'}), 404
     
     try:
+        info = db.get_videos_by_media_ids([media_id]).get(media_id)
+        if not info or not info.get('path'):
+            return jsonify({'error': 'media_id not found'}), 404
+
         # Append video to playlist
         with open(playlist_path, 'a', encoding='utf-8') as f:
-            title = video.get('title', os.path.basename(video.get('path', '')))
+            title = info.get('title') or os.path.splitext(info.get('name') or '')[0] or media_id
             f.write(f'#EXTINF:-1,{title}\n')
-            f.write(f"{video.get('path')}\n")
+            f.write(f"{info.get('path')}\n")
         
         return jsonify({'message': 'Video added to playlist successfully'})
     except Exception as e:
@@ -1538,11 +1643,20 @@ def update_video_track_times(track_index):
 def add_video_tracks():
     """Add videos to current playback playlist"""
     data = request.json
-    video_paths = data.get('video_paths', [])
-    
+    media_ids = data.get('media_ids', [])
+
+    if not media_ids or not isinstance(media_ids, list):
+        return jsonify({'error': 'media_ids is required'}), 400
+
+    info_by_id = db.get_videos_by_media_ids(media_ids)
+    missing = [mid for mid in media_ids if isinstance(mid, str) and mid and mid not in info_by_id]
+    if missing:
+        return jsonify({'error': 'One or more media_ids were not found', 'missing_media_ids': missing}), 404
+
+    video_paths = [info_by_id[mid]['path'] for mid in media_ids if mid in info_by_id and info_by_id[mid].get('path')]
     if not video_paths:
-        return jsonify({'error': 'video_paths is required'}), 400
-    
+        return jsonify({'error': 'No valid videos resolved from media_ids'}), 400
+
     video_playback_controller.add_tracks(video_paths)
     
     return jsonify({
@@ -1555,40 +1669,57 @@ def add_video_tracks():
 def play_single_video():
     """Replace the current playlist with a single video and start playback.
 
-    Expects JSON: { "video_path": "..." } (also accepts { "path": "..." }).
+    Expects JSON: { "media_id": "<sha256>" }
     """
     data = request.get_json(silent=True) or {}
-    video_path = data.get('video_path') or data.get('path')
-    if not video_path or not isinstance(video_path, str):
-        return jsonify({'error': 'video_path is required'}), 400
+    media_id, err = _require_media_id(data.get('media_id'))
+    if err:
+        return err
+
+    video_path = _resolve_video_path_from_media_id(media_id)
+    if not video_path:
+        return jsonify({'error': 'media_id not found'}), 404
 
     if not video_playback_controller.play_single_video(video_path):
         return jsonify({'error': 'Video not found or failed to start playback'}), 404
 
     return jsonify({'status': 'playing'})
 
-@app.route('/api/video/stream/<path:video_path>')
-def stream_video(video_path):
-    """Stream a video file"""
-    # Decode/normalize the video path from the URL
-    video_path = _normalize_media_path_from_url(video_path)
-    
-    if not os.path.exists(video_path):
+@app.route('/api/video/stream/by-id/<string:media_id>')
+def stream_video_by_id(media_id):
+    """Stream a video file by media_id."""
+    media_id, err = _require_media_id(media_id)
+    if err:
+        return err
+
+    video_path = _resolve_video_path_from_media_id(media_id)
+    if not video_path or not os.path.exists(video_path):
         return jsonify({'error': 'Video not found'}), 404
-    
-    # Use send_from_directory for proper streaming support
+
     directory = os.path.dirname(video_path)
     filename = os.path.basename(video_path)
     return send_from_directory(directory, filename)
 
+
+@app.route('/api/video/stream/<path:video_path>')
+def stream_video(video_path):
+    """Legacy route; now only accepts media_id (not file paths)."""
+    # Reject path-like values explicitly.
+    if any(sep in video_path for sep in ('/', '\\', ':')):
+        return jsonify({'error': 'This endpoint no longer accepts file paths. Use /api/video/stream/by-id/<media_id>.'}), 400
+    return stream_video_by_id(video_path)
+
 @app.route('/api/video/thumbnail/<path:video_path>')
 def get_video_thumbnail(video_path):
-    """Get thumbnail for a video file"""
-    # Decode/normalize the video path from the URL
-    video_path = _normalize_media_path_from_url(video_path)
-    
-    # Get thumbnail from database
-    thumbnail_data, mime_type = db.get_video_thumbnail(video_path)
+    """Legacy route; now only accepts media_id (not file paths)."""
+    if any(sep in video_path for sep in ('/', '\\', ':')):
+        return jsonify({'error': 'This endpoint no longer accepts file paths. Use /api/video/thumbnail/by-id/<media_id>.'}), 400
+
+    media_id, err = _require_media_id(video_path)
+    if err:
+        return err
+
+    thumbnail_data, mime_type = db.get_video_thumbnail_by_media_id(media_id)
     
     if thumbnail_data is None:
         return jsonify({'error': 'Thumbnail not found'}), 404
@@ -1604,18 +1735,17 @@ def get_video_thumbnail(video_path):
 @app.route('/api/video/thumbnail', methods=['POST'])
 @require_auth(user_manager)
 def get_video_thumbnail_from_body():
-    """Get thumbnail for a video file (path provided in request body).
+    """Get thumbnail for a video by media_id.
 
-    Expects JSON: { "video_path": "..." }
+    Expects JSON: { "media_id": "<sha256>" }
     Returns: image bytes with an image/* mimetype.
     """
     data = request.get_json(silent=True) or {}
-    video_path = data.get('video_path') or data.get('path')
-    if not video_path or not isinstance(video_path, str):
-        return jsonify({'error': 'video_path is required'}), 400
+    media_id, err = _require_media_id(data.get('media_id'))
+    if err:
+        return err
 
-    normalized = _normalize_media_path_from_url(video_path)
-    thumbnail_data, mime_type = db.get_video_thumbnail(normalized)
+    thumbnail_data, mime_type = db.get_video_thumbnail_by_media_id(media_id)
 
     if thumbnail_data is None:
         return jsonify({'error': 'Thumbnail not found'}), 404
