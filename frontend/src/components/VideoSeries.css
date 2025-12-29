@@ -30,6 +30,33 @@
   gap: 0.5rem;
 }
 
+.video-series-season-complete {
+  background: rgba(74, 93, 84, 0.28);
+  border-color: rgba(74, 93, 84, 0.55);
+  color: rgba(240, 240, 240, 0.96);
+}
+
+.video-series-thumb-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #4a5d54;
+  border: 1px solid rgba(74, 93, 84, 0.55);
+  z-index: 3;
+}
+
+.video-series-thumb-status .material-icons {
+  font-size: 20px;
+  line-height: 1;
+}
+
 .video-series-episode-list {
   display: flex;
   flex-direction: column;
@@ -77,4 +104,14 @@
 
 .video-series-episode-actions {
   flex: 0 0 auto;
+}
+
+.video-series-episodes-carousel-container {
+  margin-bottom: 0.75rem;
+}
+
+.video-series-episode-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }

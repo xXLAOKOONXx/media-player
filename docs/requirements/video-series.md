@@ -29,6 +29,11 @@ URL behavior:
   - If a series has a cover URL, it is displayed.
   - Otherwise a placeholder icon is shown.
 
+### Series tile watch status
+
+- If a Series has some watched episodes/videos (`playcount > 0` for at least one item, but not all items), the Series tile shows a **Play** icon badge to indicate “Started watching”.
+- If all episodes/videos in a Series are watched (`playcount > 0` for every item), the Series tile shows an **Eye** icon badge to indicate “Fully watched”.
+
 ### Series/Season thumbnails
 
 - A Series may have a poster image in its folder:
@@ -54,6 +59,9 @@ Backward compatibility:
 - If the selected series includes seasons:
   - The popup displays a list of season buttons.
   - Selecting a season shows the season’s episode/video list.
+
+Season watch status:
+- If all episodes in a Season are watched (`playcount > 0` for every episode), that Season button is highlighted with a grayish-green background.
 - If the series has no seasons:
   - The popup shows the series’ `videos` list.
 
@@ -62,9 +70,35 @@ Episode/video ordering in the popup:
 - If no items have `index_number`, the list is sorted by `premiere_date` ascending (oldest first).
 - When values are missing or ties occur, the UI uses a stable fallback (title/path) to keep ordering deterministic.
 
+### Episodes display (carousel)
+
+- The episode list is displayed as a horizontal carousel row, matching the layout used in the Video Explorer tag rows.
+- Each episode is shown as a thumbnail tile.
+- If an episode has been watched (`playcount > 0`), it shows the same “Watched” marker as the Video Explorer tiles.
+
+Tile behavior:
+- Clicking an episode tile starts playback immediately via `POST /api/video/playback/play-video`.
+
 ## Playback
 
 - Each episode/video row has a `Play` button.
 - Clicking `Play` calls:
   - `POST /api/video/playback/play-video` with `{ "media_id": "..." }`
 - Errors are shown in the page error banner.
+
+## Episode actions
+
+Below the episode carousel, the popup provides three buttons:
+
+- **Continue watching**
+  - Finds the most recently watched video across the entire selected Series (based on `last_played`).
+  - Determines the “next” episode in that same season/group and adds it, plus every remaining episode until the end of that season, to the current watching queue.
+  - Adds the selected set using `POST /api/video/playback/add-videos` with `{ "media_ids": ["..."] }`.
+
+- **Play Random**
+  - Adds one random episode from the currently displayed episode list (current season if selected, otherwise the series-level videos list) to the current watching queue.
+  - Uses `POST /api/video/playback/add-videos`.
+
+- **Play Random Unseen**
+  - Adds one random episode from the currently displayed episode list where `playcount == 0`.
+  - Uses `POST /api/video/playback/add-videos`.
