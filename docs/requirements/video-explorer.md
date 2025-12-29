@@ -4,6 +4,8 @@
 
 The Video Explorer page provides a browsing experience for videos inside a selected configured Video Library folder.
 
+- The explorer view uses the full available page width.
+
 ## Video Library selection
 
 - The page shows one button per configured video library folder (from `GET /api/video/libraries`).
