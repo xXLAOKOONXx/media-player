@@ -119,7 +119,7 @@ function VideoExplorer() {
         const response = await fetch(`${API_BASE_URL}/api/video/libraries`);
         const data = await response.json();
         setLibraries(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch {
         setError('Failed to load video libraries');
       } finally {
         setIsLoadingLibraries(false);
@@ -158,7 +158,7 @@ function VideoExplorer() {
         const response = await fetch(`${API_BASE_URL}/api/video/libraries/${libraryId}/videos`);
         const data = await response.json();
         setVideos(Array.isArray(data) ? data : []);
-      } catch (e) {
+      } catch {
         setError('Failed to load videos for the selected library');
         setVideos([]);
       } finally {
@@ -313,7 +313,7 @@ function VideoExplorer() {
       }
 
       setSelectedVideo(null);
-    } catch (e) {
+    } catch {
       setError('Failed to start playback');
     } finally {
       setIsStartingPlayback(false);
@@ -430,6 +430,7 @@ function VideoExplorer() {
                             const brokenKey = video.media_id || video.path;
                             const showImage = !!thumb && !brokenThumbnails.has(brokenKey);
                             const cardWidth = getCardWidthPx(brokenKey);
+                            const isWatched = (video.playcount ?? 0) > 0;
 
                             return (
                               <button
@@ -472,6 +473,11 @@ function VideoExplorer() {
                                   {!showImage && (
                                     <div className="video-explorer-thumb-placeholder">
                                       <span className="material-icons">movie</span>
+                                    </div>
+                                  )}
+                                  {isWatched && (
+                                    <div className="video-explorer-thumb-watched" aria-hidden title="Watched">
+                                      <span className="material-icons">visibility</span>
                                     </div>
                                   )}
                                   <div className="video-explorer-thumb-title" aria-hidden>
@@ -541,6 +547,7 @@ function VideoExplorer() {
                       const brokenKey = video.media_id || video.path;
                       const showImage = !!thumb && !brokenThumbnails.has(brokenKey);
                       const cardWidth = getCardWidthPx(brokenKey);
+                      const isWatched = (video.playcount ?? 0) > 0;
 
                       return (
                         <button
@@ -584,6 +591,11 @@ function VideoExplorer() {
                             {!showImage && (
                               <div className="video-explorer-thumb-placeholder">
                                 <span className="material-icons">movie</span>
+                              </div>
+                            )}
+                            {isWatched && (
+                              <div className="video-explorer-thumb-watched" aria-hidden title="Watched">
+                                <span className="material-icons">visibility</span>
                               </div>
                             )}
                             <div className="video-explorer-thumb-title" aria-hidden>

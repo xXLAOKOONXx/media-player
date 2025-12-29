@@ -223,11 +223,16 @@ class StatsManager:
             logger.error(f"Failed to retrieve stats: {e}")
             return []
 
-    def get_media_play_stats(self, file_paths):
+    def get_media_play_stats(self, file_paths, username=None):
         """Get aggregated play stats for a set of media file paths.
 
         Args:
             file_paths: Iterable of absolute media file paths.
+
+        Args:
+            file_paths: Iterable of absolute media file paths.
+            username: Optional username to filter stats by. When provided,
+                playcount/last_played are computed only for that user.
 
         Returns:
             Dict keyed by file_path with values: {'playcount': int, 'last_played': float}.
@@ -260,11 +265,18 @@ class StatsManager:
 
             col = self._get_path_column_name()
             placeholders = ','.join(['?'] * len(unique_paths))
+            params = list(unique_paths)
+
+            where_clause = f"{col} IN ({placeholders})"
+            if isinstance(username, str) and username.strip():
+                where_clause += " AND username = ?"
+                params.append(username.strip())
+
             query = (
                 f"SELECT {col} as file_path, COUNT(*) as playcount, MAX(timestamp) as last_played "
-                f"FROM media_stats WHERE {col} IN ({placeholders}) GROUP BY {col}"
+                f"FROM media_stats WHERE {where_clause} GROUP BY {col}"
             )
-            cursor.execute(query, unique_paths)
+            cursor.execute(query, params)
             rows = cursor.fetchall()
             conn.close()
 
