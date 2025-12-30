@@ -10,6 +10,7 @@ from services.video.video_metadata import (
     read_video_metadata,
     find_nfo_file,
     update_nfo_user_rating_and_tags,
+    update_nfo_user_metadata,
 )
 
 
@@ -413,3 +414,63 @@ class TestVideoMetadataExtraction:
             assert found_nfo is None
         finally:
             os.unlink(video_path)
+
+
+class TestVideoMetadataNfoWriting:
+    def test_update_nfo_user_metadata_writes_custom_times(self):
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Timed Movie</title>
+    <userscore>5.0</userscore>
+    <genre>Old</genre>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            ok = update_nfo_user_metadata(
+                nfo_path,
+                user_rating=8.0,
+                tags=['Action'],
+                start_time_in_ms=1500,
+                end_time_in_ms=2500,
+            )
+            assert ok is True
+
+            metadata = parse_nfo_file(nfo_path)
+            assert metadata['user_rating'] == 8.0
+            assert metadata['tags'] == ['Action']
+            assert metadata['start_time_in_ms'] == 1500
+            assert metadata['end_time_in_ms'] == 2500
+        finally:
+            os.unlink(nfo_path)
+
+    def test_update_nfo_user_metadata_removes_custom_times_when_none(self):
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Timed Movie</title>
+    <start_time_in_ms>1200</start_time_in_ms>
+    <end_time_in_ms>3456</end_time_in_ms>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            ok = update_nfo_user_metadata(
+                nfo_path,
+                user_rating=None,
+                tags=[],
+                start_time_in_ms=None,
+                end_time_in_ms=None,
+            )
+            assert ok is True
+
+            metadata = parse_nfo_file(nfo_path)
+            assert 'start_time_in_ms' not in metadata
+            assert 'end_time_in_ms' not in metadata
+        finally:
+            os.unlink(nfo_path)

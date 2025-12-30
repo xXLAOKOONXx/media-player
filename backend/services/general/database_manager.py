@@ -2067,30 +2067,56 @@ class DatabaseManager:
     def get_video_user_metadata_by_media_id(self, media_id: str) -> dict | None:
         """Fetch user-editable metadata for a video from the cache DB.
 
-        Returns dict with keys: tags (list[str]) and user_rating (float|None).
+        Returns dict with keys:
+        - tags (list[str])
+        - user_rating (float|None)
+        - start_time_in_ms (int|None)
+        - end_time_in_ms (int|None)
         """
         if not isinstance(media_id, str) or not media_id:
             return None
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('SELECT tags, user_rating FROM videos WHERE media_id = ? LIMIT 1', (media_id,))
-            row = cursor.fetchone()
+            try:
+                cursor.execute(
+                    'SELECT tags, user_rating, start_time_in_ms, end_time_in_ms FROM videos WHERE media_id = ? LIMIT 1',
+                    (media_id,),
+                )
+                row = cursor.fetchone()
+            except sqlite3.OperationalError:
+                cursor.execute('SELECT tags, user_rating FROM videos WHERE media_id = ? LIMIT 1', (media_id,))
+                row = cursor.fetchone()
             if not row:
                 return None
             raw_tags = row[0]
             rating = row[1]
+            start_ms = row[2] if len(row) > 2 else None
+            end_ms = row[3] if len(row) > 3 else None
             try:
                 tags = json.loads(raw_tags) if raw_tags else []
             except Exception:
                 tags = []
             if not isinstance(tags, list):
                 tags = []
-            return {'tags': tags, 'user_rating': rating}
+            return {
+                'tags': tags,
+                'user_rating': rating,
+                'start_time_in_ms': start_ms,
+                'end_time_in_ms': end_ms,
+            }
         finally:
             conn.close()
 
-    def update_video_user_metadata_by_media_id(self, media_id: str, *, user_rating, tags) -> bool:
+    def update_video_user_metadata_by_media_id(
+        self,
+        media_id: str,
+        *,
+        user_rating,
+        tags,
+        start_time_in_ms=None,
+        end_time_in_ms=None,
+    ) -> bool:
         """Update user-editable metadata (tags + user_rating) for a cached video.
 
         Also updates cached_at so the cache is considered fresh against NFO changes.
@@ -2134,9 +2160,26 @@ class DatabaseManager:
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
+            # Normalize ms fields (store as ints or NULL)
+            def _normalize_ms(value):
+                if value is None or value == '':
+                    return None
+                if isinstance(value, bool):
+                    return None
+                try:
+                    out = int(float(value))
+                except Exception:
+                    return None
+                if out < 0:
+                    return None
+                return out
+
+            start_ms = _normalize_ms(start_time_in_ms)
+            end_ms = _normalize_ms(end_time_in_ms)
+
             cursor.execute(
-                'UPDATE videos SET tags = ?, user_rating = ?, cached_at = ? WHERE media_id = ?',
-                (json.dumps(tag_list), rating, datetime.now().timestamp(), media_id),
+                'UPDATE videos SET tags = ?, user_rating = ?, start_time_in_ms = ?, end_time_in_ms = ?, cached_at = ? WHERE media_id = ?',
+                (json.dumps(tag_list), rating, start_ms, end_ms, datetime.now().timestamp(), media_id),
             )
             conn.commit()
             return cursor.rowcount > 0

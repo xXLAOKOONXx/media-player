@@ -347,6 +347,10 @@ Per video row, Actions column:
     - On success, the table reflects updated tags immediately.
   - **Play** triggers POST `/api/video/playback/play-video` with `{ "media_id": <video media id> }`.
 
+Popup fields:
+- The popup includes editable `music_start` and `music_end` fields (milliseconds) when available.
+  - Each field shows a tooltip indicating the value is in milliseconds (ms).
+
 ## Empty states
 
 - If there are no videos at all: show "No videos found".
