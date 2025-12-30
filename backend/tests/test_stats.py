@@ -170,6 +170,40 @@ class TestStatsManager:
         # Legacy DBs should be migrated to include media_id when possible.
         assert stats[0].get('media_id') == 'legacy-mid'
 
+    def test_get_media_play_stats_by_media_id_aggregates_across_paths(self, temp_stats_folder):
+        """Same media_id can be recorded under different file_path spellings.
+
+        This happens on Windows/SMB shares when path casing differs between scan
+        results and the actual path used during playback. Aggregation by media_id
+        must merge these rows.
+        """
+        manager = StatsManager(temp_stats_folder)
+        assert manager.is_initialized()
+
+        db_path = os.path.join(temp_stats_folder, 'media-player-stats.db')
+        conn = sqlite3.connect(db_path, timeout=5.0)
+        cursor = conn.cursor()
+
+        mid = 'mid-123'
+        # Two different spellings/casing for the same file.
+        p1 = r"\\mynas\daten\Videos\Serien\Sandman\S01\Sandman_S01E04_Hoffnung in der Hölle.mp4"
+        p2 = r"\\myNAS\Daten\Videos\Serien\Sandman\S01\Sandman_S01E04_Hoffnung in der Hölle.mp4"
+
+        cursor.execute(
+            "INSERT INTO media_stats (timestamp, file_path, username, media_id) VALUES (?, ?, ?, ?)",
+            (1000.0, p1, 'Tom', mid),
+        )
+        cursor.execute(
+            "INSERT INTO media_stats (timestamp, file_path, username, media_id) VALUES (?, ?, ?, ?)",
+            (2000.0, p2, 'Tom', mid),
+        )
+        conn.commit()
+        conn.close()
+
+        stats = manager.get_media_play_stats_by_media_id([mid], username='Tom')
+        assert stats[mid]['playcount'] == 2
+        assert stats[mid]['last_played'] == 2000.0
+
 
 class TestStatsTracking:
     """Test stats tracking in playback controllers"""

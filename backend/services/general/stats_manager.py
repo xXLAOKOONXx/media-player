@@ -291,6 +291,73 @@ class StatsManager:
         except Exception as e:
             logger.error(f"Failed to retrieve aggregated stats: {e}")
             return {}
+
+    def get_media_play_stats_by_media_id(self, media_ids, username=None):
+        """Get aggregated play stats for a set of media_ids.
+
+        This is more robust than path-based aggregation on Windows/SMB shares
+        where the same file can appear with different casing or normalization.
+
+        Returns:
+            Dict keyed by media_id with values: {'playcount': int, 'last_played': float}.
+        """
+        if not self._initialized or not self.db_path:
+            logger.warning("Stats database not initialized, cannot retrieve aggregated stats")
+            return {}
+
+        if not self._has_media_id:
+            # Older DBs may not have the media_id column.
+            return {}
+
+        if not media_ids:
+            return {}
+
+        # De-duplicate while keeping stable strings.
+        unique_ids = []
+        seen = set()
+        for mid in media_ids:
+            if not mid or not isinstance(mid, str):
+                continue
+            if mid in seen:
+                continue
+            seen.add(mid)
+            unique_ids.append(mid)
+
+        if not unique_ids:
+            return {}
+
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cursor = conn.cursor()
+
+            placeholders = ','.join(['?'] * len(unique_ids))
+            params = list(unique_ids)
+
+            where_clause = f"media_id IN ({placeholders})"
+            if isinstance(username, str) and username.strip():
+                where_clause += " AND username = ?"
+                params.append(username.strip())
+
+            query = (
+                "SELECT media_id as media_id, COUNT(*) as playcount, MAX(timestamp) as last_played "
+                f"FROM media_stats WHERE {where_clause} GROUP BY media_id"
+            )
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            conn.close()
+
+            results = {}
+            for mid, playcount, last_played in rows:
+                if not isinstance(mid, str) or not mid:
+                    continue
+                results[mid] = {
+                    'playcount': int(playcount) if playcount is not None else 0,
+                    'last_played': float(last_played) if last_played is not None else None,
+                }
+            return results
+        except Exception as e:
+            logger.error(f"Failed to retrieve aggregated stats by media_id: {e}")
+            return {}
     
     def is_initialized(self):
         """Check if the stats database is initialized and ready"""

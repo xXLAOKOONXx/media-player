@@ -1423,12 +1423,18 @@ def get_library_videos(library_id):
     try:
         t_stats0 = time.perf_counter()
         video_paths = [v.get('path') for v in videos if isinstance(v, dict)]
+        video_media_ids = [v.get('media_id') for v in videos if isinstance(v, dict) and isinstance(v.get('media_id'), str)]
 
         session_id = request.cookies.get('session_id')
         user = user_manager.get_user_from_session(session_id) if session_id else None
         username = user.get('username') if isinstance(user, dict) else None
 
-        play_stats = (
+        play_stats_by_media_id = (
+            stats_manager.get_media_play_stats_by_media_id(video_media_ids, username=username)
+            if stats_manager
+            else {}
+        )
+        play_stats_by_path = (
             stats_manager.get_media_play_stats(video_paths, username=username)
             if stats_manager
             else {}
@@ -1436,7 +1442,12 @@ def get_library_videos(library_id):
         for video in videos:
             if not isinstance(video, dict):
                 continue
-            stats = play_stats.get(video.get('path'))
+            stats = None
+            mid = video.get('media_id')
+            if isinstance(mid, str) and mid:
+                stats = play_stats_by_media_id.get(mid)
+            if stats is None:
+                stats = play_stats_by_path.get(video.get('path'))
             video['playcount'] = stats.get('playcount', 0) if stats else 0
             video['last_played'] = stats.get('last_played') if stats else None
         t_stats = time.perf_counter() - t_stats0
@@ -1523,26 +1534,49 @@ def get_library_series(library_id):
             except Exception:
                 pass
 
-    # Optionally enrich nested videos with play stats (global).
+    # Optionally enrich nested videos with play stats.
     try:
         all_video_paths: list[str] = []
+        all_media_ids: list[str] = []
         for s in series:
             if not isinstance(s, dict):
                 continue
             for v in (s.get('videos') or []):
                 if isinstance(v, dict) and isinstance(v.get('path'), str):
                     all_video_paths.append(v['path'])
+                if isinstance(v, dict) and isinstance(v.get('media_id'), str):
+                    all_media_ids.append(v['media_id'])
             for season in (s.get('seasons') or []):
                 if not isinstance(season, dict):
                     continue
                 for v in (season.get('videos') or []):
                     if isinstance(v, dict) and isinstance(v.get('path'), str):
                         all_video_paths.append(v['path'])
+                    if isinstance(v, dict) and isinstance(v.get('media_id'), str):
+                        all_media_ids.append(v['media_id'])
 
-        play_stats = stats_manager.get_media_play_stats(all_video_paths) if stats_manager else {}
+        session_id = request.cookies.get('session_id')
+        user = user_manager.get_user_from_session(session_id) if session_id else None
+        username = user.get('username') if isinstance(user, dict) else None
+
+        play_stats_by_media_id = (
+            stats_manager.get_media_play_stats_by_media_id(all_media_ids, username=username)
+            if stats_manager
+            else {}
+        )
+        play_stats_by_path = (
+            stats_manager.get_media_play_stats(all_video_paths, username=username)
+            if stats_manager
+            else {}
+        )
 
         def _apply_stats(video: dict):
-            stats = play_stats.get(video.get('path')) if isinstance(video.get('path'), str) else None
+            stats = None
+            mid = video.get('media_id')
+            if isinstance(mid, str) and mid:
+                stats = play_stats_by_media_id.get(mid)
+            if stats is None and isinstance(video.get('path'), str):
+                stats = play_stats_by_path.get(video.get('path'))
             video['playcount'] = stats.get('playcount', 0) if stats else 0
             video['last_played'] = stats.get('last_played') if stats else None
 
