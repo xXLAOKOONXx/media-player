@@ -35,6 +35,8 @@ When a `current_track` exists:
   - Custom Range line if either `current_track.start_time` or `current_track.end_time` is not null.
 
 Notes:
+- The backend enriches playlist entries using the cached video database first (same source as Video Library titles).
+  - If the cache does not contain the video, the backend falls back to scraping the video file metadata and its adjacent `.nfo` file (when present).
 - `current_track.start_time` and `current_track.end_time` can be set either by explicit user edits (track times API) or derived automatically from per-file metadata.
 - For MP4/M4V files, the backend recognizes iTunes freeform tags:
   - `----:LAO:music-start` (milliseconds) → `current_track.start_time` (seconds)

@@ -1906,6 +1906,71 @@ class DatabaseManager:
                 'name': file_name,
             }
         return results
+
+    def get_videos_by_paths(self, file_paths):
+        """Fetch cached video info for a set of file paths.
+
+        Args:
+            file_paths: Iterable of file path strings.
+
+        Returns:
+            Dict mapping normalized file_path -> video dict containing cached metadata.
+        """
+        if not file_paths:
+            return {}
+
+        unique_paths: list[str] = []
+        seen: set[str] = set()
+        for p in file_paths:
+            if not isinstance(p, str) or not p:
+                continue
+            norm = os.path.normpath(p)
+            if norm in seen:
+                continue
+            seen.add(norm)
+            unique_paths.append(norm)
+
+        if not unique_paths:
+            return {}
+
+        placeholders = ','.join(['?'] * len(unique_paths))
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f'''SELECT media_id, file_path, file_name, title, duration,
+                          start_time_in_ms, end_time_in_ms, tags, artist,
+                          thumbnail, thumbnail_file, thumbnail_url
+                     FROM videos
+                    WHERE file_path IN ({placeholders})''',
+                tuple(unique_paths),
+            )
+            rows = cursor.fetchall()
+        finally:
+            conn.close()
+
+        results: dict[str, dict] = {}
+        for (media_id, file_path, file_name, title, duration,
+             start_ms, end_ms, tags_json, artist,
+             thumb_blob, thumb_file, thumb_url) in rows:
+            norm = os.path.normpath(file_path) if file_path else None
+            if not norm:
+                continue
+            results[norm] = {
+                'media_id': media_id,
+                'path': norm,
+                'name': file_name,
+                'title': title,
+                'duration': duration,
+                'start_time_in_ms': start_ms,
+                'end_time_in_ms': end_ms,
+                'tags': json.loads(tags_json) if tags_json else [],
+                'artist': artist,
+                'has_thumbnail': (thumb_blob is not None) or (thumb_file is not None) or (thumb_url is not None),
+                'thumbnail_url': thumb_url,
+            }
+
+        return results
     
     def invalidate_video_folder(self, folder_id):
         """Invalidate cache for a specific video folder"""

@@ -164,7 +164,7 @@ video_config = config.get('video', {
     'fullscreen': True,
     'preferred_screen': None
 })
-video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager)
+video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager, db_manager=db)
 
 
 _MEDIA_ID_RE = re.compile(r'^[0-9a-fA-F]{64}$')

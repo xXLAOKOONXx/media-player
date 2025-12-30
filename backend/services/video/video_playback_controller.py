@@ -21,6 +21,7 @@ except ImportError:
     print("Warning: mutagen not available for video duration extraction")
 
 import os
+import hashlib
 from pathlib import Path
 import random
 import copy
@@ -100,7 +101,7 @@ class VideoPlaybackController:
     DEFAULT_VOLUME = 50  # Volume as integer 0-100
     DURATION_DETECTION_TIMEOUT = 2  # Seconds to wait for duration during playback
     
-    def __init__(self, video_config=None, stats_manager=None):
+    def __init__(self, video_config=None, stats_manager=None, db_manager=None):
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
@@ -137,6 +138,11 @@ class VideoPlaybackController:
             'fullscreen': True,
             'preferred_screen': None
         }
+
+        # Optional unified cache DB (DatabaseManager). When present, playlist
+        # entries are enriched from cached metadata to keep titles consistent
+        # with library views.
+        self.db = db_manager
         
         # MPV player instance
         self.player = None
@@ -337,8 +343,30 @@ class VideoPlaybackController:
                 return None
         return None
 
-    def _get_custom_times_for_path(self, video_path: str):
+    def _get_custom_times_for_path(self, video_path: str, cached: dict | None = None):
         """Get custom start/end times (seconds) for a given video file path."""
+        try:
+            if cached is None and self.db is not None:
+                cached = self.db.get_cached_video_by_path(video_path)
+        except Exception:
+            cached = None
+
+        if isinstance(cached, dict):
+            start_sec = self._ms_to_seconds(cached.get('start_time_in_ms'))
+            end_sec = self._ms_to_seconds(cached.get('end_time_in_ms'))
+
+            # Sanity: ignore negatives
+            if start_sec is not None and start_sec < 0:
+                start_sec = None
+            if end_sec is not None and end_sec < 0:
+                end_sec = None
+            # If end <= start, treat as invalid
+            if start_sec is not None and end_sec is not None and end_sec <= start_sec:
+                end_sec = None
+
+            if start_sec is not None or end_sec is not None:
+                return start_sec, end_sec
+
         try:
             metadata = read_video_metadata(
                 video_path,
@@ -362,6 +390,106 @@ class VideoPlaybackController:
             end_sec = None
 
         return start_sec, end_sec
+
+    @staticmethod
+    def _stable_media_id_for_path(video_path: str) -> str | None:
+        if not isinstance(video_path, str) or not video_path.strip():
+            return None
+        normalized_path = os.path.normpath(video_path)
+        return hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
+
+    def _build_track_entry(self, track_path: str, *, extinf_title: str | None = None, cached: dict | None = None):
+        """Build a playlist entry enriched with DB metadata when possible."""
+        if not os.path.exists(track_path):
+            return None
+
+        if cached is None and self.db is not None:
+            try:
+                cached = self.db.get_cached_video_by_path(track_path)
+            except Exception:
+                cached = None
+
+        # Duration: prefer cached duration to avoid external probing.
+        duration = None
+        if isinstance(cached, dict):
+            try:
+                dur = cached.get('duration')
+                if dur is not None:
+                    dur = float(dur)
+                if dur and dur > 0:
+                    duration = dur
+            except Exception:
+                duration = None
+        if duration is None:
+            duration = get_video_duration(track_path)
+
+        # Title: prefer cached DB title (from NFO/embedded tags), else scrape, else EXTINF, else filename.
+        title = None
+        artist = None
+        tags = None
+        media_id = None
+        has_thumbnail = None
+        thumbnail_url = None
+
+        if isinstance(cached, dict):
+            media_id = cached.get('media_id')
+            title = cached.get('title')
+            artist = cached.get('artist')
+            tags = cached.get('tags')
+            has_thumbnail = cached.get('has_thumbnail')
+            thumbnail_url = cached.get('thumbnail_url')
+
+        if not isinstance(title, str) or not title.strip():
+            try:
+                scraped = read_video_metadata(
+                    track_path,
+                    include_duration=False,
+                    check_nfo=True,
+                    include_thumbnail=False,
+                )
+            except Exception:
+                scraped = {}
+
+            scraped_title = scraped.get('title')
+            if isinstance(scraped_title, str) and scraped_title.strip():
+                title = scraped_title.strip()
+            scraped_artist = scraped.get('artist')
+            if (artist is None) and isinstance(scraped_artist, str) and scraped_artist.strip():
+                artist = scraped_artist.strip()
+            scraped_tags = scraped.get('tags')
+            if tags is None and isinstance(scraped_tags, list):
+                tags = scraped_tags
+
+        if not isinstance(title, str) or not title.strip():
+            if isinstance(extinf_title, str) and extinf_title.strip():
+                title = extinf_title.strip()
+            else:
+                title = os.path.splitext(os.path.basename(track_path))[0]
+
+        if not isinstance(media_id, str) or not media_id.strip():
+            media_id = self._stable_media_id_for_path(track_path)
+
+        start_time, end_time = self._get_custom_times_for_path(track_path, cached=cached if isinstance(cached, dict) else None)
+
+        entry = {
+            'path': track_path,
+            'title': title,
+            'duration': duration,
+            'start_time': start_time,
+            'end_time': end_time,
+            'media_id': media_id,
+        }
+
+        if isinstance(artist, str) and artist.strip():
+            entry['artist'] = artist.strip()
+        if isinstance(tags, list):
+            entry['tags'] = tags
+        if has_thumbnail is not None:
+            entry['has_thumbnail'] = bool(has_thumbnail)
+        if isinstance(thumbnail_url, str) and thumbnail_url.strip():
+            entry['thumbnail_url'] = thumbnail_url.strip()
+
+        return entry
 
     def _check_custom_end_time(self):
         """If the current track has an end_time, auto-advance when reached."""
@@ -401,31 +529,67 @@ class VideoPlaybackController:
         
         playlist_dir = os.path.dirname(playlist_path)
         tracks = []
-        
+
+        # Preload cached metadata for absolute paths when possible.
+        cached_by_path = {}
+        if self.db is not None:
+            try:
+                # Best-effort: collect paths (including relative candidates) first.
+                with open(playlist_path, 'r', encoding='utf-8-sig') as f:
+                    raw_lines = [ln.strip() for ln in f.readlines()]
+
+                candidate_paths = []
+                extinf_title = None
+                for line in raw_lines:
+                    if not line:
+                        continue
+                    if line.startswith('#'):
+                        if line.startswith('#EXTINF:'):
+                            parts = line[8:].split(',', 1)
+                            extinf_title = parts[1].strip() if len(parts) == 2 else None
+                        continue
+
+                    # Normalize Windows path separators in M3U (non-URL).
+                    if '://' not in line:
+                        line = line.replace('\\\\', '/').replace('\\', '/')
+
+                    if os.path.isabs(line):
+                        candidate_paths.append(os.path.normpath(line))
+                    else:
+                        candidate_paths.append(os.path.normpath(os.path.join(playlist_dir, line)))
+
+                cached_by_path = self.db.get_videos_by_paths(candidate_paths)
+            except Exception:
+                cached_by_path = {}
+
         try:
-            with open(playlist_path, 'r', encoding='utf-8') as f:
+            with open(playlist_path, 'r', encoding='utf-8-sig') as f:
+                extinf_title = None
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#'):
-                        # Handle relative and absolute paths
-                        if os.path.isabs(line):
-                            track_path = line
-                        else:
-                            track_path = os.path.join(playlist_dir, line)
-                        
-                        if os.path.exists(track_path):
-                            # Get video duration
-                            duration = get_video_duration(track_path)
+                    if not line:
+                        continue
+                    if line.startswith('#'):
+                        if line.startswith('#EXTINF:'):
+                            parts = line[8:].split(',', 1)
+                            extinf_title = parts[1].strip() if len(parts) == 2 else None
+                        continue
 
-                            start_time, end_time = self._get_custom_times_for_path(track_path)
-                            
-                            tracks.append({
-                                'path': track_path,
-                                'title': os.path.basename(track_path),
-                                'duration': duration,
-                                'start_time': start_time,
-                                'end_time': end_time
-                            })
+                    # Normalize Windows path separators in M3U (non-URL).
+                    if '://' not in line:
+                        line = line.replace('\\\\', '/').replace('\\', '/')
+
+                    if os.path.isabs(line):
+                        track_path = os.path.normpath(line)
+                    else:
+                        track_path = os.path.normpath(os.path.join(playlist_dir, line))
+
+                    cached = cached_by_path.get(os.path.normpath(track_path)) if isinstance(cached_by_path, dict) else None
+                    entry = self._build_track_entry(track_path, extinf_title=extinf_title, cached=cached)
+                    extinf_title = None
+                    if entry:
+                        tracks.append(entry)
+
         except Exception as e:
             logger.error(f"Error loading playlist {playlist_path}: {e}")
             return False
@@ -463,21 +627,20 @@ class VideoPlaybackController:
         """Add tracks to the current playlist and auto-start if not playing"""
         valid_tracks_added = 0
         was_empty = len(self.current_playlist) == 0
+
+        cached_by_path = {}
+        if self.db is not None:
+            try:
+                cached_by_path = self.db.get_videos_by_paths(track_paths)
+            except Exception:
+                cached_by_path = {}
         
         for path in track_paths:
-            if os.path.exists(path):
-                # Get video duration
-                duration = get_video_duration(path)
-
-                start_time, end_time = self._get_custom_times_for_path(path)
-                
-                self.current_playlist.append({
-                    'path': path,
-                    'title': os.path.basename(path),
-                    'duration': duration,
-                    'start_time': start_time,
-                    'end_time': end_time
-                })
+            norm = os.path.normpath(path) if isinstance(path, str) else path
+            cached = cached_by_path.get(norm) if isinstance(cached_by_path, dict) else None
+            entry = self._build_track_entry(path, cached=cached)
+            if entry:
+                self.current_playlist.append(entry)
                 valid_tracks_added += 1
         
         if not self.original_playlist:
