@@ -57,6 +57,17 @@ _configure_logging()
 
 logger = logging.getLogger(__name__)
 
+PREFERRED_LANGUAGE_OPTIONS = ('deu', 'eng')
+
+
+def _apply_video_playback_user_context_from_session() -> None:
+    session_id = request.cookies.get('session_id')
+    user = user_manager.get_user_from_session(session_id) if session_id else None
+    if not user:
+        return
+    video_playback_controller.current_username = user.get('username')
+    video_playback_controller.set_current_user_preferred_language(user.get('preferred_language'))
+
 # Validate static folder exists
 if not os.path.exists(static_folder):
     print(f"Warning: Static folder not found at {static_folder}")
@@ -242,6 +253,36 @@ def get_current_user():
         'username': user['username'],
         'role': user['role']
     })
+
+
+@app.route('/api/user/preferences', methods=['GET'])
+@require_auth(user_manager)
+def get_user_preferences():
+    """Get the current user's preferences."""
+    user = getattr(request, 'current_user', None) or {}
+    preferred_language = user.get('preferred_language') or 'eng'
+    return jsonify({'preferred_language': preferred_language})
+
+
+@app.route('/api/user/preferences', methods=['PUT'])
+@require_auth(user_manager)
+def update_user_preferences():
+    """Update the current user's preferences."""
+    try:
+        user = getattr(request, 'current_user', None)
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+
+        data = request.json or {}
+        preferred_language = data.get('preferred_language')
+
+        if not isinstance(preferred_language, str) or preferred_language not in PREFERRED_LANGUAGE_OPTIONS:
+            return jsonify({'error': f"preferred_language must be one of: {', '.join(PREFERRED_LANGUAGE_OPTIONS)}"}), 400
+
+        db.update_user_preferred_language(user['id'], preferred_language)
+        return jsonify({'preferred_language': preferred_language})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Public endpoint for login page
 @app.route('/api/auth/available-users', methods=['GET'])
@@ -1733,10 +1774,7 @@ def video_play():
     data = request.json
     
     # Get current user from session (if available)
-    session_id = request.cookies.get('session_id')
-    user = user_manager.get_user_from_session(session_id)
-    if user:
-        video_playback_controller.current_username = user['username']
+    _apply_video_playback_user_context_from_session()
     
     playlist_path = data.get('playlist_path')
     track_index = data.get('track_index', 0)
@@ -1860,6 +1898,7 @@ def update_video_track_times(track_index):
 @app.route('/api/video/playback/add-videos', methods=['POST'])
 def add_video_tracks():
     """Add videos to current playback playlist"""
+    _apply_video_playback_user_context_from_session()
     data = request.json
     media_ids = data.get('media_ids', [])
 
@@ -1890,6 +1929,7 @@ def play_single_video():
     Expects JSON: { "media_id": "<sha256>" }
     """
     data = request.get_json(silent=True) or {}
+    _apply_video_playback_user_context_from_session()
     media_id, err = _require_media_id(data.get('media_id'))
     if err:
         return err

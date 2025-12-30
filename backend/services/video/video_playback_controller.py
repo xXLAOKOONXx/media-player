@@ -118,7 +118,12 @@ class VideoPlaybackController:
         # For subtitles, MPV supports disabling via 'no'. We represent "off" as -1 in the API.
         self.selected_audio_track_id = None
         self.selected_subtitle_track_id = -1
+        self._audio_track_user_selected = False
         self._subtitle_track_user_selected = False
+
+        # Per-user preference (set by app from session)
+        # Values currently supported: 'deu', 'eng'
+        self.current_user_preferred_language = 'eng'
         
         # Track timing state
         self.track_custom_start = None  # Custom start time in track (seconds)
@@ -567,6 +572,13 @@ class VideoPlaybackController:
                 # Load and play the video
                 self.player.play(video_path)
 
+                # Best-effort: choose a preferred-language audio track if multiple are available
+                # and the user hasn't explicitly picked an audio track.
+                try:
+                    self._maybe_select_default_audio_track()
+                except Exception as e:
+                    logger.debug(f"Error selecting default audio track: {e}")
+
                 # Best-effort: apply stored audio/subtitle selection.
                 try:
                     self._apply_selected_tracks_to_player()
@@ -694,6 +706,122 @@ class VideoPlaybackController:
             return False
         return 'forced' in text.lower()
 
+    def set_current_user_preferred_language(self, preferred_language: str | None) -> None:
+        if not isinstance(preferred_language, str) or not preferred_language.strip():
+            self.current_user_preferred_language = 'eng'
+            return
+        self.current_user_preferred_language = preferred_language.strip().lower()
+
+    @staticmethod
+    def _normalize_language(lang: str) -> str:
+        return lang.strip().lower()
+
+    @staticmethod
+    def _preferred_language_aliases(preferred_language: str):
+        pref = (preferred_language or '').strip().lower()
+        aliases = {pref}
+        # Map ISO-639-2/3 preferences to common ISO-639-1 codes seen in some files.
+        if pref == 'eng':
+            aliases.add('en')
+        if pref == 'deu':
+            aliases.add('de')
+            aliases.add('ger')
+        return aliases
+
+    @staticmethod
+    def _track_is_visual_impaired(track_dict: dict) -> bool:
+        # MPV key names can include hyphens; tolerate both styles.
+        val = track_dict.get('visual-impaired')
+        if val is None:
+            val = track_dict.get('visual_impaired')
+        return bool(val)
+
+    def _maybe_select_default_audio_track(self) -> None:
+        """Auto-select an audio track matching the user's preferred language.
+
+        Rule:
+        - If multiple audio tracks exist, try to select one matching the user's preferred language.
+        - If multiple match, prefer the one that is NOT visual-impaired.
+        - Never override if user explicitly selected an audio track via the API/UI.
+        """
+        logger.debug("Attempting to auto-select default audio track based on user preference")
+        if not self.player or not self.video_available:
+            return
+
+        if self._audio_track_user_selected:
+            return
+
+        # MPV may not have parsed tracks immediately after play(); wait briefly.
+        tracks = self._get_mpv_track_list()
+        if not tracks:
+            # Best-effort: wait for playback to start, then re-check track list.
+            try:
+                if hasattr(self.player, 'wait_until_playing'):
+                    self.player.wait_until_playing(timeout=0.75)
+            except Exception:
+                pass
+
+            deadline = time.time() + 0.75
+            while time.time() < deadline and not tracks:
+                time.sleep(0.05)
+                tracks = self._get_mpv_track_list()
+
+        if not tracks:
+            return
+
+        audio_tracks = []
+        for t in tracks:
+            if t.get('type') != 'audio':
+                continue
+            tid = t.get('id')
+            if not isinstance(tid, int):
+                continue
+            lang = t.get('lang')
+            audio_tracks.append({
+                'id': tid,
+                'lang': lang if isinstance(lang, str) else None,
+                'visual_impaired': self._track_is_visual_impaired(t),
+                'selected': bool(t.get('selected')),
+            })
+
+        if len(audio_tracks) < 2:
+            return
+
+        aliases = self._preferred_language_aliases(self.current_user_preferred_language)
+        candidates = []
+        for t in audio_tracks:
+            lang = t.get('lang')
+            if not isinstance(lang, str) or not lang.strip():
+                continue
+            lang_norm = self._normalize_language(lang)
+            if lang_norm in aliases:
+                candidates.append(t)
+
+        if not candidates:
+            return
+
+        non_vi = [t for t in candidates if not t.get('visual_impaired')]
+        preferred_set = non_vi if non_vi else candidates
+
+        # Prefer MPV's currently-selected track if it's in our preferred set.
+        current_aid = self._get_current_aid()
+        if isinstance(current_aid, int):
+            for t in preferred_set:
+                if t['id'] == current_aid:
+                    self.selected_audio_track_id = current_aid
+                    try:
+                        self.player.aid = int(current_aid)
+                    except Exception:
+                        pass
+                    return
+
+        chosen = sorted(preferred_set, key=lambda x: x['id'])[0]
+        self.selected_audio_track_id = int(chosen['id'])
+        try:
+            self.player.aid = int(chosen['id'])
+        except Exception:
+            pass
+
     def _maybe_select_default_forced_subtitle(self):
         """Auto-select a matching forced subtitle if subtitles are off.
 
@@ -781,7 +909,6 @@ class VideoPlaybackController:
             title = self._get_track_title_from_mpv_track(t)
             lang = t.get('lang')
             label = self._format_track_label(track_type, tid, title, lang)
-            logger.info(f"Found {track_type} track: id={tid}, title={title}, lang={lang}, label={label}, t={t}")
             options.append({
                 'id': tid,
                 'label': label,
@@ -841,6 +968,7 @@ class VideoPlaybackController:
             return False
 
         self.selected_audio_track_id = tid
+        self._audio_track_user_selected = True
         if self.player and self.video_available:
             try:
                 self.player.aid = tid

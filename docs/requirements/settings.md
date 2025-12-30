@@ -21,6 +21,19 @@ Both routes display the same Settings component with all configuration options.
 
 The Settings view is divided into sections:
 
+### User Preferences Section
+
+Contains per-user settings.
+
+#### Preferred language
+
+- A dropdown labeled "Preferred language".
+- Options are currently:
+  - `deu`
+  - `eng`
+- Default: `eng`.
+- Changing the dropdown saves immediately for the current user (no admin rights required).
+
 ### Audio Settings Section
 
 Contains configuration options for audio playback.
@@ -131,6 +144,30 @@ Updates settings with the provided values.
 Request format: Same as GET response
 
 Returns updated settings on success, or error object on failure.
+
+### GET `/api/user/preferences`
+
+Requires authentication.
+
+Response format:
+```json
+{
+  "preferred_language": "eng"
+}
+```
+
+### PUT `/api/user/preferences`
+
+Requires authentication.
+
+Request format:
+```json
+{
+  "preferred_language": "deu"
+}
+```
+
+Returns updated preferences on success.
 
 ## Validation
 

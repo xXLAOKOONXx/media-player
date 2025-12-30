@@ -190,6 +190,7 @@ class DatabaseManager:
                 username TEXT NOT NULL UNIQUE,
                 password_hash TEXT,
                 role TEXT NOT NULL,
+                preferred_language TEXT NOT NULL DEFAULT 'eng',
                 created_at REAL NOT NULL
             )
         ''')
@@ -257,6 +258,19 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     # Column might already exist in some edge cases
                     pass
+
+        # Migrate existing users table to add preferred_language if missing
+        cursor.execute("PRAGMA table_info(users)")
+        existing_user_columns = {row[1] for row in cursor.fetchall()}
+        if 'preferred_language' not in existing_user_columns:
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN preferred_language TEXT NOT NULL DEFAULT 'eng'")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("UPDATE users SET preferred_language='eng' WHERE preferred_language IS NULL")
+            except sqlite3.OperationalError:
+                pass
 
         # Backfill media_id for existing rows (helps after upgrades)
         if 'media_id' in (existing_columns | set(new_columns.keys())):
@@ -2031,7 +2045,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT id, username, password_hash, role, created_at
+            SELECT id, username, password_hash, role, preferred_language, created_at
             FROM users
             WHERE username = ?
         ''', (username,))
@@ -2045,7 +2059,8 @@ class DatabaseManager:
                 'username': row[1],
                 'password_hash': row[2],
                 'role': row[3],
-                'created_at': row[4]
+                'preferred_language': row[4],
+                'created_at': row[5]
             }
         return None
     
@@ -2055,7 +2070,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT id, username, password_hash, role, created_at
+            SELECT id, username, password_hash, role, preferred_language, created_at
             FROM users
             WHERE id = ?
         ''', (user_id,))
@@ -2069,7 +2084,8 @@ class DatabaseManager:
                 'username': row[1],
                 'password_hash': row[2],
                 'role': row[3],
-                'created_at': row[4]
+                'preferred_language': row[4],
+                'created_at': row[5]
             }
         return None
     
@@ -2079,7 +2095,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT id, username, role, created_at
+            SELECT id, username, role, preferred_language, created_at
             FROM users
             ORDER BY username
         ''')
@@ -2093,7 +2109,8 @@ class DatabaseManager:
                 'id': row[0],
                 'username': row[1],
                 'role': row[2],
-                'created_at': row[3]
+                'preferred_language': row[3],
+                'created_at': row[4]
             })
         
         return users
@@ -2109,6 +2126,20 @@ class DatabaseManager:
             WHERE id = ?
         ''', (password_hash, user_id))
         
+        conn.commit()
+        conn.close()
+
+    def update_user_preferred_language(self, user_id, preferred_language: str):
+        """Update the preferred language for a user."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            UPDATE users
+            SET preferred_language = ?
+            WHERE id = ?
+        ''', (preferred_language, user_id))
+
         conn.commit()
         conn.close()
     
