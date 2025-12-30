@@ -9,6 +9,7 @@ Manages a single SQLite database for all media player data including:
 import sqlite3
 import json
 import os
+import time
 import platform
 import sys
 import hashlib
@@ -205,6 +206,34 @@ class DatabaseManager:
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
         ''')
+
+        # Saved per-user audio/subtitle defaults for videos/series/seasons.
+        # NOTE: name spelling matches existing UI request ("prefered_").
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS prefered_channel (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_key TEXT NOT NULL,
+                channel INTEGER NOT NULL,
+                updated_at REAL NOT NULL,
+                UNIQUE (user_id, scope_type, scope_key),
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS prefered_subtitle (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_key TEXT NOT NULL,
+                subtitle INTEGER,
+                updated_at REAL NOT NULL,
+                UNIQUE (user_id, scope_type, scope_key),
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        ''')
         
         # Migrate existing videos table to add new columns if they don't exist
         cursor.execute("PRAGMA table_info(videos)")
@@ -324,9 +353,177 @@ class DatabaseManager:
         
         conn.commit()
         conn.close()
+
+    def get_video_series_season_ids_by_media_id(self, media_id: str) -> tuple[int | None, int | None]:
+        """Return (series_id, season_id) for a video media_id, if known."""
+        if not isinstance(media_id, str) or not media_id:
+            return None, None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('SELECT series_id, season_id FROM videos WHERE media_id = ?', (media_id,))
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            return None, None
+
+        series_id = row[0] if isinstance(row[0], int) else None
+        season_id = row[1] if isinstance(row[1], int) else None
+        return series_id, season_id
+
+    def upsert_prefered_channel(self, *, user_id: int, scope_type: str, scope_key: str, channel: int) -> None:
+        """Insert or update a saved default audio channel (MPV aid) for a user + scope."""
+        if not isinstance(user_id, int):
+            raise ValueError('user_id must be int')
+        if not isinstance(scope_type, str) or not scope_type:
+            raise ValueError('scope_type is required')
+        if not isinstance(scope_key, str) or not scope_key:
+            raise ValueError('scope_key is required')
+        if not isinstance(channel, int) or channel < 0:
+            raise ValueError('channel must be a non-negative int')
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                '''
+                INSERT INTO prefered_channel (user_id, scope_type, scope_key, channel, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, scope_type, scope_key)
+                DO UPDATE SET channel = excluded.channel, updated_at = excluded.updated_at
+                ''',
+                (user_id, scope_type, scope_key, channel, time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_prefered_channel(self, *, user_id: int, scope_type: str, scope_key: str) -> int | None:
+        """Get saved default audio channel (MPV aid) for a user + scope."""
+        if not isinstance(user_id, int):
+            return None
+        if not isinstance(scope_type, str) or not scope_type:
+            return None
+        if not isinstance(scope_key, str) or not scope_key:
+            return None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                'SELECT channel FROM prefered_channel WHERE user_id = ? AND scope_type = ? AND scope_key = ?',
+                (user_id, scope_type, scope_key),
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        try:
+            return int(row[0])
+        except Exception:
+            return None
+
+    def upsert_prefered_subtitle(self, *, user_id: int, scope_type: str, scope_key: str, subtitle: int | None) -> None:
+        """Insert or update a saved default subtitle track (MPV sid).
+
+        subtitle:
+            - int >= 0: selected subtitle track id
+            - None: subtitles off
+        """
+        if not isinstance(user_id, int):
+            raise ValueError('user_id must be int')
+        if not isinstance(scope_type, str) or not scope_type:
+            raise ValueError('scope_type is required')
+        if not isinstance(scope_key, str) or not scope_key:
+            raise ValueError('scope_key is required')
+        if subtitle is not None:
+            if not isinstance(subtitle, int) or subtitle < 0:
+                raise ValueError('subtitle must be None or a non-negative int')
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                '''
+                INSERT INTO prefered_subtitle (user_id, scope_type, scope_key, subtitle, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, scope_type, scope_key)
+                DO UPDATE SET subtitle = excluded.subtitle, updated_at = excluded.updated_at
+                ''',
+                (user_id, scope_type, scope_key, subtitle, time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_prefered_subtitle(self, *, user_id: int, scope_type: str, scope_key: str) -> int | None:
+        """Get saved default subtitle track (MPV sid) for a user + scope.
+
+        Returns:
+            - int >= 0: subtitle track id
+            - None: no preference saved OR preference is "off"
+        """
+        if not isinstance(user_id, int):
+            return None
+        if not isinstance(scope_type, str) or not scope_type:
+            return None
+        if not isinstance(scope_key, str) or not scope_key:
+            return None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                'SELECT subtitle FROM prefered_subtitle WHERE user_id = ? AND scope_type = ? AND scope_key = ?',
+                (user_id, scope_type, scope_key),
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        if row[0] is None:
+            return None
+        try:
+            return int(row[0])
+        except Exception:
+            return None
         
         # Initialize default users if they don't exist
         self._init_default_users()
+
+    def get_prefered_subtitle_with_presence(
+        self, *, user_id: int, scope_type: str, scope_key: str
+    ) -> tuple[bool, int | None]:
+        """Return (exists, subtitle).
+
+        `subtitle` may be NULL to represent "Off".
+        """
+        if not isinstance(user_id, int):
+            return (False, None)
+        if not isinstance(scope_type, str) or not scope_type:
+            return (False, None)
+        if not isinstance(scope_key, str) or not scope_key:
+            return (False, None)
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                'SELECT subtitle FROM prefered_subtitle WHERE user_id = ? AND scope_type = ? AND scope_key = ?',
+                (user_id, scope_type, scope_key),
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            return (False, None)
+        return (True, row[0])
     
     def _get_connection(self):
         """Get a database connection with configured timeout"""

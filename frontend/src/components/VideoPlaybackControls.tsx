@@ -21,6 +21,8 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
   const subtitleRealCount = selectableSubtitleTracks.filter((t: any) => (t?.id ?? 0) >= 0).length;
   const showSubtitleSelect = subtitleRealCount > 1;
 
+  const canSaveDefaults = (showAudioTrackSelect || showSubtitleSelect) && typeof status?.current_track?.media_id === 'string';
+
   const currentAudioTrackId = typeof status?.current_audio_track_id === 'number' ? status.current_audio_track_id : undefined;
   const currentSubtitleTrackId = typeof status?.current_subtitle_track_id === 'number' ? status.current_subtitle_track_id : -1;
 
@@ -183,6 +185,19 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
     }
   };
 
+  const handleSaveDefaultChannels = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/video/playback/save-default-channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      onUpdate();
+    } catch (err) {
+      console.error('Error saving default channels:', err);
+    }
+  };
+
   return (
     <div className="playback-controls card">
       <h2>Controls</h2>
@@ -293,6 +308,15 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
               </select>
             </label>
           )}
+
+          <button
+            className="control-btn"
+            onClick={handleSaveDefaultChannels}
+            disabled={!canSaveDefaults}
+            title={canSaveDefaults ? 'Save Default channels' : 'Start a video to save defaults'}
+          >
+            Save Default channels
+          </button>
         </div>
       )}
     </div>

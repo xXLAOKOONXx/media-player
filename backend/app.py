@@ -64,8 +64,12 @@ def _apply_video_playback_user_context_from_session() -> None:
     session_id = request.cookies.get('session_id')
     user = user_manager.get_user_from_session(session_id) if session_id else None
     if not user:
+        video_playback_controller.current_username = None
+        video_playback_controller.current_user_id = None
+        video_playback_controller.set_current_user_preferred_language(None)
         return
     video_playback_controller.current_username = user.get('username')
+    video_playback_controller.current_user_id = user.get('id')
     video_playback_controller.set_current_user_preferred_language(user.get('preferred_language'))
 
 # Validate static folder exists
@@ -1907,6 +1911,74 @@ def video_subtitle_track():
         return jsonify({'error': 'Invalid track_id'}), 400
 
     return jsonify({'success': True, 'track_id': int(track_id)})
+
+
+@app.route('/api/video/playback/save-default-channels', methods=['POST'])
+@require_auth(user_manager)
+def video_save_default_channels():
+    """Persist current audio/subtitle selection as defaults for this user.
+
+    Saves up to three scopes (when resolvable):
+      - video: current track media_id
+      - season: season_id derived from media_id
+      - series: series_id derived from media_id
+    """
+    user = getattr(request, 'current_user', None) or {}
+    user_id = user.get('id')
+    if not isinstance(user_id, int):
+        return jsonify({'error': 'Invalid user'}), 400
+
+    status = video_playback_controller.get_status() or {}
+    current_track = status.get('current_track') or {}
+    media_id = current_track.get('media_id')
+    if not isinstance(media_id, str) or not media_id.strip():
+        return jsonify({'error': 'No active video to save preferences for'}), 400
+
+    audio_id = status.get('current_audio_track_id')
+    subtitle_id = status.get('current_subtitle_track_id')
+
+    if not isinstance(audio_id, int) or audio_id < 0:
+        return jsonify({'error': 'No valid current audio track'}), 400
+
+    subtitle_value = None
+    if isinstance(subtitle_id, int) and subtitle_id >= 0:
+        subtitle_value = int(subtitle_id)
+    elif isinstance(subtitle_id, int) and subtitle_id < 0:
+        subtitle_value = None
+
+    # Always save video scope.
+    db.upsert_prefered_channel(user_id=user_id, scope_type='video', scope_key=media_id, channel=int(audio_id))
+    db.upsert_prefered_subtitle(user_id=user_id, scope_type='video', scope_key=media_id, subtitle=subtitle_value)
+
+    series_id, season_id = db.get_video_series_season_ids_by_media_id(media_id)
+
+    if isinstance(season_id, int):
+        db.upsert_prefered_channel(user_id=user_id, scope_type='season', scope_key=str(season_id), channel=int(audio_id))
+        db.upsert_prefered_subtitle(user_id=user_id, scope_type='season', scope_key=str(season_id), subtitle=subtitle_value)
+
+    if isinstance(series_id, int):
+        db.upsert_prefered_channel(user_id=user_id, scope_type='series', scope_key=str(series_id), channel=int(audio_id))
+        db.upsert_prefered_subtitle(user_id=user_id, scope_type='series', scope_key=str(series_id), subtitle=subtitle_value)
+
+    # Ensure controller reflects user context for subsequent auto-select.
+    video_playback_controller.current_user_id = user_id
+    video_playback_controller.current_username = user.get('username')
+
+    return jsonify(
+        {
+            'success': True,
+            'media_id': media_id,
+            'saved': {
+                'audio_track_id': int(audio_id),
+                'subtitle_track_id': int(subtitle_id) if isinstance(subtitle_id, int) else None,
+            },
+            'scopes_saved': {
+                'video': True,
+                'season': bool(isinstance(season_id, int)),
+                'series': bool(isinstance(series_id, int)),
+            },
+        }
+    )
 
 @app.route('/api/video/playback/seek', methods=['POST'])
 def video_seek():
