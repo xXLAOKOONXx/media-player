@@ -428,6 +428,7 @@ class VideoPlaybackController:
         title = None
         artist = None
         tags = None
+        user_rating = None
         media_id = None
         has_thumbnail = None
         thumbnail_url = None
@@ -437,6 +438,7 @@ class VideoPlaybackController:
             title = cached.get('title')
             artist = cached.get('artist')
             tags = cached.get('tags')
+            user_rating = cached.get('user_rating')
             has_thumbnail = cached.get('has_thumbnail')
             thumbnail_url = cached.get('thumbnail_url')
 
@@ -460,6 +462,10 @@ class VideoPlaybackController:
             scraped_tags = scraped.get('tags')
             if tags is None and isinstance(scraped_tags, list):
                 tags = scraped_tags
+
+            scraped_rating = scraped.get('user_rating')
+            if user_rating is None and scraped_rating is not None:
+                user_rating = scraped_rating
 
         if not isinstance(title, str) or not title.strip():
             if isinstance(extinf_title, str) and extinf_title.strip():
@@ -485,6 +491,11 @@ class VideoPlaybackController:
             entry['artist'] = artist.strip()
         if isinstance(tags, list):
             entry['tags'] = tags
+        if user_rating is not None:
+            try:
+                entry['user_rating'] = float(user_rating)
+            except Exception:
+                pass
         if has_thumbnail is not None:
             entry['has_thumbnail'] = bool(has_thumbnail)
         if isinstance(thumbnail_url, str) and thumbnail_url.strip():
