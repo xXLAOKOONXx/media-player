@@ -1,4 +1,5 @@
 import './VideoPlayer.css';
+import { useEffect, useState } from 'react';
 
 const API_BASE_URL = '';
 
@@ -7,6 +8,20 @@ interface VideoPlayerProps {
 }
 
 const VideoPlayer = ({ status }: VideoPlayerProps) => {
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [isSavingRating, setIsSavingRating] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isRatingModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsRatingModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isRatingModalOpen]);
+
   if (!status || !status.current_track) {
     return (
       <div className="now-playing card">
@@ -20,6 +35,54 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   }
 
   const { current_track, next_track, is_playing, is_paused, current_track_index, playlist_length, current_position } = status;
+
+  const openRatingModal = () => {
+    setRatingError(null);
+    const existing = current_track?.user_rating;
+    if (typeof existing === 'number' && Number.isFinite(existing)) {
+      setRatingValue(Math.max(0, Math.min(10, Math.round(existing))));
+    } else {
+      setRatingValue(0);
+    }
+    setIsRatingModalOpen(true);
+  };
+
+  const saveRating = async () => {
+    const mediaId = current_track?.media_id;
+    if (!mediaId || typeof mediaId !== 'string') {
+      setRatingError('Missing media_id for current video');
+      return;
+    }
+
+    const normalized = Math.max(0, Math.min(10, ratingValue));
+    setIsSavingRating(true);
+    setRatingError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/metadata/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_id: mediaId, user_rating: normalized }),
+      });
+
+      if (response.status === 401) {
+        setRatingError('Login required');
+        return;
+      }
+      if (!response.ok) {
+        const text = await response.text();
+        setRatingError(text || 'Failed to save rating');
+        return;
+      }
+
+      setIsRatingModalOpen(false);
+    } catch (err) {
+      console.error('Error saving rating:', err);
+      setRatingError('Failed to save rating');
+    } finally {
+      setIsSavingRating(false);
+    }
+  };
 
   const formatTime = (seconds: number | null | undefined) => {
     if (seconds == null) return '0:00';
@@ -73,6 +136,19 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
           {is_playing && !is_paused && <span className="material-icons playing-icon">play_arrow</span>}
           {is_paused && <span className="material-icons paused-icon">pause</span>}
           <span className="title">{current_track.title}</span>
+
+          <div className="video-player-title-actions">
+            <button
+              type="button"
+              className="video-player-like-btn"
+              onClick={openRatingModal}
+              disabled={!current_track?.media_id}
+              title={!current_track?.media_id ? 'Missing media_id' : 'Rate this video'}
+              aria-label="Rate this video"
+            >
+              <span className="material-icons">thumb_up</span>
+            </button>
+          </div>
         </div>
         <div className="track-details">
           {current_track.artist && (
@@ -154,6 +230,65 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
           </div>
         )}
       </div>
+
+      {isRatingModalOpen && (
+        <div
+          className="video-player-rating-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsRatingModalOpen(false)}
+        >
+          <div className="video-player-rating-modal card" onClick={(e) => e.stopPropagation()}>
+            <div className="video-player-rating-header">
+              <h3>Rate video</h3>
+              <button
+                type="button"
+                className="video-player-rating-close"
+                onClick={() => setIsRatingModalOpen(false)}
+                aria-label="Close"
+              >
+                <span className="material-icons">close</span>
+              </button>
+            </div>
+
+            <div className="video-player-rating-body">
+              <div className="video-player-rating-row">
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={ratingValue}
+                  onChange={(e) => setRatingValue(Number(e.target.value))}
+                  disabled={isSavingRating}
+                />
+                <div className="video-player-rating-value">{ratingValue}</div>
+              </div>
+
+              {ratingError && <div className="video-player-rating-error">{ratingError}</div>}
+
+              <div className="video-player-rating-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsRatingModalOpen(false)}
+                  disabled={isSavingRating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={saveRating}
+                  disabled={isSavingRating}
+                >
+                  {isSavingRating ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

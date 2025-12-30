@@ -2064,6 +2064,32 @@ class DatabaseManager:
             return None
         return os.path.normpath(row[0])
 
+    def get_video_user_metadata_by_media_id(self, media_id: str) -> dict | None:
+        """Fetch user-editable metadata for a video from the cache DB.
+
+        Returns dict with keys: tags (list[str]) and user_rating (float|None).
+        """
+        if not isinstance(media_id, str) or not media_id:
+            return None
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT tags, user_rating FROM videos WHERE media_id = ? LIMIT 1', (media_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            raw_tags = row[0]
+            rating = row[1]
+            try:
+                tags = json.loads(raw_tags) if raw_tags else []
+            except Exception:
+                tags = []
+            if not isinstance(tags, list):
+                tags = []
+            return {'tags': tags, 'user_rating': rating}
+        finally:
+            conn.close()
+
     def update_video_user_metadata_by_media_id(self, media_id: str, *, user_rating, tags) -> bool:
         """Update user-editable metadata (tags + user_rating) for a cached video.
 

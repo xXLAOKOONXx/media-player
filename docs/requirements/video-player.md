@@ -31,8 +31,19 @@ When a `current_track` exists:
 - Show video title (`current_track.title`).
 - Show a **play** indicator icon when `status.is_playing` is true AND `status.is_paused` is false.
 - Show a **pause** indicator icon when `status.is_paused` is true.
+- Show a **Like/Rate** button (icon `thumb_up`) in the Now Playing title row.
 - Conditionally show:
   - Custom Range line if either `current_track.start_time` or `current_track.end_time` is not null.
+
+### Like / Rate current video
+
+- Clicking the **Like/Rate** button opens a modal dialog titled "Rate video".
+- The modal allows selecting a rating from 0 to 10 (whole numbers).
+- If `current_track.user_rating` is available, the modal preselects that rating (rounded to the nearest whole number).
+- Clicking **Save** sends:
+  - POST `/api/video/metadata/user` with `{ "media_id": <current_track.media_id>, "user_rating": <0–10> }`.
+- The save requires authentication.
+- Persisting prefers writing to the video’s `.nfo` file when present; otherwise it falls back to embedded MP4 tags (MP4/M4V only).
 
 Notes:
 - The backend enriches playlist entries using the cached video database first (same source as Video Library titles).

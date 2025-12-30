@@ -1607,13 +1607,31 @@ def update_video_user_metadata():
         return jsonify({'error': 'media_id is required'}), 400
     media_id = media_id.strip()
 
-    user_rating = data.get('user_rating', None)
-    tags = data.get('tags', [])
+    user_rating = data.get('user_rating', None) if 'user_rating' in data else None
+    tags = data.get('tags', None) if 'tags' in data else None
 
     # Resolve file path
     file_path = db.get_video_file_path_by_media_id(media_id)
     if not file_path:
         return jsonify({'error': 'Video not found'}), 404
+
+    # If caller omitted one of the fields, preserve existing DB values.
+    existing = None
+    if tags is None or ('user_rating' not in data):
+        try:
+            existing = db.get_video_user_metadata_by_media_id(media_id)
+        except Exception:
+            existing = None
+
+    if tags is None:
+        if not isinstance(existing, dict):
+            return jsonify({'error': 'Failed to resolve existing tags'}), 500
+        tags = existing.get('tags', [])
+
+    if 'user_rating' not in data:
+        if not isinstance(existing, dict):
+            return jsonify({'error': 'Failed to resolve existing rating'}), 500
+        user_rating = existing.get('user_rating', None)
 
     # Persist to file metadata store
     nfo_path = None
