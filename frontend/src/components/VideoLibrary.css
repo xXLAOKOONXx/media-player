@@ -66,6 +66,10 @@
   font-size: 18px;
 }
 
+.video-library-row {
+  cursor: pointer;
+}
+
 .playlist-folder-info {
   display: flex;
   align-items: center;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { User } from '../types';
 import './VideoLibrary.css';
+import VideoDetailsModal from './VideoDetailsModal';
 
 const API_BASE_URL = '';
 
@@ -73,6 +74,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [showAddToPlaylistForm, setShowAddToPlaylistForm] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
   const [videoToAdd, setVideoToAdd] = useState<Video | null>(null);
+  const [showBulkAddToPlaylistForm, setShowBulkAddToPlaylistForm] = useState(false);
+  const [bulkSelectedPlaylist, setBulkSelectedPlaylist] = useState('');
+  const [detailsVideo, setDetailsVideo] = useState<Video | null>(null);
   const [globalSearch, setGlobalSearch] = useState(true); // Open by default
   const [isLoading, setIsLoading] = useState(false);
   const [foldersCollapsed, setFoldersCollapsed] = useState(true); // Collapsed by default
@@ -344,9 +348,19 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
   };
 
+  const getSelectedMediaIdsInOrder = () => {
+    const ordered: string[] = [];
+    for (const v of filteredVideos) {
+      if (v.media_id && selectedVideos.has(v.media_id)) {
+        ordered.push(v.media_id);
+      }
+    }
+    return ordered;
+  };
+
   const handleAddToCurrentPlaylist = async () => {
     try {
-      const mediaIds = Array.from(selectedVideos);
+      const mediaIds = getSelectedMediaIdsInOrder();
       
       const response = await fetch(`${API_BASE_URL}/api/video/playback/add-videos`, {
         method: 'POST',
@@ -367,6 +381,34 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     } catch (err) {
       console.error('Error adding videos to current playlist:', err);
       alert('Error adding videos to current playlist');
+    }
+  };
+
+  const handleAddSingleToCurrentPlaylist = async (video: Video) => {
+    if (!video.media_id) {
+      alert('Selected video is missing media_id');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/playback/add-videos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          media_ids: [video.media_id]
+        })
+      });
+
+      if (response.ok) {
+        alert('Added video to current playlist.');
+      } else {
+        alert('Failed to add video to current playlist');
+      }
+    } catch (err) {
+      console.error('Error adding video to current playlist:', err);
+      alert('Error adding video to current playlist');
     }
   };
 
@@ -454,6 +496,74 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
   };
 
+  const handleBulkAddToPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!bulkSelectedPlaylist) {
+      return;
+    }
+    if (selectedVideos.size === 0) {
+      alert('Please select at least one video');
+      return;
+    }
+
+    const mediaIds = getSelectedMediaIdsInOrder();
+    if (mediaIds.length === 0) {
+      alert('Selected videos are missing media_id');
+      return;
+    }
+
+    try {
+      for (const media_id of mediaIds) {
+        // Use existing endpoint; add in display order.
+        const res = await fetch(`${API_BASE_URL}/api/video/playlists/${bulkSelectedPlaylist}/add-video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ media_id })
+        });
+        if (!res.ok) {
+          const error = await res.json().catch(() => null);
+          alert(`Failed to add one or more videos: ${error?.error || 'Request failed'}`);
+          return;
+        }
+      }
+
+      alert('Videos added to playlist successfully!');
+      setShowBulkAddToPlaylistForm(false);
+      setBulkSelectedPlaylist('');
+      setSelectedVideos(new Set());
+    } catch (err) {
+      console.error('Error adding videos to playlist:', err);
+      alert('Failed to add videos to playlist');
+    }
+  };
+
+  const startPlayback = async (video: { media_id?: string }) => {
+    try {
+      if (!video.media_id) {
+        alert('Missing media_id for selected video');
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/video/playback/play-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_id: video.media_id })
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error || 'Failed to start playback';
+        alert(msg);
+        return;
+      }
+
+      setDetailsVideo(null);
+    } catch (err) {
+      console.error('Error starting playback:', err);
+      alert('Failed to start playback');
+    }
+  };
+
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '--:--';
     const mins = Math.floor(seconds / 60);
@@ -488,6 +598,22 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 <button onClick={() => setShowCreatePlaylistForm(true)}>
                   <span className="material-icons">playlist_add</span>
                   Create Playlist ({selectedVideos.size})
+                </button>
+              )}
+              {!!currentUser && (
+                <button
+                  onClick={() => setShowBulkAddToPlaylistForm(true)}
+                  disabled={!playlistFolder || availablePlaylists.length === 0}
+                  title={
+                    !playlistFolder
+                      ? 'Configure playlist folder first'
+                      : availablePlaylists.length === 0
+                        ? 'Create a playlist first'
+                        : 'Add selected videos to an existing playlist'
+                  }
+                >
+                  <span className="material-icons">playlist_add</span>
+                  Add to Playlist ({selectedVideos.size})
                 </button>
               )}
               <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
@@ -752,6 +878,44 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         </div>
       )}
 
+      {showBulkAddToPlaylistForm && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add Selected Videos to Playlist</h3>
+            <form onSubmit={handleBulkAddToPlaylist}>
+              <div className="form-group">
+                <label>Select Playlist:</label>
+                <select
+                  value={bulkSelectedPlaylist}
+                  onChange={(e) => setBulkSelectedPlaylist(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Playlist --</option>
+                  {availablePlaylists.map((pl) => (
+                    <option key={pl.name} value={pl.name}>
+                      {pl.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p>{selectedVideos.size} video(s) selected</p>
+              <div className="form-actions">
+                <button type="submit">Add to Playlist</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBulkAddToPlaylistForm(false);
+                    setBulkSelectedPlaylist('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="music-folders">
         <h3 onClick={() => setFoldersCollapsed(!foldersCollapsed)}>
           <span className="material-icons">
@@ -937,13 +1101,26 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 </thead>
                 <tbody>
                   {filteredVideos.map((track, idx) => (
-                    <tr key={idx}>
+                    <tr
+                      key={idx}
+                      className="video-library-row"
+                      onClick={() => setDetailsVideo(track)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetailsVideo(track);
+                        }
+                      }}
+                    >
                       <td>
                         <input
                           type="checkbox"
                           checked={!!track.media_id && selectedVideos.has(track.media_id)}
                           disabled={!track.media_id}
                           onChange={() => track.media_id && toggleVideoSelection(track.media_id)}
+                          onClick={(e) => e.stopPropagation()}
                         />
                       </td>
                       <td data-label="Title">{track.title || track.name}</td>
@@ -966,9 +1143,12 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       <td data-label="Actions">
                         <button
                           onClick={() => {
+                            setDetailsVideo(null);
                             setVideoToAdd(track);
                             setShowAddToPlaylistForm(true);
                           }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClickCapture={(e) => e.stopPropagation()}
                           disabled={!currentUser || !playlistFolder || availablePlaylists.length === 0}
                           title={
                             !currentUser
@@ -982,12 +1162,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                         >
                           <span className="material-icons">playlist_add</span>
                         </button>
+
+                        <button
+                          onClick={() => handleAddSingleToCurrentPlaylist(track)}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClickCapture={(e) => e.stopPropagation()}
+                          disabled={!track.media_id}
+                          title={!track.media_id ? 'Missing media_id' : 'Add to current playlist'}
+                        >
+                          <span className="material-icons">queue_music</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+
+          {detailsVideo && (
+            <VideoDetailsModal
+              video={detailsVideo}
+              onClose={() => setDetailsVideo(null)}
+              onPlay={(video) => startPlayback(video)}
+            />
           )}
         </div>
       )}

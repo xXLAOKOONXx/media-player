@@ -3,6 +3,7 @@
 URL: `/video/library`
 
 Source component:
+
 - `frontend/src/components/VideoLibrary.tsx`
 
 ## Purpose
@@ -13,33 +14,24 @@ Manages video library folders, loads videos (single-folder or all folders), filt
 
 Buttons in the "Video Library" header:
 
-1) **Configure Playlist Folder**
-- Opens a modal to set the folder used for playlist creation and for listing `.m3u` playlists.
-- Visible to: **admin** users only.
+1. **Configure Playlist Folder**: Opens a modal to set the folder used for playlist creation and for listing `.m3u` playlists. Visible to **admin** users only.
 
-2) **Add Video Library**
-- Opens a modal to add a new video library folder to scan.
-- Visible to: **admin** users only.
+1. **Add Video Library**: Opens a modal to add a new video library folder to scan. Visible to **admin** users only.
 
-3) **Search All Folders**
-- Switches the view into global search mode.
-- Behavior:
-  - Sets `globalSearch = true`.
-  - Clears `selectedFolder`.
-  - Triggers loading videos from all folders (see Loading behavior).
+1. **Search All Folders**: Switches the view into global search mode. Sets `globalSearch = true`, clears `selectedFolder`, and triggers loading videos from all folders.
 
 Conditional buttons (only when at least one video is selected):
 
-4) **Create Playlist (N)**
-- Opens the "Create New Playlist" modal.
-- Visible to: any **logged-in** user.
+1. **Create Playlist (N)**: Opens the "Create New Playlist" modal. Visible to any **logged-in** user.
 
-5) **Add to Current Playlist (N)**
-- Sends selected videos to the currently loaded playback playlist.
+1. **Add to Current Playlist (N)**: Sends selected videos to the currently loaded playback playlist.
+
+1. **Add to Playlist (N)**: Opens the "Add Selected Videos to Playlist" modal. Visible to any **logged-in** user.
 
 ## Playlist Folder indicator
 
 When `playlistFolder` is set (non-empty):
+
 - Display a line "Playlist Folder: {playlistFolder}".
 
 ## Loading behavior
@@ -47,10 +39,12 @@ When `playlistFolder` is set (non-empty):
 ### Initial loads
 
 On mount:
+
 - GET `/api/video/libraries` to load video libraries.
 - GET `/api/video/playlists-folder` to load the configured playlist folder.
 
 When `playlistFolder` changes and is non-empty:
+
 - GET `/api/video/playlists-folder/files` to load the list of available playlists in the configured folder.
   - Notes:
     - This endpoint is **not** a generic filesystem browser.
@@ -64,16 +58,19 @@ When `playlistFolder` changes and is non-empty:
   - For each folder in `videoLibraries`, GET `/api/video/libraries/{libraryId}/videos` concurrently.
 
 Backend caching behavior:
+
 - `GET /api/video/libraries/{libraryId}/videos` returns the cached video list from the app database when available.
 - The backend does not rescan the filesystem on normal loads.
 - Filesystem changes (new/deleted files, updated `.nfo` metadata) become visible after the user triggers **Refresh** for that library.
 
 During loading:
+
 - Show a loading spinner and the text "Loading videos...".
 
 ### Video object fields
 
 The video objects returned by `GET /api/video/libraries/{libraryId}/videos` include playback statistics fields sourced from the `media-player-stats.db` database:
+
 - `playcount`: number of plays recorded for this video path
 - `last_played`: latest play timestamp (Unix epoch seconds) or `null` if never played
 
@@ -82,6 +79,7 @@ The video objects returned by `GET /api/video/libraries/{libraryId}/videos` incl
 Opens via **Configure Playlist Folder**.
 
 Controls:
+
 - Text input for folder path (required).
 - **Browse** (type=button)
   - POST `/api/browse` with `{ path: <current input or '/'> }`.
@@ -108,11 +106,13 @@ Controls:
 Opens via **Add Video Library**.
 
 Fields:
+
 - Library Name (required)
 - Folder Path (required)
 - Checkbox: "Scan subfolders recursively"
 
 Buttons:
+
 - **Browse**
   - POST `/api/browse` with `{ path: <current input or '/'> }`.
   - Shows directories.
@@ -128,13 +128,16 @@ Buttons:
 Opens via **Create Playlist (N)**.
 
 Behavior:
+
 - If no videos are selected, block action with `alert('Please select at least one video')`.
 - If `playlistFolder` is not set, block action with `alert('Please configure a playlist folder first')`.
 
 Fields:
+
 - Playlist Name (required)
 
 Buttons:
+
 - **Create Playlist** (submit)
   - POST `/api/video/playlists/create` with:
     - `playlist_name: newPlaylistName`
@@ -153,17 +156,42 @@ Buttons:
 Opens via per-video "Add to playlist" action (see Video table).
 
 Controls:
+
 - Playlist select dropdown (required):
   - Default option: "-- Select Playlist --"
   - Options come from `.m3u` files in `playlistFolder`.
 
 Buttons:
+
 - **Add to Playlist** (submit)
   - POST `/api/video/playlists/{selectedPlaylist}/add-video` with `{ media_id: <selected video media id> }`.
   - On success:
     - `alert('Video added to playlist successfully!')`
     - Close modal and clear selection state.
   - On failure: `alert('Failed to add video: <server error>')`
+  - Requires the user to be authenticated.
+- **Cancel** closes modal and clears modal state.
+
+## Add Selected Videos to Playlist modal
+
+Opens via **Add to Playlist (N)** (top header action).
+
+Controls:
+
+- Playlist select dropdown (required):
+  - Default option: "-- Select Playlist --"
+  - Options come from `.m3u` files in `playlistFolder`.
+- Shows text "{N} video(s) selected".
+
+Buttons:
+
+- **Add to Playlist** (submit)
+  - For each selected video (in current table order), POST `/api/video/playlists/{selectedPlaylist}/add-video` with `{ media_id: <selected video media id> }`.
+  - On success:
+    - `alert('Videos added to playlist successfully!')`
+    - Close modal, clear selection.
+  - On failure:
+    - `alert('Failed to add one or more videos: <server error>')`
   - Requires the user to be authenticated.
 - **Cancel** closes modal and clears modal state.
 
@@ -185,6 +213,7 @@ Buttons:
 ### Library actions
 
 Per library, when not editing:
+
 - **Refresh** (icon `refresh`, tooltip "Refresh library")
   - POST `/api/video/libraries/{libraryId}/refresh`
   - Reloads videos for the selected library or all libraries if in global search.
@@ -196,6 +225,7 @@ Per library, when not editing:
   - If deleted library was selected: clear selection and videos.
 
 Inline edit mode:
+
 - Text input for library name.
 - **Save** (icon `check`)
   - PUT `/api/video/libraries/{libraryId}` with `{ name: editName }`.
@@ -207,11 +237,13 @@ Inline edit mode:
 ## Videos section
 
 Visibility:
+
 - Shown when either a library is selected OR global search is enabled.
 
 ### Search filters
 
 Inputs:
+
 - Artist (text)
 - Title (text)
 - Tags (comma-separated text)
@@ -219,10 +251,12 @@ Inputs:
 - Max Duration (number, seconds)
 
 Button:
+
 - **Clear Filters**
   - Resets all filter inputs to empty strings.
 
 Filtering behavior:
+
 - Artist filter matches substring against lowercased `video.artist`.
   - Fallback (legacy): if `video.artist` is missing, match against `video.director`.
 - Title filter matches substring against `video.title` or `video.name`.
@@ -230,6 +264,7 @@ Filtering behavior:
 - Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
 
 Tag sources:
+
 - `video.tags` is populated from the `.nfo` file when present (e.g. `<Genre>` / `<genre>` entries).
 - If no `.nfo` provides tags and the file is `.mp4`/`.m4v`, tags may be read from embedded MP4 metadata under the literal `tags` field/key.
 - The MP4 genre tag is not used.
@@ -237,6 +272,7 @@ Tag sources:
 ### Video table columns
 
 The video table shows these columns:
+
 - Title
 - Artist
   - Display: the first 30 characters of `video.artist` (fallback: `video.director`).
@@ -266,7 +302,11 @@ Videos may have an associated thumbnail image.
 ### Bulk actions
 
 When `selectedVideos.size > 0`, show:
+
 - **Create Playlist (N)** (opens modal)
+  - Visible to: any **logged-in** user.
+- **Add to Playlist (N)**
+  - Opens the "Add Selected Videos to Playlist" modal.
   - Visible to: any **logged-in** user.
 - **Add to Current Playlist (N)**
   - POST `/api/video/playback/add-videos` with `{ media_ids: <selected media ids> }`.
@@ -276,6 +316,7 @@ When `selectedVideos.size > 0`, show:
 ### Video table actions
 
 Per video row, Actions column:
+
 - **Add to playlist** button (icon `playlist_add`)
   - On click:
     - Sets `videoToAdd` to that video.
@@ -289,6 +330,17 @@ Per video row, Actions column:
     - "Configure playlist folder first" if playlistFolder is missing
     - "Create a playlist first" if no playlists exist
     - "Add to playlist" otherwise
+
+- **Add to current playlist** button (icon `queue_music`)
+  - POST `/api/video/playback/add-videos` with `{ "media_ids": [<video media id>] }`.
+  - Disabled when the video has no `media_id`.
+
+### Row click details popup
+
+- Clicking a table row opens the same details popup used by the Video Explorer page.
+- Clicking the row checkbox or action buttons does not open the popup.
+- Popup action:
+  - **Play** triggers POST `/api/video/playback/play-video` with `{ "media_id": <video media id> }`.
 
 ## Empty states
 

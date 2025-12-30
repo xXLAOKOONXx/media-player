@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './VideoExplorer.css';
+import VideoDetailsModal from './VideoDetailsModal';
 
 const API_BASE_URL = '';
 
@@ -34,21 +35,7 @@ interface Video {
 const DEFAULT_LIBRARY_STORAGE_KEY = 'videoExplorer.defaultLibraryId';
 const DAILY_SUGGESTIONS_ROW_KEY = '__daily_suggestions__';
 
-const formatDuration = (seconds?: number) => {
-  if (seconds == null || Number.isNaN(seconds)) return '—';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
 const getTitle = (video: Video) => (video.title || video.name || 'Untitled').trim();
-
-const getCreatorText = (video: Video) => {
-  const artist = (video.artist || '').trim();
-  if (artist) return artist;
-  const director = (video.director || '').trim();
-  return director;
-};
 
 const getThumbnailSrc = (video: Video) => {
   if (video.has_thumbnail && video.media_id) {
@@ -675,107 +662,13 @@ function VideoExplorer() {
       )}
 
       {selectedVideo && (
-        <div
-          className="video-explorer-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setSelectedVideo(null)}
-        >
-          <div className="video-explorer-modal card" onClick={(e) => e.stopPropagation()}>
-            <div className="video-explorer-modal-header">
-              <h3>{getTitle(selectedVideo)}</h3>
-              <button
-                type="button"
-                className="video-explorer-modal-close"
-                onClick={() => setSelectedVideo(null)}
-                aria-label="Close"
-              >
-                <span className="material-icons">close</span>
-              </button>
-            </div>
-
-            <div className="video-explorer-modal-body">
-              {(() => {
-                const modalThumb = getThumbnailSrc(selectedVideo);
-                const modalKey = selectedVideo.media_id || selectedVideo.path;
-                const showModalImage = !!modalThumb && !brokenThumbnails.has(modalKey);
-                const modalTitle = getTitle(selectedVideo);
-
-                return (
-                  <div className="video-explorer-modal-cover">
-                    {showModalImage ? (
-                      <img
-                        src={modalThumb}
-                        alt={modalTitle}
-                        loading="lazy"
-                        onError={() => {
-                          setBrokenThumbnails(prev => {
-                            const next = new Set(prev);
-                            next.add(modalKey);
-                            return next;
-                          });
-                        }}
-                      />
-                    ) : (
-                      <div className="video-explorer-modal-cover-placeholder" aria-hidden>
-                        <span className="material-icons">movie</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="video-explorer-modal-meta">
-                {getCreatorText(selectedVideo) && (
-                  <div className="video-explorer-meta-row">
-                    <span className="material-icons">person</span>
-                    <span>{getCreatorText(selectedVideo)}</span>
-                  </div>
-                )}
-                {selectedVideo.series && (
-                  <div className="video-explorer-meta-row">
-                    <span className="material-icons">collections</span>
-                    <span>{selectedVideo.series}</span>
-                  </div>
-                )}
-                <div className="video-explorer-meta-row">
-                  <span className="material-icons">schedule</span>
-                  <span>{formatDuration(selectedVideo.duration)}</span>
-                </div>
-              </div>
-
-              {selectedVideo.description && (
-                <div className="video-explorer-description">
-                  <h4>Description</h4>
-                  <p>{selectedVideo.description}</p>
-                </div>
-              )}
-
-              {selectedVideo.tags && selectedVideo.tags.length > 0 && (
-                <div className="video-explorer-tags">
-                  <h4>Tags</h4>
-                  <div className="video-explorer-tag-list">
-                    {selectedVideo.tags.map((t) => (
-                      <span key={t} className="video-explorer-tag">{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="video-explorer-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => startPlayback(selectedVideo)}
-                  disabled={isStartingPlayback}
-                >
-                  <span className="material-icons">play_arrow</span>
-                  <span>{isStartingPlayback ? 'Starting…' : 'Play'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <VideoDetailsModal
+          video={selectedVideo}
+          onClose={() => setSelectedVideo(null)}
+          onPlay={(video) => startPlayback(video)}
+          isPlayDisabled={isStartingPlayback}
+          playLabel={isStartingPlayback ? 'Starting…' : 'Play'}
+        />
       )}
     </div>
   );
