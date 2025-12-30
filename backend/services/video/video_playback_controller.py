@@ -28,6 +28,7 @@ import copy
 import logging
 import time
 import sys
+import threading
 
 from services.general.basic_file_operation import get_actual_path_with_correct_case
 from services.video.video_metadata import read_video_metadata
@@ -224,7 +225,16 @@ class VideoPlaybackController:
             # Only handle video end if this wasn't a manual track change
             if not self._manual_track_change:
                 logger.info("Video ended, playing next")
-                self._handle_video_end()
+                # Avoid doing MPV control operations directly inside the MPV
+                # callback thread. Schedule the transition asynchronously.
+                try:
+                    threading.Thread(
+                        target=self._handle_video_end,
+                        kwargs={'already_ended': True},
+                        daemon=True,
+                    ).start()
+                except Exception:
+                    self._handle_video_end(already_ended=True)
             else:
                 logger.debug("Ignoring end-file event during manual track change")
                 # Reset the flag after ignoring the event
@@ -314,16 +324,32 @@ class VideoPlaybackController:
         """Get current video configuration"""
         return self.video_config.copy()
     
-    def _handle_video_end(self):
-        """Handle video end event"""
+    def _handle_video_end(self, *, already_ended: bool = False):
+        """Handle video end event.
+
+        Args:
+            already_ended: True when invoked from MPV's natural end-file event.
+                In that case the current file has already stopped, so we must
+                not call player.stop() again during the transition.
+        """
+        was_playing = bool(self.is_playing) and not bool(self.is_paused)
+
+        # If playback already ended naturally, mark as not playing so play()
+        # doesn't attempt to stop() an already-closed file/window.
+        if already_ended:
+            self.is_playing = False
+            self.is_paused = False
+
         if self.repeat_mode == 'one':
             # Replay current video
-            self.play()
-        else:
-            # Move to next video (next_track handles end-of-playlist logic)
-            if not self.next_track():
-                # If next_track returns False, we've reached the end
-                logger.info("Playlist completed, stopping playback")
+            if was_playing:
+                self.play()
+            return
+
+        # Move to next video (next_track handles end-of-playlist logic)
+        if not self.next_track(manual=False, force_play=was_playing):
+            # If next_track returns False, we've reached the end
+            logger.info("Playlist completed, stopping playback")
 
     @staticmethod
     def _ms_to_seconds(value):
@@ -531,7 +557,7 @@ class VideoPlaybackController:
         if self.current_position >= end_time:
             self._custom_end_time_triggered = True
             logger.info(f"Custom end time reached ({end_time:.3f}s), advancing to next video")
-            self._handle_video_end()
+            self._handle_video_end(already_ended=False)
     
     def load_playlist(self, playlist_path, track_index=0):
         """Load a video playlist from an M3U file"""
@@ -1395,20 +1421,31 @@ class VideoPlaybackController:
         self.clear_playlist()
         return True
     
-    def next_track(self):
-        """Skip to next track"""
+    def next_track(self, *, manual: bool = True, force_play: bool | None = None):
+        """Skip to next track.
+
+        Args:
+            manual: True when invoked by an explicit user action ("Next").
+                Manual skips set a guard to avoid treating stop() as an
+                end-of-file event.
+            force_play: When True/False, overrides whether we auto-start the
+                next track. When None, uses current is_playing state.
+        """
         if not self.current_playlist:
             return False
-        
+
+        should_autoplay = self.is_playing if force_play is None else bool(force_play)
+
         # Set flag to prevent end-file event from triggering during manual skip
-        self._manual_track_change = True
+        if manual:
+            self._manual_track_change = True
         
         if self.current_track_index < len(self.current_playlist) - 1:
             self.current_track_index += 1
             self.current_position = 0
             logger.info(f"Skipped to next video: {self.current_track_index + 1}/{len(self.current_playlist)}")
             # Auto-play next video if currently playing
-            if self.is_playing:
+            if should_autoplay:
                 self.play()
             return True
         elif self.repeat_mode == 'all':
@@ -1416,7 +1453,7 @@ class VideoPlaybackController:
             self.current_position = 0
             logger.info("Playlist ended, repeating from start")
             # Auto-play first video if currently playing
-            if self.is_playing:
+            if should_autoplay:
                 self.play()
             return True
         else:

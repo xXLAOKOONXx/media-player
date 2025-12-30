@@ -95,6 +95,47 @@ def test_custom_end_time_advances_to_next_track(tmp_path, monkeypatch):
     assert controller.current_track_index == 1
 
 
+def test_natural_end_advances_across_multiple_tracks(tmp_path, monkeypatch):
+    """Regression test: natural end-file events should keep advancing.
+
+    Reported bug: track 1->2 worked, but 2->3 closed the player and did not
+    start the next video until the user pressed Next.
+
+    This test simulates MPV's end-file callback behavior by calling
+    _handle_video_end(already_ended=True) multiple times.
+    """
+    monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
+
+    controller = VideoPlaybackController(video_config={"fullscreen": True, "preferred_screen": None})
+    controller.player = None
+    controller.video_available = False
+
+    p1 = tmp_path / "1.mp4"
+    p2 = tmp_path / "2.mp4"
+    p3 = tmp_path / "3.mp4"
+    p1.write_bytes(b"")
+    p2.write_bytes(b"")
+    p3.write_bytes(b"")
+
+    controller.current_playlist = [
+        {"path": str(p1), "title": "1.mp4", "duration": 10.0, "start_time": None, "end_time": None},
+        {"path": str(p2), "title": "2.mp4", "duration": 10.0, "start_time": None, "end_time": None},
+        {"path": str(p3), "title": "3.mp4", "duration": 10.0, "start_time": None, "end_time": None},
+    ]
+    controller.original_playlist = list(controller.current_playlist)
+    controller.current_track_index = 0
+    controller.is_playing = True
+    controller.is_paused = False
+
+    controller._handle_video_end(already_ended=True)
+    assert controller.current_track_index == 1
+    assert controller.is_playing is True
+
+    controller._handle_video_end(already_ended=True)
+    assert controller.current_track_index == 2
+    assert controller.is_playing is True
+
+
 def test_stop_and_clear_playlist_empties_queue(tmp_path, monkeypatch):
     """Stop command should also clear the current playlist/queue."""
     monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
