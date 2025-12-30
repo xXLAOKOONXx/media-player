@@ -85,11 +85,11 @@ Contains configuration options for playback statistics recording.
 #### Playback Statistics Group
 
 1. **Stats database folder** (text input with Browse button)
-   - Default: empty string (uses backend directory as default location)
-   - Description: "Folder where the media-player-stats.db file will be stored. Leave empty to use the default location (backend directory)."
+   - Default: empty string (uses the backend executable directory as default location)
+   - Description: "Folder where the media-player-stats.db file will be stored. Leave empty to use the default location (the directory containing the backend executable)."
    - Browse button: Opens folder browser dialog
    - When folder is set or left empty:
-     - Application creates `media-player-stats.db` in the specified folder (or backend directory if empty)
+     - Application creates `media-player-stats.db` in the specified folder (or the backend executable directory if empty)
      - Records playback statistics when media is played for 50% or 5 minutes (whichever is smaller)
      - Each entry contains: timestamp, absolute folder path, current username
 

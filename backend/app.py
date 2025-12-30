@@ -6,8 +6,8 @@ Main Flask application for media player control
 from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
 from werkzeug.utils import secure_filename
 import os
-import json
 import sys
+import json
 import logging
 import time
 from pathlib import Path
@@ -160,11 +160,14 @@ crossfade_config = config.get('crossfade', {
 })
 
 # Initialize stats manager with configured stats folder
-# Default to backend directory (location of executable) if not configured
+# Default to the executable directory when frozen (Windows EXE), otherwise use backend source directory
 stats_folder = config.get('stats_folder', '')
 if not stats_folder:
-    # Use the directory where app.py is located as default
-    stats_folder = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False) and getattr(sys, 'executable', None):
+        stats_folder = os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        # Use the directory where app.py is located as default
+        stats_folder = os.path.dirname(os.path.abspath(__file__))
 stats_manager = StatsManager(stats_folder)
 
 # Initialize playback controllers with stats manager
