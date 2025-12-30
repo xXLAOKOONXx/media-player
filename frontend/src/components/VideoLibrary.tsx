@@ -24,6 +24,8 @@ interface Video {
   series?: string;
   duration?: number;
   tags?: string[];
+  description?: string;
+  user_rating?: number;
 }
 
 const truncateText = (value: string, maxChars: number) => {
@@ -77,6 +79,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [showBulkAddToPlaylistForm, setShowBulkAddToPlaylistForm] = useState(false);
   const [bulkSelectedPlaylist, setBulkSelectedPlaylist] = useState('');
   const [detailsVideo, setDetailsVideo] = useState<Video | null>(null);
+
+  const applyUserMetadataUpdate = (updated: { media_id?: string; user_rating?: number | null; tags?: string[] }) => {
+    if (!updated.media_id) return;
+    setVideos((prev) =>
+      prev.map((v) =>
+        v.media_id === updated.media_id
+          ? {
+              ...v,
+              user_rating: updated.user_rating == null ? undefined : updated.user_rating,
+              tags: updated.tags,
+            }
+          : v,
+      ),
+    );
+    setDetailsVideo((prev) =>
+      prev && prev.media_id === updated.media_id
+        ? {
+            ...prev,
+            user_rating: updated.user_rating == null ? undefined : updated.user_rating,
+            tags: updated.tags,
+          }
+        : prev,
+    );
+  };
   const [globalSearch, setGlobalSearch] = useState(true); // Open by default
   const [isLoading, setIsLoading] = useState(false);
   const [foldersCollapsed, setFoldersCollapsed] = useState(true); // Collapsed by default
@@ -1185,6 +1211,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
               video={detailsVideo}
               onClose={() => setDetailsVideo(null)}
               onPlay={(video) => startPlayback(video)}
+              onVideoUpdated={(updatedVideo) => applyUserMetadataUpdate(updatedVideo)}
             />
           )}
         </div>

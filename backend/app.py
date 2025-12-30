@@ -41,6 +41,8 @@ from services.audio.music_manager import MusicManager
 from services.audio.audio_metadata import display_title, read_audio_metadata
 from services.video.video_playback_controller import VideoPlaybackController
 from services.video.video_manager import VideoManager
+from services.video.video_metadata import find_nfo_file
+from services.video.video_metadata import update_nfo_user_rating_and_tags, update_mp4_user_rating_and_tags
 from services.general.database_manager import DatabaseManager
 from services.general.user_manager import UserManager, require_admin, require_auth
 from services.general.stats_manager import StatsManager
@@ -1590,6 +1592,53 @@ def get_library_series(library_id):
         pass
 
     return jsonify(series)
+
+
+@app.route('/api/video/metadata/user', methods=['POST'])
+@require_auth(user_manager)
+def update_video_user_metadata():
+    """Update user-editable metadata for a video (user_rating + tags).
+
+    Persists to the file metadata store (prefer .nfo when present) and updates the cached DB row.
+    """
+    data = request.json or {}
+    media_id = data.get('media_id')
+    if not isinstance(media_id, str) or not media_id.strip():
+        return jsonify({'error': 'media_id is required'}), 400
+    media_id = media_id.strip()
+
+    user_rating = data.get('user_rating', None)
+    tags = data.get('tags', [])
+
+    # Resolve file path
+    file_path = db.get_video_file_path_by_media_id(media_id)
+    if not file_path:
+        return jsonify({'error': 'Video not found'}), 404
+
+    # Persist to file metadata store
+    nfo_path = None
+    try:
+        nfo_path = find_nfo_file(file_path)
+    except Exception:
+        nfo_path = None
+
+    file_ok = False
+    if nfo_path:
+        file_ok = update_nfo_user_rating_and_tags(nfo_path, user_rating=user_rating, tags=tags)
+        if not file_ok:
+            return jsonify({'error': 'Failed to update .nfo metadata'}), 500
+    else:
+        # Fallback to MP4/M4V embedded tags
+        file_ok = update_mp4_user_rating_and_tags(file_path, user_rating=user_rating, tags=tags)
+        if not file_ok:
+            return jsonify({'error': 'No writable metadata store for this file (no .nfo, non-MP4)'}), 400
+
+    # Update cache DB
+    updated = db.update_video_user_metadata_by_media_id(media_id, user_rating=user_rating, tags=tags)
+    if not updated:
+        return jsonify({'error': 'Failed to update cached metadata'}), 500
+
+    return jsonify({'media_id': media_id, 'user_rating': user_rating, 'tags': tags})
 
 # Video Playlist Management
 @app.route('/api/video/playlists', methods=['GET'])

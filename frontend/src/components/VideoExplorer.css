@@ -442,11 +442,68 @@
   border-radius: 999px;
   padding: 0.25rem 0.6rem;
   font-size: 0.85rem;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.video-explorer-tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.video-explorer-tag-remove:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.video-explorer-tag-remove .material-icons {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.video-explorer-tag-editor {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+
+.video-explorer-edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid #9d9d9d;
+  border-radius: 4px;
+  background-color: rgba(65, 65, 65, 0.5);
+  color: #dfdfdf;
+}
+
+.video-explorer-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.video-explorer-inline-label {
+  opacity: 0.9;
+}
+
+.video-explorer-modal-error {
+  margin-top: 0.75rem;
+  opacity: 0.9;
 }
 
 .video-explorer-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .video-explorer-actions .btn {

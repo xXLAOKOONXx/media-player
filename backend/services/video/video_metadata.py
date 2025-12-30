@@ -10,11 +10,13 @@ from typing import Any, Optional
 
 try:
     from mutagen.mp4 import MP4, MP4StreamInfoError
+    from mutagen.mp4 import MP4FreeForm
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False
     MP4 = None
     MP4StreamInfoError = None
+    MP4FreeForm = None
 
 
 # Custom MP4 freeform atoms used by this app for per-file trim points.
@@ -31,6 +33,71 @@ TITLE_TAG = '\xa9nam'
 # Some taggers store a comma-separated set of tags under a literal "tags" atom/key.
 # IMPORTANT: We intentionally do NOT use MP4 genre (©gen) because it is limited.
 MP4_TAGS_FIELD = 'tags'
+
+# Optional MP4 freeform atom for user rating (0-10). Only used when no .nfo exists.
+# The canonical key is '----:LAO:userrating'. We also read from the legacy
+# '----:LAO:userscore' for backward compatibility.
+USER_RATING_FREEFORM_TAG = '----:LAO:userrating'
+LEGACY_USER_RATING_FREEFORM_TAG = '----:LAO:userscore'
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        try:
+            value = bytes(value).decode('utf-8', errors='ignore')
+        except Exception:
+            return None
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_user_rating(value: Any) -> Optional[float]:
+    rating = _coerce_float(value)
+    if rating is None:
+        return None
+    if rating < 0:
+        rating = 0.0
+    if rating > 10:
+        rating = 10.0
+    return float(rating)
+
+
+def _normalize_tags(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        raw = value
+    else:
+        raw = [value]
+
+    seen: set[str] = set()
+    tags: list[str] = []
+    for item in raw:
+        text = _coerce_text(item)
+        if not text:
+            continue
+        # allow comma-separated input
+        for part in [p.strip() for p in text.split(',')]:
+            if not part:
+                continue
+            if part.lower() in seen:
+                continue
+            seen.add(part.lower())
+            tags.append(part)
+    return tags
 
 
 def _coerce_text(value: Any) -> Optional[str]:
@@ -368,6 +435,25 @@ def read_video_metadata(
                 except Exception:
                     pass
 
+                # Optional embedded user rating (our own freeform tag)
+                try:
+                    if 'user_rating' not in metadata:
+                        tags_obj = getattr(video, 'tags', None)
+                        raw_rating = None
+                        if tags_obj and hasattr(tags_obj, 'get'):
+                            raw_rating = tags_obj.get(USER_RATING_FREEFORM_TAG)
+                            if not raw_rating:
+                                raw_rating = tags_obj.get(LEGACY_USER_RATING_FREEFORM_TAG)
+
+                        if isinstance(raw_rating, (list, tuple)) and raw_rating:
+                            raw_rating = raw_rating[0]
+
+                        rating = _normalize_user_rating(raw_rating)
+                        if rating is not None:
+                            metadata['user_rating'] = rating
+                except Exception:
+                    pass
+
                 # Custom trim points (milliseconds)
                 start_ms = _read_mp4_freeform_ms_tag(video, START_TIME_IN_MS_TAG)
                 end_ms = _read_mp4_freeform_ms_tag(video, END_TIME_IN_MS_TAG)
@@ -404,6 +490,104 @@ def read_video_metadata(
                 metadata[key] = value
     
     return metadata
+
+
+def update_nfo_user_rating_and_tags(nfo_path: str, *, user_rating: Any, tags: Any) -> bool:
+    """Update (or add) userscore + Genre tags in an existing .nfo file.
+
+    - Writes <userscore> as a float string.
+    - Replaces existing <genre>/<Genre> entries with one <genre> per tag.
+
+    Returns True on success, False on failure.
+    """
+    if not isinstance(nfo_path, str) or not nfo_path:
+        return False
+    if not os.path.exists(nfo_path):
+        return False
+
+    rating = _normalize_user_rating(user_rating)
+    normalized_tags = _normalize_tags(tags)
+
+    try:
+        tree = ET.parse(nfo_path)
+        root = tree.getroot()
+
+        # userscore
+        userscore_el = root.find('userscore')
+        if rating is None:
+            if userscore_el is not None:
+                root.remove(userscore_el)
+        else:
+            if userscore_el is None:
+                userscore_el = ET.SubElement(root, 'userscore')
+            userscore_el.text = str(rating)
+
+        # remove all existing genre/Genre
+        for el in list(root.findall('Genre')):
+            root.remove(el)
+        for el in list(root.findall('genre')):
+            root.remove(el)
+
+        for tag in normalized_tags:
+            g = ET.SubElement(root, 'genre')
+            g.text = tag
+
+        tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
+        return True
+    except Exception:
+        return False
+
+
+def update_mp4_user_rating_and_tags(file_path: str, *, user_rating: Any, tags: Any) -> bool:
+    """Update user_rating + tags embedded in MP4/M4V.
+
+    This is used only when no .nfo file exists.
+    Returns True on success, False on failure.
+    """
+    if not MUTAGEN_AVAILABLE:
+        return False
+    if not isinstance(file_path, str) or not file_path:
+        return False
+    ext = Path(file_path).suffix.lower()
+    if ext not in ('.mp4', '.m4v'):
+        return False
+
+    rating = _normalize_user_rating(user_rating)
+    normalized_tags = _normalize_tags(tags)
+
+    try:
+        video = MP4(file_path)
+        if video.tags is None:
+            video.add_tags()
+
+        # tags field
+        if normalized_tags:
+            video.tags[MP4_TAGS_FIELD] = [', '.join(normalized_tags)]
+        else:
+            if MP4_TAGS_FIELD in video.tags:
+                del video.tags[MP4_TAGS_FIELD]
+
+        # user rating freeform
+        if rating is None:
+            if USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[USER_RATING_FREEFORM_TAG]
+            if LEGACY_USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[LEGACY_USER_RATING_FREEFORM_TAG]
+        else:
+            payload = str(rating).encode('utf-8', errors='replace')
+            if MP4FreeForm is not None:
+                video.tags[USER_RATING_FREEFORM_TAG] = [MP4FreeForm(payload)]
+            else:
+                video.tags[USER_RATING_FREEFORM_TAG] = [payload]
+
+            # Clean up legacy key if present so the value is unambiguous.
+            if LEGACY_USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[LEGACY_USER_RATING_FREEFORM_TAG]
+
+        video.save()
+        return True
+    except Exception:
+        return False
 
 
 def find_nfo_file(video_path: str) -> Optional[str]:

@@ -16,6 +16,7 @@ export interface VideoDetailsModalVideo {
   thumbnail_url?: string;
   has_thumbnail?: boolean;
   media_id?: string;
+  user_rating?: number;
 }
 
 interface VideoDetailsModalProps {
@@ -24,6 +25,7 @@ interface VideoDetailsModalProps {
   onPlay?: (video: VideoDetailsModalVideo) => void;
   isPlayDisabled?: boolean;
   playLabel?: string;
+  onVideoUpdated?: (video: VideoDetailsModalVideo) => void;
 }
 
 const formatDuration = (seconds?: number) => {
@@ -50,14 +52,41 @@ const getThumbnailSrc = (video: VideoDetailsModalVideo) => {
   return null;
 };
 
+const clampRating = (value: number) => {
+  if (value < 0) return 0;
+  if (value > 10) return 10;
+  return value;
+};
+
+const normalizeTags = (tags: string[]) => {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tags) {
+    const trimmed = (t || '').trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+};
+
 export default function VideoDetailsModal({
   video,
   onClose,
   onPlay,
   isPlayDisabled,
   playLabel,
+  onVideoUpdated,
 }: VideoDetailsModalProps) {
   const [isCoverBroken, setIsCoverBroken] = useState(false);
+
+  const [ratingText, setRatingText] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [newTagText, setNewTagText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -75,10 +104,90 @@ export default function VideoDetailsModal({
     };
   }, []);
 
+  useEffect(() => {
+    setIsCoverBroken(false);
+    setSaveError(null);
+    const r = video.user_rating;
+    setRatingText(r == null || Number.isNaN(r) ? '' : String(r));
+    setEditTags(Array.isArray(video.tags) ? normalizeTags(video.tags) : []);
+    setNewTagText('');
+  }, [video]);
+
   const title = useMemo(() => getTitle(video), [video]);
   const creator = useMemo(() => getCreatorText(video), [video]);
   const coverSrc = useMemo(() => getThumbnailSrc(video), [video]);
   const showCover = !!coverSrc && !isCoverBroken;
+
+  const canSave = !!video.media_id && !isSaving;
+
+  const addTag = () => {
+    const t = newTagText.trim();
+    if (!t) return;
+    setEditTags((prev) => normalizeTags([...prev, t]));
+    setNewTagText('');
+  };
+
+  const removeTag = (tag: string) => {
+    setEditTags((prev) => prev.filter((t) => t.toLowerCase() !== tag.toLowerCase()));
+  };
+
+  const saveUserMetadata = async () => {
+    if (!video.media_id) {
+      setSaveError('Missing media_id');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    let rating: number | null = null;
+    const trimmed = ratingText.trim();
+    if (trimmed) {
+      const parsed = Number(trimmed);
+      if (Number.isFinite(parsed)) {
+        rating = clampRating(parsed);
+      } else {
+        setIsSaving(false);
+        setSaveError('Rating must be a number between 0 and 10');
+        return;
+      }
+    }
+
+    const normalizedTags = normalizeTags(editTags);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/metadata/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_id: video.media_id,
+          user_rating: rating,
+          tags: normalizedTags,
+        }),
+      });
+
+      if (response.status === 401) {
+        setSaveError('Login required');
+        return;
+      }
+      if (!response.ok) {
+        const text = await response.text();
+        setSaveError(text || 'Failed to save');
+        return;
+      }
+
+      const updated: VideoDetailsModalVideo = {
+        ...video,
+        user_rating: rating == null ? undefined : rating,
+        tags: normalizedTags,
+      };
+      onVideoUpdated?.(updated);
+    } catch {
+      setSaveError('Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div
@@ -133,6 +242,27 @@ export default function VideoDetailsModal({
               <span className="material-icons">schedule</span>
               <span>{formatDuration(video.duration)}</span>
             </div>
+
+            <div className="video-explorer-meta-row">
+              <span className="material-icons">star</span>
+              <span className="video-explorer-inline-field">
+                <label className="video-explorer-inline-label" htmlFor="video-user-rating">
+                  Rating
+                </label>
+                <input
+                  id="video-user-rating"
+                  className="video-explorer-edit-input"
+                  type="number"
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  value={ratingText}
+                  onChange={(e) => setRatingText(e.target.value)}
+                  placeholder="0–10"
+                  disabled={!video.media_id || isSaving}
+                />
+              </span>
+            </div>
           </div>
 
           {video.description && (
@@ -142,19 +272,71 @@ export default function VideoDetailsModal({
             </div>
           )}
 
-          {video.tags && video.tags.length > 0 && (
-            <div className="video-explorer-tags">
-              <h4>Tags</h4>
+          <div className="video-explorer-tags">
+            <h4>Tags</h4>
+            {editTags.length > 0 ? (
               <div className="video-explorer-tag-list">
-                {video.tags.map((t) => (
-                  <span key={t} className="video-explorer-tag">{t}</span>
+                {editTags.map((t) => (
+                  <span key={t} className="video-explorer-tag">
+                    <span>{t}</span>
+                    <button
+                      type="button"
+                      className="video-explorer-tag-remove"
+                      onClick={() => removeTag(t)}
+                      disabled={!video.media_id || isSaving}
+                      aria-label={`Remove tag ${t}`}
+                      title={`Remove ${t}`}
+                    >
+                      <span className="material-icons">close</span>
+                    </button>
+                  </span>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="video-explorer-empty">No tags</div>
+            )}
 
-          {onPlay && (
-            <div className="video-explorer-actions">
+            <div className="video-explorer-tag-editor">
+              <input
+                className="video-explorer-edit-input"
+                type="text"
+                value={newTagText}
+                onChange={(e) => setNewTagText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="Add tag"
+                disabled={!video.media_id || isSaving}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={addTag}
+                disabled={!video.media_id || isSaving || !newTagText.trim()}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          {saveError && <div className="video-explorer-modal-error">{saveError}</div>}
+
+          <div className="video-explorer-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={saveUserMetadata}
+              disabled={!canSave}
+              title={!video.media_id ? 'Missing media_id' : isSaving ? 'Saving…' : 'Save rating and tags'}
+            >
+              <span className="material-icons">save</span>
+              <span>{isSaving ? 'Saving…' : 'Save'}</span>
+            </button>
+
+            {onPlay && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -164,8 +346,8 @@ export default function VideoDetailsModal({
                 <span className="material-icons">play_arrow</span>
                 <span>{playLabel || 'Play'}</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

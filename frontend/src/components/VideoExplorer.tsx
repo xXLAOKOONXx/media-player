@@ -60,6 +60,30 @@ function VideoExplorer() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [isStartingPlayback, setIsStartingPlayback] = useState(false);
 
+  const applyUserMetadataUpdate = (updated: { media_id?: string; user_rating?: number | null; tags?: string[] }) => {
+    if (!updated.media_id) return;
+    setVideos((prev) =>
+      prev.map((v) =>
+        v.media_id === updated.media_id
+          ? {
+              ...v,
+              user_rating: updated.user_rating == null ? undefined : updated.user_rating,
+              tags: updated.tags,
+            }
+          : v,
+      ),
+    );
+    setSelectedVideo((prev) =>
+      prev && prev.media_id === updated.media_id
+        ? {
+            ...prev,
+            user_rating: updated.user_rating == null ? undefined : updated.user_rating,
+            tags: updated.tags,
+          }
+        : prev,
+    );
+  };
+
   const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(new Set());
   const [thumbnailAspectRatios, setThumbnailAspectRatios] = useState<Map<string, number>>(new Map());
 
@@ -668,6 +692,7 @@ function VideoExplorer() {
           onPlay={(video) => startPlayback(video)}
           isPlayDisabled={isStartingPlayback}
           playLabel={isStartingPlayback ? 'Starting…' : 'Play'}
+          onVideoUpdated={(updatedVideo) => applyUserMetadataUpdate(updatedVideo)}
         />
       )}
     </div>
