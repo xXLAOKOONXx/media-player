@@ -2064,6 +2064,59 @@ class DatabaseManager:
             return None
         return os.path.normpath(row[0])
 
+    def update_video_user_metadata_by_media_id(self, media_id: str, *, user_rating, tags) -> bool:
+        """Update user-editable metadata (tags + user_rating) for a cached video.
+
+        Also updates cached_at so the cache is considered fresh against NFO changes.
+        Returns True if a row was updated.
+        """
+        if not isinstance(media_id, str) or not media_id:
+            return False
+
+        # Normalize inputs
+        rating = None
+        try:
+            if user_rating is None or user_rating == '':
+                rating = None
+            else:
+                rating = float(user_rating)
+                if rating < 0:
+                    rating = 0.0
+                if rating > 10:
+                    rating = 10.0
+        except Exception:
+            rating = None
+
+        tag_list: list[str] = []
+        if isinstance(tags, (list, tuple)):
+            for t in tags:
+                if not isinstance(t, str):
+                    continue
+                tt = t.strip()
+                if not tt:
+                    continue
+                if tt.lower() in {x.lower() for x in tag_list}:
+                    continue
+                tag_list.append(tt)
+        elif isinstance(tags, str):
+            # allow comma-separated string
+            parts = [p.strip() for p in tags.split(',')]
+            for p in parts:
+                if p and p.lower() not in {x.lower() for x in tag_list}:
+                    tag_list.append(p)
+
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE videos SET tags = ?, user_rating = ?, cached_at = ? WHERE media_id = ?',
+                (json.dumps(tag_list), rating, datetime.now().timestamp(), media_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
     def get_videos_by_media_ids(self, media_ids):
         """Fetch minimal video info for a set of media_ids.
 

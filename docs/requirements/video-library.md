@@ -340,6 +340,11 @@ Per video row, Actions column:
 - Clicking a table row opens the same details popup used by the Video Explorer page.
 - Clicking the row checkbox or action buttons does not open the popup.
 - Popup action:
+  - **Save** persists editable `Rating` (0–10) and tags:
+    - POST `/api/video/metadata/user` with `{ "media_id": <video media id>, "user_rating": <0–10 or null>, "tags": ["..."] }`.
+    - Save requires authentication.
+    - Persisting prefers `.nfo` when present; otherwise it falls back to embedded MP4 tags (MP4/M4V only).
+    - On success, the table reflects updated tags immediately.
   - **Play** triggers POST `/api/video/playback/play-video` with `{ "media_id": <video media id> }`.
 
 ## Empty states

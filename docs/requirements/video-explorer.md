@@ -52,11 +52,23 @@ The Video Explorer page provides a browsing experience for videos inside a selec
   - Title
   - Cover image (thumbnail/poster) when available
   - Description (if available)
-  - Tags (if present)
+  - Editable `Rating` field (user rating) in range 0–10
+  - Editable tags list (add/remove)
   - Basic metadata (artist/director, series, duration when available)
+  - A `Save` button (persists rating + tags)
   - A `Play` button
 - Pressing `Esc` or clicking outside the popup closes it.
 - When the popup content is taller than the viewport, the popup scrolls internally and the background page does not scroll.
+
+### Saving rating and tags
+
+- Clicking `Save` calls `POST /api/video/metadata/user` with:
+  - `media_id`
+  - `user_rating` (number 0–10, or `null` to clear)
+  - `tags` (array of strings)
+- The save requires authentication.
+- Persisting prefers writing to the video’s `.nfo` file when present; otherwise it falls back to embedded MP4 tags (MP4/M4V only).
+- On successful save, the popup and browse view reflect the updated rating and tags immediately.
 
 ## Playback
 

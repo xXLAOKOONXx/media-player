@@ -5,7 +5,12 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from services.video.video_metadata import parse_nfo_file, read_video_metadata, find_nfo_file
+from services.video.video_metadata import (
+    parse_nfo_file,
+    read_video_metadata,
+    find_nfo_file,
+    update_nfo_user_rating_and_tags,
+)
 
 
 class TestNFOParsing:
@@ -58,6 +63,51 @@ class TestNFOParsing:
             assert 'user_rating' in metadata
             assert metadata['user_rating'] == 8.5
             assert isinstance(metadata['user_rating'], float)
+        finally:
+            os.unlink(nfo_path)
+
+    def test_update_nfo_user_rating_and_tags_replaces_existing(self):
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Movie</title>
+    <userscore>4.0</userscore>
+    <Genre>OldOne</Genre>
+    <genre>OldTwo</genre>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            ok = update_nfo_user_rating_and_tags(nfo_path, user_rating=8.5, tags=['Action', 'Adventure'])
+            assert ok is True
+
+            metadata = parse_nfo_file(nfo_path)
+            assert metadata.get('user_rating') == 8.5
+            assert sorted(metadata.get('tags') or []) == ['Action', 'Adventure']
+        finally:
+            os.unlink(nfo_path)
+
+    def test_update_nfo_user_rating_and_tags_removes_when_none(self):
+        nfo_content = """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Movie</title>
+    <userscore>7.0</userscore>
+    <Genre>Action</Genre>
+</movie>
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.nfo', delete=False) as f:
+            f.write(nfo_content)
+            nfo_path = f.name
+
+        try:
+            ok = update_nfo_user_rating_and_tags(nfo_path, user_rating=None, tags=[])
+            assert ok is True
+
+            metadata = parse_nfo_file(nfo_path)
+            assert 'user_rating' not in metadata
+            assert metadata.get('tags') in (None, [])
         finally:
             os.unlink(nfo_path)
     
