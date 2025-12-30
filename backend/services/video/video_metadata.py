@@ -493,10 +493,11 @@ def read_video_metadata(
 
 
 def update_nfo_user_rating_and_tags(nfo_path: str, *, user_rating: Any, tags: Any) -> bool:
-    """Update (or add) userscore + Genre tags in an existing .nfo file.
+    """Update user-editable metadata in an existing .nfo file.
 
-    - Writes <userscore> as a float string.
-    - Replaces existing <genre>/<Genre> entries with one <genre> per tag.
+    Updates:
+    - <userscore> (user rating 0–10)
+    - <genre> (tags)
 
     Returns True on success, False on failure.
     """
@@ -531,6 +532,72 @@ def update_nfo_user_rating_and_tags(nfo_path: str, *, user_rating: Any, tags: An
         for tag in normalized_tags:
             g = ET.SubElement(root, 'genre')
             g.text = tag
+
+        tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
+        return True
+    except Exception:
+        return False
+
+
+def update_nfo_user_metadata(
+    nfo_path: str,
+    *,
+    user_rating: Any,
+    tags: Any,
+    start_time_in_ms: Any = None,
+    end_time_in_ms: Any = None,
+) -> bool:
+    """Update user metadata (rating/tags) AND custom times in an existing .nfo file.
+
+    The time fields are stored as integer milliseconds:
+    - <start_time_in_ms>
+    - <end_time_in_ms>
+
+    This function is intentionally tolerant: passing None removes the field.
+    """
+    if not isinstance(nfo_path, str) or not nfo_path:
+        return False
+    if not os.path.exists(nfo_path):
+        return False
+
+    rating = _normalize_user_rating(user_rating)
+    normalized_tags = _normalize_tags(tags)
+    start_ms = _coerce_int_ms(start_time_in_ms)
+    end_ms = _coerce_int_ms(end_time_in_ms)
+
+    try:
+        tree = ET.parse(nfo_path)
+        root = tree.getroot()
+
+        # userscore
+        userscore_el = root.find('userscore')
+        if rating is None:
+            if userscore_el is not None:
+                root.remove(userscore_el)
+        else:
+            if userscore_el is None:
+                userscore_el = ET.SubElement(root, 'userscore')
+            userscore_el.text = str(rating)
+
+        # remove all existing genre/Genre
+        for el in list(root.findall('Genre')):
+            root.remove(el)
+        for el in list(root.findall('genre')):
+            root.remove(el)
+        for tag in normalized_tags:
+            g = ET.SubElement(root, 'genre')
+            g.text = tag
+
+        def _upsert_int_tag(tag_name: str, value: Optional[int]):
+            for el in list(root.findall(tag_name)):
+                root.remove(el)
+            if value is None:
+                return
+            el = ET.SubElement(root, tag_name)
+            el.text = str(int(value))
+
+        _upsert_int_tag('start_time_in_ms', start_ms)
+        _upsert_int_tag('end_time_in_ms', end_ms)
 
         tree.write(nfo_path, encoding='utf-8', xml_declaration=True)
         return True
@@ -583,6 +650,80 @@ def update_mp4_user_rating_and_tags(file_path: str, *, user_rating: Any, tags: A
             # Clean up legacy key if present so the value is unambiguous.
             if LEGACY_USER_RATING_FREEFORM_TAG in video.tags:
                 del video.tags[LEGACY_USER_RATING_FREEFORM_TAG]
+
+        video.save()
+        return True
+    except Exception:
+        return False
+
+
+def update_mp4_user_metadata(
+    file_path: str,
+    *,
+    user_rating: Any,
+    tags: Any,
+    start_time_in_ms: Any = None,
+    end_time_in_ms: Any = None,
+) -> bool:
+    """Update user metadata (rating/tags) AND custom times embedded in MP4/M4V.
+
+    This is used only when no .nfo exists.
+    - `start_time_in_ms` and `end_time_in_ms` are stored as UTF-8 bytes under
+      the MP4 freeform keys `----:LAO:music-start` and `----:LAO:music-end`.
+    """
+    if not MUTAGEN_AVAILABLE:
+        return False
+    if not isinstance(file_path, str) or not file_path:
+        return False
+    ext = Path(file_path).suffix.lower()
+    if ext not in ('.mp4', '.m4v'):
+        return False
+
+    rating = _normalize_user_rating(user_rating)
+    normalized_tags = _normalize_tags(tags)
+    start_ms = _coerce_int_ms(start_time_in_ms)
+    end_ms = _coerce_int_ms(end_time_in_ms)
+
+    try:
+        video = MP4(file_path)
+        if video.tags is None:
+            video.add_tags()
+
+        # tags field
+        if normalized_tags:
+            video.tags[MP4_TAGS_FIELD] = [', '.join(normalized_tags)]
+        else:
+            if MP4_TAGS_FIELD in video.tags:
+                del video.tags[MP4_TAGS_FIELD]
+
+        # user rating freeform
+        if rating is None:
+            if USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[USER_RATING_FREEFORM_TAG]
+            if LEGACY_USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[LEGACY_USER_RATING_FREEFORM_TAG]
+        else:
+            payload = str(rating).encode('utf-8', errors='replace')
+            if MP4FreeForm is not None:
+                video.tags[USER_RATING_FREEFORM_TAG] = [MP4FreeForm(payload)]
+            else:
+                video.tags[USER_RATING_FREEFORM_TAG] = [payload]
+            if LEGACY_USER_RATING_FREEFORM_TAG in video.tags:
+                del video.tags[LEGACY_USER_RATING_FREEFORM_TAG]
+
+        def _set_freeform_ms(tag_name: str, value: Optional[int]):
+            if value is None:
+                if tag_name in video.tags:
+                    del video.tags[tag_name]
+                return
+            payload = str(int(value)).encode('utf-8', errors='replace')
+            if MP4FreeForm is not None:
+                video.tags[tag_name] = [MP4FreeForm(payload)]
+            else:
+                video.tags[tag_name] = [payload]
+
+        _set_freeform_ms(START_TIME_IN_MS_TAG, start_ms)
+        _set_freeform_ms(END_TIME_IN_MS_TAG, end_ms)
 
         video.save()
         return True

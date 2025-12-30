@@ -42,7 +42,12 @@ from services.audio.audio_metadata import display_title, read_audio_metadata
 from services.video.video_playback_controller import VideoPlaybackController
 from services.video.video_manager import VideoManager
 from services.video.video_metadata import find_nfo_file
-from services.video.video_metadata import update_nfo_user_rating_and_tags, update_mp4_user_rating_and_tags
+from services.video.video_metadata import (
+    update_nfo_user_rating_and_tags,
+    update_mp4_user_rating_and_tags,
+    update_nfo_user_metadata,
+    update_mp4_user_metadata,
+)
 from services.general.database_manager import DatabaseManager
 from services.general.user_manager import UserManager, require_admin, require_auth
 from services.general.stats_manager import StatsManager
@@ -1597,7 +1602,12 @@ def get_library_series(library_id):
 @app.route('/api/video/metadata/user', methods=['POST'])
 @require_auth(user_manager)
 def update_video_user_metadata():
-    """Update user-editable metadata for a video (user_rating + tags).
+    """Update user-editable metadata for a video.
+
+    Supports:
+    - `user_rating` (0–10)
+    - `tags` (string list)
+    - `start_time_in_ms` / `end_time_in_ms` (custom trim points in milliseconds)
 
     Persists to the file metadata store (prefer .nfo when present) and updates the cached DB row.
     """
@@ -1609,15 +1619,56 @@ def update_video_user_metadata():
 
     user_rating = data.get('user_rating', None) if 'user_rating' in data else None
     tags = data.get('tags', None) if 'tags' in data else None
+    start_time_in_ms = data.get('start_time_in_ms', None) if 'start_time_in_ms' in data else None
+    end_time_in_ms = data.get('end_time_in_ms', None) if 'end_time_in_ms' in data else None
 
     # Resolve file path
     file_path = db.get_video_file_path_by_media_id(media_id)
     if not file_path:
         return jsonify({'error': 'Video not found'}), 404
 
+    # Validate custom times when explicitly provided.
+    def _coerce_int_ms_field(value):
+        if value is None or value == '':
+            return None
+        if isinstance(value, bool):
+            return None
+        try:
+            # Accept floats/strings but store as int milliseconds.
+            as_int = int(float(value))
+        except Exception:
+            return 'invalid'
+        if as_int < 0:
+            return 'invalid'
+        return as_int
+
+    if 'start_time_in_ms' in data:
+        start_time_in_ms = _coerce_int_ms_field(start_time_in_ms)
+        if start_time_in_ms == 'invalid':
+            return jsonify({'error': 'start_time_in_ms must be a non-negative integer milliseconds value'}), 400
+
+    if 'end_time_in_ms' in data:
+        end_time_in_ms = _coerce_int_ms_field(end_time_in_ms)
+        if end_time_in_ms == 'invalid':
+            return jsonify({'error': 'end_time_in_ms must be a non-negative integer milliseconds value'}), 400
+
+    if (
+        'start_time_in_ms' in data
+        and 'end_time_in_ms' in data
+        and start_time_in_ms is not None
+        and end_time_in_ms is not None
+        and int(start_time_in_ms) >= int(end_time_in_ms)
+    ):
+        return jsonify({'error': 'start_time_in_ms must be less than end_time_in_ms'}), 400
+
     # If caller omitted one of the fields, preserve existing DB values.
     existing = None
-    if tags is None or ('user_rating' not in data):
+    if (
+        tags is None
+        or ('user_rating' not in data)
+        or ('start_time_in_ms' not in data)
+        or ('end_time_in_ms' not in data)
+    ):
         try:
             existing = db.get_video_user_metadata_by_media_id(media_id)
         except Exception:
@@ -1633,6 +1684,16 @@ def update_video_user_metadata():
             return jsonify({'error': 'Failed to resolve existing rating'}), 500
         user_rating = existing.get('user_rating', None)
 
+    if 'start_time_in_ms' not in data:
+        if not isinstance(existing, dict):
+            return jsonify({'error': 'Failed to resolve existing start_time_in_ms'}), 500
+        start_time_in_ms = existing.get('start_time_in_ms', None)
+
+    if 'end_time_in_ms' not in data:
+        if not isinstance(existing, dict):
+            return jsonify({'error': 'Failed to resolve existing end_time_in_ms'}), 500
+        end_time_in_ms = existing.get('end_time_in_ms', None)
+
     # Persist to file metadata store
     nfo_path = None
     try:
@@ -1642,21 +1703,47 @@ def update_video_user_metadata():
 
     file_ok = False
     if nfo_path:
-        file_ok = update_nfo_user_rating_and_tags(nfo_path, user_rating=user_rating, tags=tags)
+        file_ok = update_nfo_user_metadata(
+            nfo_path,
+            user_rating=user_rating,
+            tags=tags,
+            start_time_in_ms=start_time_in_ms,
+            end_time_in_ms=end_time_in_ms,
+        )
         if not file_ok:
             return jsonify({'error': 'Failed to update .nfo metadata'}), 500
     else:
         # Fallback to MP4/M4V embedded tags
-        file_ok = update_mp4_user_rating_and_tags(file_path, user_rating=user_rating, tags=tags)
+        file_ok = update_mp4_user_metadata(
+            file_path,
+            user_rating=user_rating,
+            tags=tags,
+            start_time_in_ms=start_time_in_ms,
+            end_time_in_ms=end_time_in_ms,
+        )
         if not file_ok:
             return jsonify({'error': 'No writable metadata store for this file (no .nfo, non-MP4)'}), 400
 
     # Update cache DB
-    updated = db.update_video_user_metadata_by_media_id(media_id, user_rating=user_rating, tags=tags)
+    updated = db.update_video_user_metadata_by_media_id(
+        media_id,
+        user_rating=user_rating,
+        tags=tags,
+        start_time_in_ms=start_time_in_ms,
+        end_time_in_ms=end_time_in_ms,
+    )
     if not updated:
         return jsonify({'error': 'Failed to update cached metadata'}), 500
 
-    return jsonify({'media_id': media_id, 'user_rating': user_rating, 'tags': tags})
+    return jsonify(
+        {
+            'media_id': media_id,
+            'user_rating': user_rating,
+            'tags': tags,
+            'start_time_in_ms': start_time_in_ms,
+            'end_time_in_ms': end_time_in_ms,
+        }
+    )
 
 # Video Playlist Management
 @app.route('/api/video/playlists', methods=['GET'])

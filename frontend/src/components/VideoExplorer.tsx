@@ -21,6 +21,8 @@ interface Video {
   title?: string;
   series?: string;
   duration?: number;
+  start_time_in_ms?: number;
+  end_time_in_ms?: number;
   tags?: string[];
   description?: string;
   thumbnail_url?: string;
@@ -60,7 +62,13 @@ function VideoExplorer() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [isStartingPlayback, setIsStartingPlayback] = useState(false);
 
-  const applyUserMetadataUpdate = (updated: { media_id?: string; user_rating?: number | null; tags?: string[] }) => {
+  const applyUserMetadataUpdate = (updated: {
+    media_id?: string;
+    user_rating?: number | null;
+    tags?: string[];
+    start_time_in_ms?: number | null;
+    end_time_in_ms?: number | null;
+  }) => {
     if (!updated.media_id) return;
     setVideos((prev) =>
       prev.map((v) =>
@@ -69,6 +77,8 @@ function VideoExplorer() {
               ...v,
               user_rating: updated.user_rating == null ? undefined : updated.user_rating,
               tags: updated.tags,
+              start_time_in_ms: updated.start_time_in_ms == null ? undefined : updated.start_time_in_ms,
+              end_time_in_ms: updated.end_time_in_ms == null ? undefined : updated.end_time_in_ms,
             }
           : v,
       ),
@@ -79,6 +89,8 @@ function VideoExplorer() {
             ...prev,
             user_rating: updated.user_rating == null ? undefined : updated.user_rating,
             tags: updated.tags,
+            start_time_in_ms: updated.start_time_in_ms == null ? undefined : updated.start_time_in_ms,
+            end_time_in_ms: updated.end_time_in_ms == null ? undefined : updated.end_time_in_ms,
           }
         : prev,
     );

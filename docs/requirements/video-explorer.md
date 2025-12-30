@@ -55,6 +55,8 @@ The Video Explorer page provides a browsing experience for videos inside a selec
   - Editable `Rating` field (user rating) in range 0–10
   - Editable tags list (add/remove)
   - Basic metadata (artist/director, series, duration when available)
+  - Editable `music_start` and `music_end` fields (milliseconds) when available
+    - Each field shows a tooltip indicating the value is in milliseconds (ms)
   - A `Save` button (persists rating + tags)
   - A `Play` button
 - Pressing `Esc` or clicking outside the popup closes it.
@@ -66,6 +68,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
   - `media_id`
   - `user_rating` (number 0–10, or `null` to clear)
   - `tags` (array of strings)
+-  - `start_time_in_ms` and `end_time_in_ms` (integer milliseconds, or `null` to clear)
 - The save requires authentication.
 - Persisting prefers writing to the video’s `.nfo` file when present; otherwise it falls back to embedded MP4 tags (MP4/M4V only).
 - On successful save, the popup and browse view reflect the updated rating and tags immediately.

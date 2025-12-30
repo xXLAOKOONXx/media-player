@@ -11,6 +11,8 @@ export interface VideoDetailsModalVideo {
   director?: string;
   series?: string;
   duration?: number;
+  start_time_in_ms?: number;
+  end_time_in_ms?: number;
   tags?: string[];
   description?: string;
   thumbnail_url?: string;
@@ -58,6 +60,11 @@ const clampRating = (value: number) => {
   return value;
 };
 
+const clampMs = (value: number) => {
+  if (value < 0) return 0;
+  return Math.trunc(value);
+};
+
 const normalizeTags = (tags: string[]) => {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -83,6 +90,8 @@ export default function VideoDetailsModal({
   const [isCoverBroken, setIsCoverBroken] = useState(false);
 
   const [ratingText, setRatingText] = useState('');
+  const [musicStartText, setMusicStartText] = useState('');
+  const [musicEndText, setMusicEndText] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
   const [newTagText, setNewTagText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -109,6 +118,10 @@ export default function VideoDetailsModal({
     setSaveError(null);
     const r = video.user_rating;
     setRatingText(r == null || Number.isNaN(r) ? '' : String(r));
+    const s = video.start_time_in_ms;
+    setMusicStartText(s == null || Number.isNaN(s) ? '' : String(Math.trunc(s)));
+    const e = video.end_time_in_ms;
+    setMusicEndText(e == null || Number.isNaN(e) ? '' : String(Math.trunc(e)));
     setEditTags(Array.isArray(video.tags) ? normalizeTags(video.tags) : []);
     setNewTagText('');
   }, [video]);
@@ -155,6 +168,37 @@ export default function VideoDetailsModal({
 
     const normalizedTags = normalizeTags(editTags);
 
+    let startMs: number | null = null;
+    let endMs: number | null = null;
+
+    const startTrimmed = musicStartText.trim();
+    if (startTrimmed) {
+      const parsed = Number(startTrimmed);
+      if (!Number.isFinite(parsed)) {
+        setIsSaving(false);
+        setSaveError('music_start must be a non-negative number (milliseconds)');
+        return;
+      }
+      startMs = clampMs(parsed);
+    }
+
+    const endTrimmed = musicEndText.trim();
+    if (endTrimmed) {
+      const parsed = Number(endTrimmed);
+      if (!Number.isFinite(parsed)) {
+        setIsSaving(false);
+        setSaveError('music_end must be a non-negative number (milliseconds)');
+        return;
+      }
+      endMs = clampMs(parsed);
+    }
+
+    if (startMs != null && endMs != null && startMs >= endMs) {
+      setIsSaving(false);
+      setSaveError('music_start must be less than music_end');
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/video/metadata/user`, {
         method: 'POST',
@@ -163,6 +207,8 @@ export default function VideoDetailsModal({
           media_id: video.media_id,
           user_rating: rating,
           tags: normalizedTags,
+          start_time_in_ms: startMs,
+          end_time_in_ms: endMs,
         }),
       });
 
@@ -180,6 +226,8 @@ export default function VideoDetailsModal({
         ...video,
         user_rating: rating == null ? undefined : rating,
         tags: normalizedTags,
+        start_time_in_ms: startMs == null ? undefined : startMs,
+        end_time_in_ms: endMs == null ? undefined : endMs,
       };
       onVideoUpdated?.(updated);
     } catch {
@@ -241,6 +289,48 @@ export default function VideoDetailsModal({
             <div className="video-explorer-meta-row">
               <span className="material-icons">schedule</span>
               <span>{formatDuration(video.duration)}</span>
+            </div>
+
+            <div className="video-explorer-meta-row">
+              <span className="material-icons">timer</span>
+              <span className="video-explorer-inline-field">
+                <label className="video-explorer-inline-label" htmlFor="video-music-start">
+                  music_start
+                </label>
+                <input
+                  id="video-music-start"
+                  className="video-explorer-edit-input"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={musicStartText}
+                  onChange={(e) => setMusicStartText(e.target.value)}
+                  placeholder="ms"
+                  title="Milliseconds (ms)"
+                  disabled={!video.media_id || isSaving}
+                />
+              </span>
+            </div>
+
+            <div className="video-explorer-meta-row">
+              <span className="material-icons">timer</span>
+              <span className="video-explorer-inline-field">
+                <label className="video-explorer-inline-label" htmlFor="video-music-end">
+                  music_end
+                </label>
+                <input
+                  id="video-music-end"
+                  className="video-explorer-edit-input"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={musicEndText}
+                  onChange={(e) => setMusicEndText(e.target.value)}
+                  placeholder="ms"
+                  title="Milliseconds (ms)"
+                  disabled={!video.media_id || isSaving}
+                />
+              </span>
             </div>
 
             <div className="video-explorer-meta-row">
