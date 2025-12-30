@@ -150,6 +150,8 @@ UI behavior:
 - Show the **Subtitles** dropdown only when more than 1 subtitle track is available.
 
 Default selection behavior:
+- If the current video has multiple audio tracks and the user has a preferred language configured, the backend attempts to select an audio track matching that preferred language.
+- If multiple audio tracks match the preferred language, the backend prefers a track that is not marked as "visual-impaired".
 - If subtitles are currently off and the backend finds a subtitle track whose title (or MPV `metadata.name`) contains "forced" and whose language matches the active audio track language, the backend selects that subtitle track by default.
 - If the user explicitly selects a subtitle track (including "Off"), the backend does not override that choice.
 

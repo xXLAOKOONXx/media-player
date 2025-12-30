@@ -5,6 +5,9 @@ import './SettingsManager.css';
 
 const API_BASE_URL = '';
 
+const PREFERRED_LANGUAGE_OPTIONS = ['deu', 'eng'] as const;
+type PreferredLanguage = typeof PREFERRED_LANGUAGE_OPTIONS[number];
+
 interface Settings {
   crossfade: {
     enabled: boolean;
@@ -37,15 +40,18 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>('eng');
+  const [savingPreferredLanguage, setSavingPreferredLanguage] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    loadUserPreferences();
   }, []);
 
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/settings`);
+      const response = await fetch(`${API_BASE_URL}/api/settings`, { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -59,11 +65,54 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
     }
   };
 
+  const loadUserPreferences = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/preferences`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        const value = data?.preferred_language;
+        if (PREFERRED_LANGUAGE_OPTIONS.includes(value)) {
+          setPreferredLanguage(value);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+    }
+  };
+
+  const saveUserPreferences = async (value: PreferredLanguage) => {
+    try {
+      setSavingPreferredLanguage(true);
+      const response = await fetch(`${API_BASE_URL}/api/user/preferences`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ preferred_language: value }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        alert(`Failed to save preferred language: ${error.error || 'Unknown error'}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error saving user preferences:', error);
+      alert('Failed to save preferred language. Please try again.');
+      return false;
+    } finally {
+      setSavingPreferredLanguage(false);
+    }
+  };
+
   const saveSettings = async () => {
     try {
       setSaving(true);
       const response = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -180,6 +229,35 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
   return (
     <div className="settings-manager">
       <h2>Settings</h2>
+
+      {/* User Preferences Section */}
+      <section className="settings-section">
+        <h3>User Preferences</h3>
+        <div className="settings-group">
+          <div className="setting-item">
+            <label>
+              <span className="setting-label">Preferred language:</span>
+              <select
+                value={preferredLanguage}
+                onChange={async (e) => {
+                  const next = e.target.value as PreferredLanguage;
+                  const prev = preferredLanguage;
+                  setPreferredLanguage(next);
+                  const ok = await saveUserPreferences(next);
+                  if (!ok) setPreferredLanguage(prev);
+                }}
+                disabled={savingPreferredLanguage}
+              >
+                {PREFERRED_LANGUAGE_OPTIONS.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
 
       {/* Audio Settings Section */}
       <section className="settings-section">
