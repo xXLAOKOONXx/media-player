@@ -15,9 +15,11 @@ Buttons in the "Video Library" header:
 
 1) **Configure Playlist Folder**
 - Opens a modal to set the folder used for playlist creation and for listing `.m3u` playlists.
+- Visible to: **admin** users only.
 
 2) **Add Video Library**
 - Opens a modal to add a new video library folder to scan.
+- Visible to: **admin** users only.
 
 3) **Search All Folders**
 - Switches the view into global search mode.
@@ -30,6 +32,7 @@ Conditional buttons (only when at least one video is selected):
 
 4) **Create Playlist (N)**
 - Opens the "Create New Playlist" modal.
+- Visible to: any **logged-in** user.
 
 5) **Add to Current Playlist (N)**
 - Sends selected videos to the currently loaded playback playlist.
@@ -48,7 +51,10 @@ On mount:
 - GET `/api/video/playlists-folder` to load the configured playlist folder.
 
 When `playlistFolder` changes and is non-empty:
-- POST `/api/browse` with `{ path: playlistFolder }` and build the list of "available playlists" by selecting items whose names end with `.m3u`.
+- GET `/api/video/playlists-folder/files` to load the list of available playlists in the configured folder.
+  - Notes:
+    - This endpoint is **not** a generic filesystem browser.
+    - Requires the user to be authenticated.
 
 ### Video loading modes
 
@@ -139,6 +145,7 @@ Buttons:
     - Clear selection
     - Reload available playlists
   - On failure: `alert('Failed to create playlist: <server error>')`
+  - Requires the user to be authenticated.
 - **Cancel** closes the modal.
 
 ## Add Video to Playlist modal
@@ -157,6 +164,7 @@ Buttons:
     - `alert('Video added to playlist successfully!')`
     - Close modal and clear selection state.
   - On failure: `alert('Failed to add video: <server error>')`
+  - Requires the user to be authenticated.
 - **Cancel** closes modal and clears modal state.
 
 ## Video Libraries section
@@ -259,6 +267,7 @@ Videos may have an associated thumbnail image.
 
 When `selectedVideos.size > 0`, show:
 - **Create Playlist (N)** (opens modal)
+  - Visible to: any **logged-in** user.
 - **Add to Current Playlist (N)**
   - POST `/api/video/playback/add-videos` with `{ media_ids: <selected media ids> }`.
   - On success: `alert('Added X video(s) to current playlist...')` and clears selection.
@@ -272,9 +281,11 @@ Per video row, Actions column:
     - Sets `videoToAdd` to that video.
     - Opens the "Add Video to Playlist" modal.
   - Disabled when:
+    - the user is not logged in, OR
     - `playlistFolder` is not configured, OR
     - there are zero available playlists.
   - Tooltip/title:
+    - "Login required" if not logged in
     - "Configure playlist folder first" if playlistFolder is missing
     - "Create a playlist first" if no playlists exist
     - "Add to playlist" otherwise
