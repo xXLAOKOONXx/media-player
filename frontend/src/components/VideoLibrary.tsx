@@ -135,20 +135,14 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   const loadAvailablePlaylists = async () => {
     try {
-      // List playlists in the configured folder
-      const response = await fetch(`${API_BASE_URL}/api/browse`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: playlistFolder })
-      });
+      // List playlists in the configured folder (safe endpoint; not a generic filesystem browser)
+      const response = await fetch(`${API_BASE_URL}/api/video/playlists-folder/files`);
+      if (!response.ok) {
+        setAvailablePlaylists([]);
+        return;
+      }
       const data = await response.json();
-      const playlists = (data.items || [])
-        .filter((item: any) => item.name.endsWith('.m3u'))
-        .map((item: any) => ({
-          name: item.name.replace('.m3u', ''),
-          path: item.path
-        }));
-      setAvailablePlaylists(playlists);
+      setAvailablePlaylists(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error loading available playlists:', err);
     }
@@ -490,7 +484,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           </button>
           {selectedVideos.size > 0 && (
             <>
-              {currentUser?.role === 'admin' && (
+              {!!currentUser && (
                 <button onClick={() => setShowCreatePlaylistForm(true)}>
                   <span className="material-icons">playlist_add</span>
                   Create Playlist ({selectedVideos.size})
@@ -975,13 +969,15 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                             setVideoToAdd(track);
                             setShowAddToPlaylistForm(true);
                           }}
-                          disabled={!playlistFolder || availablePlaylists.length === 0}
+                          disabled={!currentUser || !playlistFolder || availablePlaylists.length === 0}
                           title={
-                            !playlistFolder 
-                              ? 'Configure playlist folder first'
-                              : availablePlaylists.length === 0
-                                ? 'Create a playlist first'
-                                : 'Add to playlist'
+                            !currentUser
+                              ? 'Login required'
+                              : !playlistFolder 
+                                ? 'Configure playlist folder first'
+                                : availablePlaylists.length === 0
+                                  ? 'Create a playlist first'
+                                  : 'Add to playlist'
                           }
                         >
                           <span className="material-icons">playlist_add</span>

@@ -1681,8 +1681,25 @@ def set_video_playlists_folder():
     
     return jsonify({'path': path})
 
+
+@app.route('/api/video/playlists-folder/files', methods=['GET'])
+@require_auth(user_manager)
+def get_video_playlists_folder_files():
+    """List playlist files in the configured video playlist folder.
+
+    This is intentionally *not* a generic filesystem browser; it only returns
+    playlists found under the configured `video_playlist_folder_path`.
+    """
+    config = load_config()
+    playlist_folder = config.get('video_playlist_folder_path')
+    if not playlist_folder:
+        return jsonify({'error': 'Video playlist folder not configured'}), 400
+
+    playlists = library_manager.get_playlists(playlist_folder)
+    return jsonify(playlists)
+
 @app.route('/api/video/playlists/create', methods=['POST'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 def create_video_playlist():
     """Create a new M3U playlist from selected videos"""
     data = request.json
@@ -1692,6 +1709,16 @@ def create_video_playlist():
     
     if not playlist_name:
         return jsonify({'error': 'playlist_name is required'}), 400
+
+    # Prevent path traversal / nested paths. Playlist name is a display name.
+    if any(sep in playlist_name for sep in ['/', '\\']):
+        return jsonify({'error': 'Invalid playlist_name'}), 400
+
+    # Allow users to include the extension; normalize to a base name.
+    if playlist_name.lower().endswith('.m3u'):
+        playlist_name = playlist_name[:-4]
+    elif playlist_name.lower().endswith('.m3u8'):
+        playlist_name = playlist_name[:-5]
     
     if not media_ids or not isinstance(media_ids, list):
         return jsonify({'error': 'media_ids list cannot be empty'}), 400
@@ -1733,7 +1760,7 @@ def create_video_playlist():
         return jsonify({'error': 'Failed to create playlist'}), 500
 
 @app.route('/api/video/playlists/<playlist_name>/add-video', methods=['POST'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 def add_video_to_playlist(playlist_name):
     """Add a video to an existing playlist"""
     data = request.json
@@ -1747,10 +1774,28 @@ def add_video_to_playlist(playlist_name):
     if not playlist_folder:
         return jsonify({'error': 'Video playlist folder not configured'}), 400
     
-    playlist_path = os.path.join(playlist_folder, playlist_name)
-    
-    if not os.path.exists(playlist_path):
+    # Normalize and validate playlist name.
+    if not playlist_name or any(sep in playlist_name for sep in ['/', '\\']):
+        return jsonify({'error': 'Invalid playlist name'}), 400
+
+    # Accept either a stem (e.g. "My List") or a filename ("My List.m3u").
+    candidate_paths = []
+    lower = playlist_name.lower()
+    if lower.endswith('.m3u') or lower.endswith('.m3u8'):
+        candidate_paths.append(os.path.join(playlist_folder, playlist_name))
+    else:
+        candidate_paths.append(os.path.join(playlist_folder, f"{playlist_name}.m3u"))
+        candidate_paths.append(os.path.join(playlist_folder, f"{playlist_name}.m3u8"))
+
+    playlist_path = next((p for p in candidate_paths if os.path.exists(p)), None)
+    if not playlist_path:
         return jsonify({'error': 'Playlist not found'}), 404
+
+    # Extra safety: ensure the resolved path stays within the configured folder.
+    folder_abs = os.path.abspath(playlist_folder)
+    playlist_abs = os.path.abspath(playlist_path)
+    if not (playlist_abs == folder_abs or playlist_abs.startswith(folder_abs + os.sep)):
+        return jsonify({'error': 'Invalid playlist path'}), 400
     
     try:
         info = db.get_videos_by_media_ids([media_id]).get(media_id)
