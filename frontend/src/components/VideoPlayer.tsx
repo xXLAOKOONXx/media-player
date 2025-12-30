@@ -12,6 +12,7 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   const [ratingValue, setRatingValue] = useState(0);
   const [isSavingRating, setIsSavingRating] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
+  const [isSavingMusicPoint, setIsSavingMusicPoint] = useState<'start' | 'end' | null>(null);
 
   useEffect(() => {
     if (!isRatingModalOpen) return;
@@ -117,7 +118,38 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   const startTime = current_track.start_time || 0;
   const endTime = current_track.end_time || duration;
   const effectiveDuration = endTime ? endTime - startTime : duration;
-  const currentPos = current_position || 0;
+  const currentPos = typeof current_position === 'number' && Number.isFinite(current_position) ? current_position : 0;
+
+  const saveMusicPoint = async (which: 'start' | 'end') => {
+    const mediaId = current_track?.media_id;
+    if (!mediaId || typeof mediaId !== 'string') {
+      console.error('Missing media_id for current video');
+      return;
+    }
+
+    const ms = Math.max(0, Math.trunc(currentPos * 1000));
+    setIsSavingMusicPoint(which);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/metadata/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_id: mediaId,
+          ...(which === 'start' ? { start_time_in_ms: ms } : { end_time_in_ms: ms }),
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.error(`Failed to set music_${which}`, text || response.statusText);
+      }
+    } catch (err) {
+      console.error(`Error setting music_${which}:`, err);
+    } finally {
+      setIsSavingMusicPoint(null);
+    }
+  };
   
   // Calculate progress percentage
   const progressPercent = effectiveDuration && currentPos ? 
@@ -138,6 +170,30 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
           <span className="title">{current_track.title}</span>
 
           <div className="video-player-title-actions">
+            <button
+              type="button"
+              className="video-player-like-btn video-player-time-btn"
+              onClick={() => saveMusicPoint('start')}
+              disabled={!current_track?.media_id || isSavingMusicPoint !== null}
+              title={!current_track?.media_id ? 'Missing media_id' : 'Set music_start to current timestamp'}
+              aria-label="Set music_start to current timestamp"
+            >
+              <span className="material-icons">timer</span>
+              <span className="video-player-time-btn-label">Set music_start</span>
+            </button>
+
+            <button
+              type="button"
+              className="video-player-like-btn video-player-time-btn"
+              onClick={() => saveMusicPoint('end')}
+              disabled={!current_track?.media_id || isSavingMusicPoint !== null}
+              title={!current_track?.media_id ? 'Missing media_id' : 'Set music_end to current timestamp'}
+              aria-label="Set music_end to current timestamp"
+            >
+              <span className="material-icons">timer</span>
+              <span className="video-player-time-btn-label">Set music_end</span>
+            </button>
+
             <button
               type="button"
               className="video-player-like-btn"

@@ -239,6 +239,7 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .video-player-like-btn {
@@ -251,6 +252,16 @@
   border-radius: 10px;
   padding: 0.35rem;
   cursor: pointer;
+}
+
+.video-player-time-btn {
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.video-player-time-btn-label {
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .video-player-like-btn:hover {

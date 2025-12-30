@@ -31,9 +31,25 @@ When a `current_track` exists:
 - Show video title (`current_track.title`).
 - Show a **play** indicator icon when `status.is_playing` is true AND `status.is_paused` is false.
 - Show a **pause** indicator icon when `status.is_paused` is true.
+- Show **Set music_start** and **Set music_end** buttons in the Now Playing title row.
 - Show a **Like/Rate** button (icon `thumb_up`) in the Now Playing title row.
 - Conditionally show:
   - Custom Range line if either `current_track.start_time` or `current_track.end_time` is not null.
+
+### Set music_start / music_end to current timestamp
+
+UI:
+- Two buttons are shown in the Now Playing title row:
+  - **Set music_start**
+  - **Set music_end**
+- Buttons are disabled when `current_track.media_id` is missing.
+
+Behavior:
+- Clicking **Set music_start** sends:
+  - POST `/api/video/metadata/user` with `{ "media_id": <current_track.media_id>, "start_time_in_ms": <current_position * 1000> }`.
+- Clicking **Set music_end** sends:
+  - POST `/api/video/metadata/user` with `{ "media_id": <current_track.media_id>, "end_time_in_ms": <current_position * 1000> }`.
+- Errors are logged to the console (no toasts/banners).
 
 ### Like / Rate current video
 
