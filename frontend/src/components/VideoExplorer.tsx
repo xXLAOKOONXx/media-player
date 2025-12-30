@@ -341,8 +341,6 @@ function VideoExplorer() {
         setError(msg);
         return;
       }
-
-      setSelectedVideo(null);
     } catch {
       setError('Failed to start playback');
     } finally {

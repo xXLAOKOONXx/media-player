@@ -594,8 +594,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         alert(msg);
         return;
       }
-
-      setDetailsVideo(null);
     } catch (err) {
       console.error('Error starting playback:', err);
       alert('Failed to start playback');
