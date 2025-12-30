@@ -161,6 +161,29 @@ Actions:
 - Audio selection: POST `/api/video/playback/audio-track` with `{ "track_id": <number> }`.
 - Subtitle selection: POST `/api/video/playback/subtitle-track` with `{ "track_id": <number> }`.
 
+### Save Default channels
+
+UI behavior:
+- When the current video has more than one selectable audio track and/or more than one selectable subtitle track, show a button **Save Default channels**.
+
+Action:
+- Clicking **Save Default channels** sends POST `/api/video/playback/save-default-channels` with an empty JSON body `{}`.
+
+Persistence behavior:
+- The backend stores the current audio and subtitle selection for the logged-in user.
+- The preference is saved with up to three scopes (when resolvable from the current video's `media_id`):
+  - **Video** scope (exact `media_id`)
+  - **Season** scope
+  - **Series** scope
+- Subtitle **Off** is stored as a valid preference.
+
+Auto-select precedence:
+- On playback start, stored preferences are applied in this order:
+  1) Video
+  2) Season
+  3) Series
+- Preferences are only applied when the user has not already manually selected an audio/subtitle track for the current playback.
+
 ## Error handling
 
 - Network errors are logged to the console.

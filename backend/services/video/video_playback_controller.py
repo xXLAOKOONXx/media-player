@@ -151,6 +151,7 @@ class VideoPlaybackController:
         # Stats tracking
         self.stats_manager = stats_manager
         self.current_username = None  # Set by app when playback starts
+        self.current_user_id = None  # Set by app when playback starts
         self.stats_recorded = False  # Track if stats have been recorded for current track
         self.track_start_time = None  # System time when track started
         self.pause_start_time = None  # System time when paused
@@ -734,7 +735,6 @@ class VideoPlaybackController:
                 
                 # Load and play the video
                 self.player.play(video_path)
-
                 # Best-effort: choose a preferred-language audio track if multiple are available
                 # and the user hasn't explicitly picked an audio track.
                 try:
@@ -747,6 +747,14 @@ class VideoPlaybackController:
                     self._apply_selected_tracks_to_player()
                 except Exception as e:
                     logger.debug(f"Error applying audio/subtitle track selection: {e}")
+
+                # Best-effort: apply saved per-user audio/subtitle preferences.
+                # Must run before other heuristics to honor user defaults.
+                try:
+                    self._maybe_apply_saved_track_preferences()
+                except Exception as e:
+                    logger.debug(f"Error applying saved audio/subtitle preferences: {e}")
+
 
                 # Best-effort: if subtitles are currently off and we haven't explicitly
                 # selected a subtitle track yet, auto-enable a matching "forced" subtitle.
@@ -815,6 +823,121 @@ class VideoPlaybackController:
             self._custom_end_time_triggered = False
             logger.info(f"Video playback state updated (no player available)")
             return True
+
+    def _maybe_apply_saved_track_preferences(self) -> None:
+        """Apply saved audio/subtitle preferences for the current user.
+
+        Order of precedence:
+            1) Video preference
+            2) Season preference
+            3) Series preference
+        """
+        if not self.player or not self.video_available:
+            return
+        if self.db is None:
+            return
+        if not isinstance(self.current_user_id, int):
+            return
+
+        current_track = self.get_current_track() or {}
+        media_id = current_track.get('media_id')
+        if not isinstance(media_id, str) or not media_id.strip():
+            return
+
+        # Determine scope keys
+        series_id, season_id = (None, None)
+        try:
+            series_id, season_id = self.db.get_video_series_season_ids_by_media_id(media_id)
+        except Exception:
+            series_id, season_id = (None, None)
+
+        scopes: list[tuple[str, str]] = [('video', media_id)]
+        if isinstance(season_id, int):
+            scopes.append(('season', str(season_id)))
+        if isinstance(series_id, int):
+            scopes.append(('series', str(series_id)))
+
+        # Ensure MPV has a populated track list
+        tracks = self._get_mpv_track_list()
+        if not tracks:
+            try:
+                if hasattr(self.player, 'wait_until_playing'):
+                    self.player.wait_until_playing(timeout=0.75)
+            except Exception:
+                pass
+            deadline = time.time() + 0.75
+            while time.time() < deadline and not tracks:
+                time.sleep(0.05)
+                tracks = self._get_mpv_track_list()
+
+        if not tracks:
+            return
+
+        audio_ids = sorted({t.get('id') for t in tracks if t.get('type') == 'audio' and isinstance(t.get('id'), int)})
+        subtitle_ids = sorted({t.get('id') for t in tracks if t.get('type') == 'sub' and isinstance(t.get('id'), int)})
+        subtitle_real_count = len([sid for sid in subtitle_ids if sid >= 0])
+
+        # Only consult preferences when there are multiple choices.
+        audio_multi = len(audio_ids) >= 2
+        subtitle_multi = subtitle_real_count >= 2
+
+        # Audio
+        if audio_multi and not self._audio_track_user_selected:
+            preferred_audio = None
+            for scope_type, scope_key in scopes:
+                try:
+                    preferred_audio = self.db.get_prefered_channel(
+                        user_id=self.current_user_id,
+                        scope_type=scope_type,
+                        scope_key=scope_key,
+                    )
+                except Exception:
+                    preferred_audio = None
+                if isinstance(preferred_audio, int):
+                    break
+
+            if isinstance(preferred_audio, int) and preferred_audio in audio_ids:
+                self.selected_audio_track_id = int(preferred_audio)
+                self._audio_track_user_selected = True
+                try:
+                    self.player.aid = int(preferred_audio)
+                except Exception:
+                    pass
+
+        # Subtitles
+        if subtitle_multi and not self._subtitle_track_user_selected:
+            preferred_sub = None
+            found_pref_row = False
+            for scope_type, scope_key in scopes:
+                try:
+                    found_pref_row, preferred_sub = self.db.get_prefered_subtitle_with_presence(
+                        user_id=self.current_user_id,
+                        scope_type=scope_type,
+                        scope_key=scope_key,
+                    )
+                except Exception:
+                    preferred_sub = None
+                    found_pref_row = False
+
+                if found_pref_row:
+                    break
+
+            if found_pref_row:
+                # Apply preference: None means Off, else use saved id.
+                if preferred_sub is None:
+                    self.selected_subtitle_track_id = -1
+                    self._subtitle_track_user_selected = True
+                    try:
+                        self.player.sid = 'no'
+                    except Exception:
+                        pass
+                elif isinstance(preferred_sub, int) and preferred_sub in subtitle_ids:
+                    self.selected_subtitle_track_id = int(preferred_sub)
+                    self._subtitle_track_user_selected = True
+                    try:
+                        self.player.sid = int(preferred_sub)
+                    except Exception:
+                        pass
 
     def _get_mpv_track_list(self):
         """Return MPV track-list as a list of dicts, or empty list on failure."""
