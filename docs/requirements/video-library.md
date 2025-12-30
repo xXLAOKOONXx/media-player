@@ -346,6 +346,7 @@ Per video row, Actions column:
     - Persisting prefers `.nfo` when present; otherwise it falls back to embedded MP4 tags (MP4/M4V only).
     - On success, the table reflects updated tags immediately.
   - **Play** triggers POST `/api/video/playback/play-video` with `{ "media_id": <video media id> }`.
+    - On success, the popup remains open (user can close it manually).
 
 Popup fields:
 - The popup includes editable `music_start` and `music_end` fields (milliseconds) when available.

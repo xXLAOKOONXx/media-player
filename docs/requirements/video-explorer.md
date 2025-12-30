@@ -77,7 +77,7 @@ The Video Explorer page provides a browsing experience for videos inside a selec
 
 - Clicking `Play` starts the selected video immediately by calling:
   - `POST /api/video/playback/play-video` with `{ "media_id": "..." }`
-- On success the popup closes.
+- On success the popup remains open (user can close it manually).
 
 ## Thumbnails
 
