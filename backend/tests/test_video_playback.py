@@ -1,5 +1,8 @@
 import services.video.video_playback_controller as video_playback_controller
 from services.video.video_playback_controller import VideoPlaybackController
+import os
+import pytest
+
 
 
 def test_video_play_controller_play_state_only_mode(tmp_path, monkeypatch):
@@ -151,3 +154,36 @@ def test_load_playlist_shuffle_enabled_randomizes_first_track(tmp_path, monkeypa
     assert controller.current_track_index == 0
     # reverse_shuffle makes the first track the last entry.
     assert controller.current_playlist[0]["path"].endswith("3.mp4")
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='UNC path handling is Windows-specific')
+def test_load_playlist_unc_paths_not_collapsed(tmp_path, monkeypatch):
+    # Run in state-only mode (no external player)
+    monkeypatch.setattr(video_playback_controller, "MPV_AVAILABLE", False, raising=False)
+    monkeypatch.setattr(video_playback_controller, "get_video_duration", lambda _path: 10.0)
+    monkeypatch.setattr(video_playback_controller, "read_video_metadata", lambda *_args, **_kwargs: {})
+
+    controller = VideoPlaybackController(video_config={"fullscreen": True, "preferred_screen": None})
+    controller.player = None
+    controller.video_available = False
+
+    playlist = tmp_path / "unc.m3u"
+    unc_track = r"\\mynas\daten\Musik\Videos\example.mp4"
+    playlist.write_text(f"{unc_track}\n", encoding="utf-8")
+
+    expected_track_path = os.path.normpath(unc_track)
+    expected_playlist_path = os.path.normpath(str(playlist))
+
+    # load_playlist() uses os.path.exists for the playlist and each track.
+    def fake_exists(path):
+        norm = os.path.normpath(path)
+        if norm == expected_playlist_path:
+            return True
+        if norm == expected_track_path:
+            return True
+        return False
+
+    monkeypatch.setattr(video_playback_controller.os.path, "exists", fake_exists)
+
+    assert controller.load_playlist(str(playlist), track_index=0) is True
+    assert controller.current_playlist[0]["path"] == expected_track_path

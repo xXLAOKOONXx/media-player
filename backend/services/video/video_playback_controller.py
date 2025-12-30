@@ -562,8 +562,11 @@ class VideoPlaybackController:
                         continue
 
                     # Normalize Windows path separators in M3U (non-URL).
+                    # NOTE: Do not collapse leading UNC prefixes (e.g. \\server\share).
+                    # Replacing single backslashes is sufficient; os.path.normpath() will
+                    # normalize duplicate separators safely.
                     if '://' not in line:
-                        line = line.replace('\\\\', '/').replace('\\', '/')
+                        line = line.replace('\\', '/')
 
                     if os.path.isabs(line):
                         candidate_paths.append(os.path.normpath(line))
@@ -588,8 +591,9 @@ class VideoPlaybackController:
                         continue
 
                     # Normalize Windows path separators in M3U (non-URL).
+                    # NOTE: Do not collapse leading UNC prefixes (e.g. \\server\share).
                     if '://' not in line:
-                        line = line.replace('\\\\', '/').replace('\\', '/')
+                        line = line.replace('\\', '/')
 
                     if os.path.isabs(line):
                         track_path = os.path.normpath(line)
