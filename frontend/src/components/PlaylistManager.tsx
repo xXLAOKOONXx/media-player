@@ -167,8 +167,12 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
         <div className="header-row">
           <h2>Playlist Folders</h2>
           {currentUser?.role === 'admin' && (
-            <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-              {showAddForm ? 'Cancel' : '+ Add Playlist Folder'}
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setShowAddForm(!showAddForm)}
+              title={showAddForm ? 'Cancel' : 'Add Playlist Folder'}
+            >
+              <span className="material-icons">{showAddForm ? 'close' : 'add'}</span>
             </button>
           )}
         </div>
@@ -197,8 +201,9 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
                   type="button" 
                   className="btn btn-secondary"
                   onClick={() => browsePath_fn(newFolder.path || '/')}
+                  title="Browse folders"
                 >
-                  Browse
+                  <span className="material-icons">folder_open</span>
                 </button>
               </div>
             </div>
@@ -224,7 +229,10 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
                 </div>
               </div>
             )}
-            <button type="submit" className="btn btn-primary">Add Playlist Folder</button>
+            <button type="submit" className="btn btn-primary" title="Add playlist folder">
+              <span className="material-icons">add</span>
+              Add
+            </button>
           </form>
         )}
 
@@ -249,11 +257,11 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
                       className="edit-input"
                       autoFocus
                     />
-                    <button className="btn btn-sm btn-primary" onClick={() => handleRenameFolder(folder.id)}>
-                      Save
+                    <button className="btn btn-sm btn-primary" onClick={() => handleRenameFolder(folder.id)} title="Save">
+                      <span className="material-icons">check</span>
                     </button>
-                    <button className="btn btn-sm btn-secondary" onClick={handleCancelRename}>
-                      Cancel
+                    <button className="btn btn-sm btn-secondary" onClick={handleCancelRename} title="Cancel">
+                      <span className="material-icons">close</span>
                     </button>
                   </div>
                 ) : (
@@ -265,10 +273,10 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
                     {currentUser?.role === 'admin' && (
                       <div className="action-buttons">
                         <button className="btn btn-sm btn-secondary" onClick={() => handleStartRename(folder)} title="Rename">
-                          ✏️
+                          <span className="material-icons">edit</span>
                         </button>
                         <button className="btn btn-sm btn-danger" onClick={() => handleDeleteFolder(folder.id)} title="Delete">
-                          🗑️
+                          <span className="material-icons">delete</span>
                         </button>
                       </div>
                     )}
@@ -298,8 +306,9 @@ const PlaylistManager = ({ currentUser }: PlaylistManagerProps) => {
                   <button
                     className="btn btn-primary"
                     onClick={() => handlePlayPlaylist(playlist.path)}
+                    title="Play playlist"
                   >
-                    Play
+                    <span className="material-icons">play_arrow</span>
                   </button>
                 </div>
               ))

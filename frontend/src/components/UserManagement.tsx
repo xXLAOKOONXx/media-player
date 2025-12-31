@@ -191,8 +191,9 @@ function UserManagement({ currentUser }: UserManagementProps) {
                     <button
                       onClick={() => handleDeleteUser(user.id, user.username)}
                       className="delete-button"
+                      title="Delete user"
                     >
-                      Delete
+                      <span className="material-icons">delete</span>
                     </button>
                   )}
                   {user.role !== 'custom' && (
@@ -208,8 +209,12 @@ function UserManagement({ currentUser }: UserManagementProps) {
       <div className="section">
         <h3>Create New User</h3>
         {!showCreateForm ? (
-          <button onClick={() => setShowCreateForm(true)} className="action-button">
-            + Create User
+          <button 
+            onClick={() => setShowCreateForm(true)} 
+            className="action-button"
+            title="Create new user"
+          >
+            <span className="material-icons">add</span>
           </button>
         ) : (
           <form onSubmit={handleCreateUser} className="user-form">
@@ -234,8 +239,13 @@ function UserManagement({ currentUser }: UserManagementProps) {
               />
             </div>
             <div className="form-actions">
-              <button type="submit" disabled={creatingUser} className="action-button">
-                {creatingUser ? 'Creating...' : 'Create'}
+              <button 
+                type="submit" 
+                disabled={creatingUser} 
+                className="action-button"
+                title="Create user"
+              >
+                <span className="material-icons">{creatingUser ? 'hourglass_empty' : 'check'}</span>
               </button>
               <button
                 type="button"
@@ -246,8 +256,9 @@ function UserManagement({ currentUser }: UserManagementProps) {
                 }}
                 disabled={creatingUser}
                 className="cancel-button"
+                title="Cancel"
               >
-                Cancel
+                <span className="material-icons">close</span>
               </button>
             </div>
           </form>
@@ -257,8 +268,12 @@ function UserManagement({ currentUser }: UserManagementProps) {
       <div className="section">
         <h3>Admin Password</h3>
         {!showPasswordForm ? (
-          <button onClick={() => setShowPasswordForm(true)} className="action-button">
-            Change Admin Password
+          <button 
+            onClick={() => setShowPasswordForm(true)} 
+            className="action-button"
+            title="Change admin password"
+          >
+            <span className="material-icons">vpn_key</span>
           </button>
         ) : (
           <form onSubmit={handleUpdateAdminPassword} className="user-form">
@@ -273,8 +288,13 @@ function UserManagement({ currentUser }: UserManagementProps) {
               />
             </div>
             <div className="form-actions">
-              <button type="submit" disabled={updatingPassword} className="action-button">
-                {updatingPassword ? 'Updating...' : 'Update Password'}
+              <button 
+                type="submit" 
+                disabled={updatingPassword} 
+                className="action-button"
+                title="Update password"
+              >
+                <span className="material-icons">{updatingPassword ? 'hourglass_empty' : 'check'}</span>
               </button>
               <button
                 type="button"
@@ -284,8 +304,9 @@ function UserManagement({ currentUser }: UserManagementProps) {
                 }}
                 disabled={updatingPassword}
                 className="cancel-button"
+                title="Cancel"
               >
-                Cancel
+                <span className="material-icons">close</span>
               </button>
             </div>
           </form>

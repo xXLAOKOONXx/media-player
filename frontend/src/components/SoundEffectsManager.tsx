@@ -165,8 +165,12 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
         <div className="header-row">
           <h2>Sound Effects Folders</h2>
           {currentUser?.role === 'admin' && (
-            <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-              {showAddForm ? 'Cancel' : '+ Add Sound Effects Folder'}
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setShowAddForm(!showAddForm)}
+              title={showAddForm ? 'Cancel' : 'Add Sound Effects Folder'}
+            >
+              <span className="material-icons">{showAddForm ? 'close' : 'add'}</span>
             </button>
           )}
         </div>
@@ -195,8 +199,9 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
                   type="button" 
                   className="btn btn-secondary"
                   onClick={() => browsePath_fn(newFolder.path || '/')}
+                  title="Browse folders"
                 >
-                  Browse
+                  <span className="material-icons">folder_open</span>
                 </button>
               </div>
             </div>
@@ -222,7 +227,10 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
                 </div>
               </div>
             )}
-            <button type="submit" className="btn btn-primary">Add Sound Effects Folder</button>
+            <button type="submit" className="btn btn-primary" title="Add sound effects folder">
+              <span className="material-icons">add</span>
+              Add
+            </button>
           </form>
         )}
 
@@ -247,11 +255,11 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
                       className="edit-input"
                       autoFocus
                     />
-                    <button className="btn btn-sm btn-primary" onClick={() => handleRenameFolder(folder.id)}>
-                      Save
+                    <button className="btn btn-sm btn-primary" onClick={() => handleRenameFolder(folder.id)} title="Save">
+                      <span className="material-icons">check</span>
                     </button>
-                    <button className="btn btn-sm btn-secondary" onClick={handleCancelRename}>
-                      Cancel
+                    <button className="btn btn-sm btn-secondary" onClick={handleCancelRename} title="Cancel">
+                      <span className="material-icons">close</span>
                     </button>
                   </div>
                 ) : (
@@ -263,10 +271,10 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
                     {currentUser?.role === 'admin' && (
                       <div className="action-buttons">
                         <button className="btn btn-sm btn-secondary" onClick={() => handleStartRename(folder)} title="Rename">
-                          ✏️
+                          <span className="material-icons">edit</span>
                         </button>
                         <button className="btn btn-sm btn-danger" onClick={() => handleDeleteFolder(folder.id)} title="Delete">
-                          🗑️
+                          <span className="material-icons">delete</span>
                         </button>
                       </div>
                     )}
@@ -299,8 +307,9 @@ const SoundEffectsManager = ({ currentUser }: SoundEffectsManagerProps) => {
                   <button
                     className="btn btn-primary"
                     onClick={() => handlePlaySoundEffect(file.path)}
+                    title="Play sound effect"
                   >
-                    Play
+                    <span className="material-icons">play_arrow</span>
                   </button>
                 </div>
               ))

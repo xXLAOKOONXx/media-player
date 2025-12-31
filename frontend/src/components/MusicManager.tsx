@@ -461,31 +461,43 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
         <div className="music-actions">
           {currentUser?.role === 'admin' && (
             <>
-              <button onClick={() => setShowPlaylistFolderForm(true)}>
-                <span className="material-icons">folder</span>
-                Configure Playlist Folder
+              <button 
+                onClick={() => setShowPlaylistFolderForm(true)}
+                title="Configure Playlist Folder"
+              >
+                <span className="material-icons">folder_special</span>
               </button>
-              <button onClick={() => setShowAddForm(true)}>
+              <button 
+                onClick={() => setShowAddForm(true)}
+                title="Add Music Folder"
+              >
                 <span className="material-icons">add</span>
-                Add Music Folder
               </button>
             </>
           )}
-          <button onClick={handleGlobalSearch} className="search-all-button">
+          <button 
+            onClick={handleGlobalSearch} 
+            className="search-all-button"
+            title="Search All Folders"
+          >
             <span className="material-icons">search</span>
-            Search All Folders
           </button>
           {selectedTracks.size > 0 && (
             <>
               {currentUser?.role === 'admin' && (
-                <button onClick={() => setShowCreatePlaylistForm(true)}>
+                <button 
+                  onClick={() => setShowCreatePlaylistForm(true)}
+                  title={`Create Playlist (${selectedTracks.size} tracks)`}
+                >
                   <span className="material-icons">playlist_add</span>
-                  Create Playlist ({selectedTracks.size})
                 </button>
               )}
-              <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
+              <button 
+                onClick={handleAddToCurrentPlaylist} 
+                className="add-to-current-button"
+                title={`Add to Current Playlist (${selectedTracks.size} tracks)`}
+              >
                 <span className="material-icons">queue_music</span>
-                Add to Current Playlist ({selectedTracks.size})
               </button>
             </>
           )}
@@ -516,8 +528,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                   <button
                     type="button"
                     onClick={() => browsePath_fn(playlistFolder || '/')}
+                    title="Browse folders"
                   >
-                    Browse
+                    <span className="material-icons">folder_open</span>
                   </button>
                 </div>
               </div>
@@ -555,22 +568,26 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                       setPlaylistFolder(browsePath);
                       setBrowseItems([]);
                     }}
+                    title="Select current folder"
                   >
-                    Select Current Folder
+                    <span className="material-icons">check</span>
                   </button>
                 </div>
               )}
 
               <div className="form-actions">
-                <button type="submit">Save</button>
+                <button type="submit" title="Save playlist folder">
+                  <span className="material-icons">check</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowPlaylistFolderForm(false);
                     setBrowseItems([]);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -605,8 +622,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                   <button
                     type="button"
                     onClick={() => browsePath_fn(newFolder.path || '/')}
+                    title="Browse folders"
                   >
-                    Browse
+                    <span className="material-icons">folder_open</span>
                   </button>
                 </div>
               </div>
@@ -655,22 +673,26 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                       setNewFolder({ ...newFolder, path: browsePath });
                       setBrowseItems([]);
                     }}
+                    title="Select current folder"
                   >
-                    Select Current Folder
+                    <span className="material-icons">check</span>
                   </button>
                 </div>
               )}
 
               <div className="form-actions">
-                <button type="submit">Add Folder</button>
+                <button type="submit" title="Add music folder">
+                  <span className="material-icons">add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddForm(false);
                     setBrowseItems([]);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -694,12 +716,15 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
               </div>
               <p>{selectedTracks.size} track(s) selected</p>
               <div className="form-actions">
-                <button type="submit">Create Playlist</button>
+                <button type="submit" title="Create playlist">
+                  <span className="material-icons">playlist_add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowCreatePlaylistForm(false)}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -728,7 +753,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                 </select>
               </div>
               <div className="form-actions">
-                <button type="submit">Add to Playlist</button>
+                <button type="submit" title="Add to playlist">
+                  <span className="material-icons">playlist_add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -736,8 +763,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                     setSelectedPlaylist('');
                     setTrackToAdd(null);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -874,17 +902,18 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                 value={searchDurationMax}
                 onChange={(e) => setSearchDurationMax(e.target.value)}
               />
-              <button
-                onClick={() => {
-                  setSearchArtist('');
-                  setSearchTitle('');
-                  setSearchTags('');
-                  setSearchDurationMin('');
-                  setSearchDurationMax('');
-                }}
-              >
-                Clear Filters
-              </button>
+                <button
+                  onClick={() => {
+                    setSearchArtist('');
+                    setSearchTitle('');
+                    setSearchTags('');
+                    setSearchDurationMin('');
+                    setSearchDurationMax('');
+                  }}
+                  title="Clear all filters"
+                >
+                  <span className="material-icons">clear</span>
+                </button>
             </div>
           </div>
 

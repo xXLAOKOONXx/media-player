@@ -377,8 +377,9 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
                     type="button"
                     className="btn-secondary"
                     onClick={browseStatsFolder}
+                    title="Browse folders"
                   >
-                    Browse
+                    <span className="material-icons">folder_open</span>
                   </button>
                 </div>
               </label>
@@ -398,8 +399,10 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
             className="btn-primary"
             onClick={saveSettings}
             disabled={saving}
+            title="Save settings"
           >
-            {saving ? 'Saving...' : 'Save Settings'}
+            <span className="material-icons">{saving ? 'hourglass_empty' : 'save'}</span>
+            {saving ? ' Saving...' : ' Save'}
           </button>
         </div>
       )}

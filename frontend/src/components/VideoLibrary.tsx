@@ -614,26 +614,35 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         <div className="music-actions">
           {currentUser?.role === 'admin' && (
             <>
-              <button onClick={() => setShowPlaylistFolderForm(true)}>
-                <span className="material-icons">folder</span>
-                Configure Playlist Folder
+              <button 
+                onClick={() => setShowPlaylistFolderForm(true)}
+                title="Configure Playlist Folder"
+              >
+                <span className="material-icons">folder_special</span>
               </button>
-              <button onClick={() => setShowAddForm(true)}>
+              <button 
+                onClick={() => setShowAddForm(true)}
+                title="Add Video Library"
+              >
                 <span className="material-icons">add</span>
-                Add Video Library
               </button>
             </>
           )}
-          <button onClick={handleGlobalSearch} className="search-all-button">
+          <button 
+            onClick={handleGlobalSearch} 
+            className="search-all-button"
+            title="Search All Folders"
+          >
             <span className="material-icons">search</span>
-            Search All Folders
           </button>
           {selectedVideos.size > 0 && (
             <>
               {!!currentUser && (
-                <button onClick={() => setShowCreatePlaylistForm(true)}>
+                <button 
+                  onClick={() => setShowCreatePlaylistForm(true)}
+                  title={`Create Playlist (${selectedVideos.size} videos)`}
+                >
                   <span className="material-icons">playlist_add</span>
-                  Create Playlist ({selectedVideos.size})
                 </button>
               )}
               {!!currentUser && (
@@ -645,16 +654,18 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       ? 'Configure playlist folder first'
                       : availablePlaylists.length === 0
                         ? 'Create a playlist first'
-                        : 'Add selected videos to an existing playlist'
+                        : `Add selected videos to an existing playlist (${selectedVideos.size} videos)`
                   }
                 >
                   <span className="material-icons">playlist_add</span>
-                  Add to Playlist ({selectedVideos.size})
                 </button>
               )}
-              <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
+              <button 
+                onClick={handleAddToCurrentPlaylist} 
+                className="add-to-current-button"
+                title={`Add to Current Playlist (${selectedVideos.size} videos)`}
+              >
                 <span className="material-icons">queue_music</span>
-                Add to Current Playlist ({selectedVideos.size})
               </button>
             </>
           )}
@@ -685,8 +696,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   <button
                     type="button"
                     onClick={() => browsePath_fn(playlistFolder || '/')}
+                    title="Browse folders"
                   >
-                    Browse
+                    <span className="material-icons">folder_open</span>
                   </button>
                 </div>
               </div>
@@ -724,22 +736,26 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       setPlaylistFolder(browsePath);
                       setBrowseItems([]);
                     }}
+                    title="Select current folder"
                   >
-                    Select Current Folder
+                    <span className="material-icons">check</span>
                   </button>
                 </div>
               )}
 
               <div className="form-actions">
-                <button type="submit">Save</button>
+                <button type="submit" title="Save playlist folder">
+                  <span className="material-icons">check</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowPlaylistFolderForm(false);
                     setBrowseItems([]);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -774,8 +790,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   <button
                     type="button"
                     onClick={() => browsePath_fn(newFolder.path || '/')}
+                    title="Browse folders"
                   >
-                    Browse
+                    <span className="material-icons">folder_open</span>
                   </button>
                 </div>
               </div>
@@ -824,22 +841,26 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       setNewFolder({ ...newFolder, path: browsePath });
                       setBrowseItems([]);
                     }}
+                    title="Select current folder"
                   >
-                    Select Current Folder
+                    <span className="material-icons">check</span>
                   </button>
                 </div>
               )}
 
               <div className="form-actions">
-                <button type="submit">Add Folder</button>
+                <button type="submit" title="Add video library">
+                  <span className="material-icons">add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddForm(false);
                     setBrowseItems([]);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -863,12 +884,15 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
               </div>
               <p>{selectedVideos.size} video(s) selected</p>
               <div className="form-actions">
-                <button type="submit">Create Playlist</button>
+                <button type="submit" title="Create playlist">
+                  <span className="material-icons">playlist_add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowCreatePlaylistForm(false)}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -897,7 +921,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 </select>
               </div>
               <div className="form-actions">
-                <button type="submit">Add to Playlist</button>
+                <button type="submit" title="Add to playlist">
+                  <span className="material-icons">playlist_add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -905,8 +931,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     setSelectedPlaylist('');
                     setVideoToAdd(null);
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -936,15 +963,18 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
               </div>
               <p>{selectedVideos.size} video(s) selected</p>
               <div className="form-actions">
-                <button type="submit">Add to Playlist</button>
+                <button type="submit" title="Add to playlist">
+                  <span className="material-icons">playlist_add</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowBulkAddToPlaylistForm(false);
                     setBulkSelectedPlaylist('');
                   }}
+                  title="Cancel"
                 >
-                  Cancel
+                  <span className="material-icons">close</span>
                 </button>
               </div>
             </form>
@@ -1089,8 +1119,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   setSearchDurationMin('');
                   setSearchDurationMax('');
                 }}
+                title="Clear all filters"
               >
-                Clear Filters
+                <span className="material-icons">clear</span>
               </button>
             </div>
           </div>
