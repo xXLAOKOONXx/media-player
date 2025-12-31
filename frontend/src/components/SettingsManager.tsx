@@ -402,7 +402,7 @@ const SettingsManager = ({ currentUser }: SettingsManagerProps) => {
             title="Save settings"
           >
             <span className="material-icons">{saving ? 'hourglass_empty' : 'save'}</span>
-            {saving ? ' Saving...' : ' Save'}
+            <span>{saving ? 'Saving...' : 'Save'}</span>
           </button>
         </div>
       )}

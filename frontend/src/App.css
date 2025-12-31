@@ -299,3 +299,8 @@ button:disabled {
     font-size: 1rem;
   }
 }
+
+/* Button icon spacing */
+button .material-icons + span {
+  margin-left: 0.5rem;
+}
