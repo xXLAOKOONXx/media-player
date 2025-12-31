@@ -116,9 +116,9 @@ Below the episode carousel, the popup provides three buttons:
   - Then adds all episodes after the most recently watched episode to the current queue.
 
 - **Play Random**
-  - Adds one random episode from the currently displayed episode list (current season if selected, otherwise the series-level videos list) to the current watching queue.
+  - Adds one random episode/video from the entire selected Series (across all seasons and any series-level videos) to the current watching queue.
   - Uses `POST /api/video/playback/add-videos`.
 
 - **Play Random Unseen**
-  - Adds one random episode from the currently displayed episode list where `playcount == 0`.
+  - Adds one random unseen episode from the entire selected Series (across all seasons and any series-level videos) where `playcount == 0`.
   - Uses `POST /api/video/playback/add-videos`.

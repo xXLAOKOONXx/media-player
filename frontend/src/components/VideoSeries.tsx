@@ -803,7 +803,30 @@ function VideoSeries() {
   };
 
   const playRandomFromDisplayed = async (unseenOnly: boolean) => {
-    const pool = displayedVideos.filter(v => {
+    const getSeriesWidePool = () => {
+      if (!selectedSeries) return [];
+
+      const all: Video[] = [];
+      if (Array.isArray(selectedSeries.videos)) all.push(...selectedSeries.videos);
+      if (Array.isArray(selectedSeries.seasons)) {
+        for (const season of selectedSeries.seasons) {
+          if (Array.isArray(season.videos)) all.push(...season.videos);
+        }
+      }
+
+      // Avoid duplicates if a video appears in multiple lists.
+      const seen = new Set<string>();
+      return all.filter(v => {
+        const key = (v.media_id || v.path || '').trim();
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
+    const sourceVideos = getSeriesWidePool();
+    const pool = sourceVideos.filter(v => {
       if (!v.media_id) return false;
       if (!unseenOnly) return true;
       return (v.playcount ?? 0) === 0;
@@ -1129,10 +1152,22 @@ function VideoSeries() {
                     <button type="button" className="btn" onClick={continueWatching} disabled={isAddingToQueue}>
                       Continue watching
                     </button>
-                    <button type="button" className="btn" onClick={() => playRandomFromDisplayed(false)} disabled={isAddingToQueue}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => playRandomFromDisplayed(false)}
+                      disabled={isAddingToQueue}
+                      title="Adds one random episode/video from the entire series (all seasons) to the current queue."
+                    >
                       Play Random
                     </button>
-                    <button type="button" className="btn" onClick={() => playRandomFromDisplayed(true)} disabled={isAddingToQueue}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => playRandomFromDisplayed(true)}
+                      disabled={isAddingToQueue}
+                      title="Adds one random unseen episode/video (playcount == 0) from the entire series (all seasons) to the current queue."
+                    >
                       Play Random Unseen
                     </button>
                   </div>
@@ -1145,10 +1180,22 @@ function VideoSeries() {
                     <button type="button" className="btn" onClick={continueWatching} disabled={isAddingToQueue}>
                       Continue watching
                     </button>
-                    <button type="button" className="btn" onClick={() => playRandomFromDisplayed(false)} disabled={isAddingToQueue}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => playRandomFromDisplayed(false)}
+                      disabled={isAddingToQueue}
+                      title="Adds one random episode/video from the entire series (all seasons) to the current queue."
+                    >
                       Play Random
                     </button>
-                    <button type="button" className="btn" onClick={() => playRandomFromDisplayed(true)} disabled={isAddingToQueue}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => playRandomFromDisplayed(true)}
+                      disabled={isAddingToQueue}
+                      title="Adds one random unseen episode/video (playcount == 0) from the entire series (all seasons) to the current queue."
+                    >
                       Play Random Unseen
                     </button>
                   </div>
