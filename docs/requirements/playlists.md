@@ -18,7 +18,9 @@ Manages “playlist folder” entries, browses for a folder path, lists playlist
 ### Add Playlist Folder toggle
 
 Button:
-- **+ Add Playlist Folder** / **Cancel**
+- Icon-only button with tooltip
+  - Shows `add` icon (Material Icons) when form is closed, tooltip: "Add Playlist Folder"
+  - Shows `close` icon when form is open, tooltip: "Cancel"
   - Clicking toggles `showAddForm`.
 
 ### Add form
@@ -28,10 +30,14 @@ Fields:
 - Path (required text)
 
 Buttons:
-- **Browse** (type=button)
+- **Browse** (type=button, icon-only with tooltip)
+  - Icon: `folder_open` (Material Icons)
+  - Tooltip: "Browse folders"
   - Calls POST `/api/browse` with JSON `{ "path": <current path input or '/'> }`.
   - Shows browse results when items are returned.
-- **Add Playlist Folder** (submit)
+- **Add** (submit button, icon + text)
+  - Icon: `add` (Material Icons) + text "Add"
+  - Tooltip: "Add playlist folder"
   - POST `/api/audio/playlists` with JSON `{ name, path, type: 'playlist' }`.
   - On success:
     - Clear the form state.
@@ -57,20 +63,25 @@ Folder actions (per folder)
 #### Rename
 
 Entry point:
-- Pencil button (✏️) starts rename mode.
+- Icon button with `edit` icon (Material Icons), tooltip: "Rename"
 
 Rename mode controls:
 - Text input prefilled with current name.
-- **Save**
+- **Save** (icon-only button)
+  - Icon: `check` (Material Icons)
+  - Tooltip: "Save"
   - Validates name is non-empty; otherwise `alert('Name cannot be empty')`.
   - PUT `/api/audio/playlists/{folderId}` with JSON `{ "name": <editName> }`.
   - On success: exit rename mode and reload folder list.
-- **Cancel**
+- **Cancel** (icon-only button)
+  - Icon: `close` (Material Icons)
+  - Tooltip: "Cancel"
   - Exits rename mode with no changes.
 
 #### Delete
 
-- Trash button (🗑️) prompts `confirm('Are you sure you want to delete this playlist folder?')`.
+- Icon button with `delete` icon (Material Icons), tooltip: "Delete"
+- Prompts `confirm('Are you sure you want to delete this playlist folder?')`.
 - If confirmed: DELETE `/api/audio/playlists/{folderId}`.
 - If the deleted folder was selected, clear selection and the playlists list.
 - On failure: `alert('Error deleting playlist folder')`.
@@ -88,7 +99,9 @@ Empty state:
 
 Per playlist row:
 - Display playlist name + full path.
-- Button: **Play**
+- Button: **Play** (icon-only with tooltip)
+  - Icon: `play_arrow` (Material Icons)
+  - Tooltip: "Play playlist"
   - POST `/api/audio/playback/play` with JSON `{ "playlist_path": <playlist.path>, "track_index": 0 }`.
   - If shuffle is enabled, the first track is chosen randomly (shuffle affects the first track too).
   - On success: `alert('Playlist started!')`.

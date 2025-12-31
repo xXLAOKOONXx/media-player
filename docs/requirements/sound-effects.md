@@ -18,7 +18,10 @@ Configures folders that contain sound effect audio files and allows playing an e
 ### Add Sound Effects Folder toggle
 
 Button:
-- **+ Add Sound Effects Folder** / **Cancel** toggles the add form.
+- Icon-only button with tooltip
+  - Shows `add` icon (Material Icons) when form is closed, tooltip: "Add Sound Effects Folder"
+  - Shows `close` icon when form is open, tooltip: "Cancel"
+  - Toggles the add form.
 
 ### Add form
 
@@ -27,10 +30,14 @@ Fields:
 - Path (required)
 
 Buttons:
-- **Browse**
+- **Browse** (icon-only with tooltip)
+  - Icon: `folder_open` (Material Icons)
+  - Tooltip: "Browse folders"
   - POST `/api/browse` with JSON `{ "path": <current path input or '/'> }`.
   - Displays browse results when items are returned.
-- **Add Sound Effects Folder** (submit)
+- **Add** (submit button, icon + text)
+  - Icon: `add` (Material Icons) + text "Add"
+  - Tooltip: "Add sound effects folder"
   - POST `/api/audio/soundeffects` with JSON `{ name, path }`.
   - On success: clear form state, hide form, reload folder list.
 
@@ -52,15 +59,15 @@ Folder actions
 
 #### Rename
 
-- Pencil button (✏️) enters edit mode.
+- Icon button with `edit` icon (Material Icons), tooltip: "Rename", enters edit mode.
 - Edit mode provides:
   - input prefilled with folder name
-  - **Save**: PUT `/api/audio/soundeffects/{folderId}` with JSON `{ "name": <editName> }` (requires non-empty name, else alert).
-  - **Cancel**: exits edit mode.
+  - **Save** (icon-only): Icon `check`, tooltip "Save". PUT `/api/audio/soundeffects/{folderId}` with JSON `{ "name": <editName> }` (requires non-empty name, else alert).
+  - **Cancel** (icon-only): Icon `close`, tooltip "Cancel", exits edit mode.
 
 #### Delete
 
-- Trash button (🗑️) prompts confirmation.
+- Icon button with `delete` icon (Material Icons), tooltip: "Delete", prompts confirmation.
 - If confirmed: DELETE `/api/audio/soundeffects/{folderId}`.
 - If deleted folder is selected: clear selection and file list.
 
@@ -74,7 +81,9 @@ Empty state:
 
 Per file row:
 - Shows name, extension, approximate KB size.
-- Button: **Play**
+- Button: **Play** (icon-only with tooltip)
+  - Icon: `play_arrow` (Material Icons)
+  - Tooltip: "Play sound effect"
   - POST `/api/audio/soundeffects/play` with JSON `{ "sound_path": <file.path> }`.
   - On failure: `alert('Error playing sound effect')`.
 
