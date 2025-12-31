@@ -487,7 +487,7 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
               {currentUser?.role === 'admin' && (
                 <button 
                   onClick={() => setShowCreatePlaylistForm(true)}
-                  title={`Create Playlist (${selectedTracks.size} tracks)`}
+                  title="Create playlist from selected tracks"
                 >
                   <span className="material-icons">playlist_add</span>
                 </button>
@@ -495,7 +495,7 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
               <button 
                 onClick={handleAddToCurrentPlaylist} 
                 className="add-to-current-button"
-                title={`Add to Current Playlist (${selectedTracks.size} tracks)`}
+                title="Add selected tracks to current playlist"
               >
                 <span className="material-icons">queue_music</span>
               </button>
@@ -910,9 +910,9 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
                     setSearchDurationMin('');
                     setSearchDurationMax('');
                   }}
-                  title="Clear all filters"
+                  title="Clear all search filters"
                 >
-                  <span className="material-icons">clear</span>
+                  <span className="material-icons">filter_alt_off</span>
                 </button>
             </div>
           </div>

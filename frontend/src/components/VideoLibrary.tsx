@@ -640,7 +640,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
               {!!currentUser && (
                 <button 
                   onClick={() => setShowCreatePlaylistForm(true)}
-                  title={`Create Playlist (${selectedVideos.size} videos)`}
+                  title="Create playlist from selected videos"
                 >
                   <span className="material-icons">playlist_add</span>
                 </button>
@@ -654,7 +654,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       ? 'Configure playlist folder first'
                       : availablePlaylists.length === 0
                         ? 'Create a playlist first'
-                        : `Add selected videos to an existing playlist (${selectedVideos.size} videos)`
+                        : 'Add selected videos to existing playlist'
                   }
                 >
                   <span className="material-icons">playlist_add</span>
@@ -663,7 +663,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
               <button 
                 onClick={handleAddToCurrentPlaylist} 
                 className="add-to-current-button"
-                title={`Add to Current Playlist (${selectedVideos.size} videos)`}
+                title="Add selected videos to current playlist"
               >
                 <span className="material-icons">queue_music</span>
               </button>
@@ -1119,9 +1119,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   setSearchDurationMin('');
                   setSearchDurationMax('');
                 }}
-                title="Clear all filters"
+                title="Clear all search filters"
               >
-                <span className="material-icons">clear</span>
+                <span className="material-icons">filter_alt_off</span>
               </button>
             </div>
           </div>
