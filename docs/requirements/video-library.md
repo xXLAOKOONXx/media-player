@@ -244,16 +244,36 @@ Visibility:
 
 Inputs:
 
-- Artist (text)
-- Title (text)
-- Tags (multi-select dropdown)
+- **Artist** (text input with label)
+  - Filter by artist name (substring match)
+- **Title** (text input with label)
+  - Filter by video title (substring match)
+- **Tags** (multi-select dropdown with label)
   - Users can select multiple tags from a dropdown containing all unique tags across all videos
   - Special option "No Tags" shows videos that have no tags assigned
   - When multiple tags are selected (excluding "No Tags"), only videos that have ALL selected tags are shown (AND logic)
   - When "No Tags" is selected along with other tags, videos with no tags OR videos matching all selected tags are shown
   - The dropdown is populated from all available tags across all loaded videos
-- Min Duration (number, seconds)
-- Max Duration (number, seconds)
+  - Tooltip indicates to hold Ctrl/Cmd to select multiple tags
+- **Duration** (number range with "to" separator and label)
+  - Min and Max fields (seconds)
+  - Filters videos by duration range
+- **Modified Date** (date range with "to" separator and label)
+  - Date picker inputs for after and before dates
+  - Filters videos by file modification date
+- **Play Count** (number range with "to" separator and label)
+  - Min and Max fields
+  - Filters videos by number of times played
+- **Promotion Score** (number range with "to" separator and label)
+  - Min and Max fields (decimal values supported)
+  - Filters videos by calculated promotion/recommendation score
+- **Rating** (number range with checkbox and label)
+  - "No Rating" checkbox: when checked, shows only videos without a user rating
+  - Min and Max fields (0-10 scale, decimal values supported)
+  - When "No Rating" is checked, min/max fields are disabled
+  - When "No Rating" is not checked, min/max filters apply only to videos with ratings
+
+All filter labels are displayed with bold text for improved readability.
 
 Buttons:
 
@@ -262,8 +282,9 @@ Buttons:
   - Allows users to show/hide table columns using checkboxes
   - Title and Actions columns are always visible and cannot be hidden
   
-- **Clear Filters**
-  - Resets all filter inputs to empty state (including selected tags)
+- **Clear All Filters**
+  - Resets all filter inputs to empty/default state
+  - Clears all text inputs, date pickers, number ranges, selected tags, and checkboxes
 
 Filtering behavior:
 
@@ -273,7 +294,13 @@ Filtering behavior:
 - Tags filter uses a multi-select dropdown with AND logic (all selected tags must match).
   - Special "No Tags" option filters for videos without any tags.
 - Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
-- All filters work with all columns, including the newly added columns.
+- Modified date filters convert input dates to Unix timestamps and compare against `video.modified`.
+- Play count min/max compares against `video.playcount` (defaulting to 0 when missing).
+- Promotion score min/max compares against `video.promotion_score` (defaulting to 0 when missing).
+- Rating filters:
+  - When "No Rating" is selected, shows videos where `video.user_rating` is null or undefined.
+  - When min/max rating values are provided (and "No Rating" is not checked), filters apply only to videos with non-null ratings.
+- All filters work together with AND logic (videos must match all specified criteria).
 
 Tag sources:
 

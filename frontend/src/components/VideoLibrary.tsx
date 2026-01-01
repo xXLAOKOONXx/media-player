@@ -129,6 +129,15 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchDurationMin, setSearchDurationMin] = useState('');
   const [searchDurationMax, setSearchDurationMax] = useState('');
+  const [searchModifiedAfter, setSearchModifiedAfter] = useState('');
+  const [searchModifiedBefore, setSearchModifiedBefore] = useState('');
+  const [searchPlaycountMin, setSearchPlaycountMin] = useState('');
+  const [searchPlaycountMax, setSearchPlaycountMax] = useState('');
+  const [searchPromotionScoreMin, setSearchPromotionScoreMin] = useState('');
+  const [searchPromotionScoreMax, setSearchPromotionScoreMax] = useState('');
+  const [searchRatingMin, setSearchRatingMin] = useState('');
+  const [searchRatingMax, setSearchRatingMax] = useState('');
+  const [searchNoRating, setSearchNoRating] = useState(false);
   
   // Column configuration
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
@@ -157,7 +166,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   useEffect(() => {
     applyFilters();
-  }, [videos, searchArtist, searchTitle, selectedTags, searchDurationMin, searchDurationMax]);
+  }, [videos, searchArtist, searchTitle, selectedTags, searchDurationMin, searchDurationMax,
+      searchModifiedAfter, searchModifiedBefore, searchPlaycountMin, searchPlaycountMax,
+      searchPromotionScoreMin, searchPromotionScoreMax, searchRatingMin, searchRatingMax, searchNoRating]);
 
   useEffect(() => {
     if (playlistFolder) {
@@ -306,6 +317,54 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     if (searchDurationMax) {
       const maxDuration = parseFloat(searchDurationMax);
       filtered = filtered.filter(t => (t.duration || 0) <= maxDuration);
+    }
+
+    // Modified date filtering
+    if (searchModifiedAfter) {
+      const afterDate = new Date(searchModifiedAfter).getTime() / 1000;
+      filtered = filtered.filter(t => (t.modified || 0) >= afterDate);
+    }
+
+    if (searchModifiedBefore) {
+      const beforeDate = new Date(searchModifiedBefore).getTime() / 1000;
+      filtered = filtered.filter(t => (t.modified || 0) <= beforeDate);
+    }
+
+    // Play count filtering
+    if (searchPlaycountMin) {
+      const minPlaycount = parseInt(searchPlaycountMin, 10);
+      filtered = filtered.filter(t => (t.playcount || 0) >= minPlaycount);
+    }
+
+    if (searchPlaycountMax) {
+      const maxPlaycount = parseInt(searchPlaycountMax, 10);
+      filtered = filtered.filter(t => (t.playcount || 0) <= maxPlaycount);
+    }
+
+    // Promotion score filtering
+    if (searchPromotionScoreMin) {
+      const minScore = parseFloat(searchPromotionScoreMin);
+      filtered = filtered.filter(t => (t.promotion_score || 0) >= minScore);
+    }
+
+    if (searchPromotionScoreMax) {
+      const maxScore = parseFloat(searchPromotionScoreMax);
+      filtered = filtered.filter(t => (t.promotion_score || 0) <= maxScore);
+    }
+
+    // Rating filtering
+    if (searchNoRating) {
+      filtered = filtered.filter(t => t.user_rating == null || t.user_rating === undefined);
+    } else {
+      if (searchRatingMin) {
+        const minRating = parseFloat(searchRatingMin);
+        filtered = filtered.filter(t => t.user_rating != null && t.user_rating >= minRating);
+      }
+
+      if (searchRatingMax) {
+        const maxRating = parseFloat(searchRatingMax);
+        filtered = filtered.filter(t => t.user_rating != null && t.user_rating <= maxRating);
+      }
     }
 
     setFilteredVideos(filtered);
@@ -1152,20 +1211,28 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
             )}
 
             <div className="filter-row">
-              <input
-                type="text"
-                placeholder="Artist"
-                value={searchArtist}
-                onChange={(e) => setSearchArtist(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={searchTitle}
-                onChange={(e) => setSearchTitle(e.target.value)}
-              />
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Tags (select multiple):</label>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Artist:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by artist"
+                  value={searchArtist}
+                  onChange={(e) => setSearchArtist(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Title:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by title"
+                  value={searchTitle}
+                  onChange={(e) => setSearchTitle(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Tags (select multiple):</label>
                 <select
                   multiple
                   value={selectedTags}
@@ -1174,6 +1241,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     setSelectedTags(selected);
                   }}
                   style={{ width: '100%', minHeight: '80px' }}
+                  title="Hold Ctrl/Cmd to select multiple tags"
                 >
                   <option value="__NO_TAGS__">No Tags</option>
                   {allUniqueTags.map(tag => (
@@ -1182,30 +1250,156 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 </select>
               </div>
             </div>
+
             <div className="filter-row">
-              <input
-                type="number"
-                placeholder="Min Duration (seconds)"
-                value={searchDurationMin}
-                onChange={(e) => setSearchDurationMin(e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Max Duration (seconds)"
-                value={searchDurationMax}
-                onChange={(e) => setSearchDurationMax(e.target.value)}
-              />
-              <button
-                onClick={() => {
-                  setSearchArtist('');
-                  setSearchTitle('');
-                  setSelectedTags([]);
-                  setSearchDurationMin('');
-                  setSearchDurationMax('');
-                }}
-              >
-                Clear Filters
-              </button>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Duration (seconds):</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={searchDurationMin}
+                    onChange={(e) => setSearchDurationMin(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={searchDurationMax}
+                    onChange={(e) => setSearchDurationMax(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Modified Date:</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="date"
+                    value={searchModifiedAfter}
+                    onChange={(e) => setSearchModifiedAfter(e.target.value)}
+                    style={{ flex: 1 }}
+                    title="Modified after this date"
+                  />
+                  <span>to</span>
+                  <input
+                    type="date"
+                    value={searchModifiedBefore}
+                    onChange={(e) => setSearchModifiedBefore(e.target.value)}
+                    style={{ flex: 1 }}
+                    title="Modified before this date"
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Play Count:</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={searchPlaycountMin}
+                    onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={searchPlaycountMax}
+                    onChange={(e) => setSearchPlaycountMax(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="filter-row">
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Promotion Score:</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Min"
+                    value={searchPromotionScoreMin}
+                    onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Max"
+                    value={searchPromotionScoreMax}
+                    onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em', fontWeight: 'bold' }}>Rating (0-10):</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="checkbox"
+                      checked={searchNoRating}
+                      onChange={(e) => setSearchNoRating(e.target.checked)}
+                    />
+                    <span>No Rating</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    placeholder="Min"
+                    value={searchRatingMin}
+                    onChange={(e) => setSearchRatingMin(e.target.value)}
+                    disabled={searchNoRating}
+                    style={{ flex: 1 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    placeholder="Max"
+                    value={searchRatingMax}
+                    onChange={(e) => setSearchRatingMax(e.target.value)}
+                    disabled={searchNoRating}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setSearchArtist('');
+                    setSearchTitle('');
+                    setSelectedTags([]);
+                    setSearchDurationMin('');
+                    setSearchDurationMax('');
+                    setSearchModifiedAfter('');
+                    setSearchModifiedBefore('');
+                    setSearchPlaycountMin('');
+                    setSearchPlaycountMax('');
+                    setSearchPromotionScoreMin('');
+                    setSearchPromotionScoreMax('');
+                    setSearchRatingMin('');
+                    setSearchRatingMax('');
+                    setSearchNoRating(false);
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Clear All Filters
+                </button>
+              </div>
             </div>
           </div>
 
