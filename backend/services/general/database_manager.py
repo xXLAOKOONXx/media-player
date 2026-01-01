@@ -1355,6 +1355,22 @@ class DatabaseManager:
                     WHERE v.file_path = ?
                 ''', (normalized_path,))
                 row = cursor.fetchone()
+                if (not row) and os.name == 'nt':
+                    # Windows paths are typically case-insensitive; SQLite string
+                    # comparisons are case-sensitive unless NOCASE collation is used.
+                    cursor.execute('''
+                        SELECT v.media_id, v.file_path, v.file_name, v.file_size, v.title, v.index_number, v.duration,
+                               v.start_time_in_ms, v.end_time_in_ms,
+                               v.last_modified, v.tags, v.artist, v.thumbnail, v.thumbnail_mime_type, v.thumbnail_file, v.thumbnail_url,
+                               v.description, v.premiere_date, v.user_rating,
+                               vs.full_path AS series_full_path,
+                               vsea.full_path AS season_full_path
+                        FROM videos v
+                        LEFT JOIN video_series vs ON vs.id = v.series_id
+                        LEFT JOIN video_seasons vsea ON vsea.id = v.season_id
+                        WHERE v.file_path = ? COLLATE NOCASE
+                    ''', (normalized_path,))
+                    row = cursor.fetchone()
                 if not row:
                     return None
                 series_full_path = row[19] if len(row) > 19 else None
@@ -2256,12 +2272,18 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
+            # On Windows, file paths are typically case-insensitive, but SQLite
+            # string comparisons are case-sensitive unless NOCASE collation is used.
+            where_expr = f"file_path IN ({placeholders})"
+            if os.name == 'nt':
+                where_expr = f"file_path COLLATE NOCASE IN ({placeholders})"
+
             cursor.execute(
                 f'''SELECT media_id, file_path, file_name, title, duration,
                           start_time_in_ms, end_time_in_ms, tags, artist,
                           thumbnail, thumbnail_file, thumbnail_url
                      FROM videos
-                    WHERE file_path IN ({placeholders})''',
+                    WHERE {where_expr}''',
                 tuple(unique_paths),
             )
             rows = cursor.fetchall()
