@@ -7,6 +7,9 @@ on:
 jobs:
   build-and-upload:
     runs-on: windows-latest
+    permissions:
+      contents: write  # Required to upload release assets
+      actions: read    # Required for actions/checkout
     
     steps:
       - name: Checkout code
