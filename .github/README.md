@@ -19,6 +19,7 @@ This directory contains automated workflows for the Media Player project.
 3. Choose or create a new tag (e.g., `v1.0.0`)
 4. Fill in the release title and description
 5. Click **"Publish release"**
+   - **Note:** The build only triggers when you publish the release, not when saving as a draft
 6. The workflow runs automatically and attaches the executable to the release
 
 #### What It Does

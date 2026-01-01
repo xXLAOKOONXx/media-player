@@ -34,6 +34,7 @@ When you create a new release on GitHub, the Windows executable is automatically
 3. Choose or create a new tag (e.g., `v1.0.0`)
 4. Fill in the release title and description
 5. Click **"Publish release"**
+   - **Note:** The build only triggers when you publish the release, not when saving as a draft
 6. The build will run automatically and attach the Windows executable to the release when complete
 
 **Benefits:**
