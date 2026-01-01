@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { User } from '../types';
 import './VideoLibrary.css';
 import VideoDetailsModal from './VideoDetailsModal';
@@ -653,12 +653,14 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     });
   };
 
-  // Collect all unique tags from all videos
-  const allUniqueTags = Array.from(
-    new Set(
-      videos.flatMap(v => v.tags || [])
-    )
-  ).sort();
+  // Collect all unique tags from all videos (memoized for performance)
+  const allUniqueTags = useMemo(() => {
+    return Array.from(
+      new Set(
+        videos.flatMap(v => v.tags || [])
+      )
+    ).sort();
+  }, [videos]);
 
   const availableColumns = [
     { id: 'title', label: 'Title', alwaysVisible: true },
@@ -1306,7 +1308,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                         <td data-label="Modified">{formatDate(track.modified)}</td>
                       )}
                       {visibleColumns.has('playcount') && (
-                        <td data-label="Play Count">{track.playcount ?? 0}</td>
+                        <td data-label="Play Count">{track.playcount != null ? track.playcount : '-'}</td>
                       )}
                       {visibleColumns.has('promotion_score') && (
                         <td data-label="Promotion Score">
