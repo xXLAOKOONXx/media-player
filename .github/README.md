@@ -33,8 +33,8 @@ This directory contains automated workflows for the Media Player project.
 #### Output
 
 The executable is automatically attached to the release as:
-- `media-player-windows-v1.0.0-media-player.exe` (for single-file bundle), or
-- `media-player-windows-v1.0.0-media-player.zip` (for one-dir bundle)
+- `media-player-windows-v1.0.0.exe` (for single-file bundle), or
+- `media-player-windows-v1.0.0.zip` (for one-dir bundle)
 
 #### Downloading
 
