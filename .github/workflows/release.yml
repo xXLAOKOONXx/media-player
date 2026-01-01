@@ -46,14 +46,14 @@ jobs:
             Write-Host "✓ Executable created successfully"
             Get-Item backend/dist/media-player.exe | Format-List Name, Length, LastWriteTime
             echo "EXE_PATH=backend/dist/media-player.exe" >> $env:GITHUB_ENV
-            echo "EXE_NAME=media-player.exe" >> $env:GITHUB_ENV
+            echo "EXE_EXTENSION=.exe" >> $env:GITHUB_ENV
           } elseif (Test-Path backend/dist/media-player/media-player.exe) {
             Write-Host "✓ Executable created successfully (one-dir layout)"
             Get-ChildItem backend/dist/media-player | Format-Table Name, Length, LastWriteTime
             # Create a zip file for the one-dir layout
-            Compress-Archive -Path backend/dist/media-player -DestinationPath backend/dist/media-player.zip
+            Compress-Archive -Path backend/dist/media-player -DestinationPath backend/dist/media-player.zip -Force
             echo "EXE_PATH=backend/dist/media-player.zip" >> $env:GITHUB_ENV
-            echo "EXE_NAME=media-player.zip" >> $env:GITHUB_ENV
+            echo "EXE_EXTENSION=.zip" >> $env:GITHUB_ENV
           } else {
             Write-Error "Executable not found"
             exit 1
@@ -64,14 +64,16 @@ jobs:
         id: release-info
         run: |
           $tagName = "${{ github.event.release.tag_name }}"
-          $assetName = "media-player-windows-${tagName}"
+          # Sanitize tag name for use in filename
+          $safeTagName = $tagName -replace '[\\/:*?"<>|]', '_'
+          $assetName = "media-player-windows-${safeTagName}${{ env.EXE_EXTENSION }}"
           echo "asset-name=$assetName" >> $env:GITHUB_OUTPUT
           Write-Host "Asset name: $assetName"
         shell: pwsh
       
       - name: Rename asset for upload
         run: |
-          $assetName = "${{ steps.release-info.outputs.asset-name }}-${{ env.EXE_NAME }}"
+          $assetName = "${{ steps.release-info.outputs.asset-name }}"
           $sourcePath = "${{ env.EXE_PATH }}"
           $destPath = "backend/dist/$assetName"
           
