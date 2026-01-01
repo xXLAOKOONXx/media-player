@@ -23,7 +23,28 @@ The Media Player supports creating shippable bundles that include the built fron
 
 ### Automated Build (GitHub Actions)
 
-The easiest way to create a Windows executable is using the automated GitHub Actions workflow:
+The easiest way to create a Windows executable is using the automated GitHub Actions workflows:
+
+#### Automatic Release Build (Recommended)
+
+When you create a new release on GitHub, the Windows executable is automatically built and attached to the release:
+
+1. Go to the **Releases** section in the GitHub repository
+2. Click **"Create a new release"** or **"Draft a new release"**
+3. Choose or create a new tag (e.g., `v1.0.0`)
+4. Fill in the release title and description
+5. Click **"Publish release"**
+6. The build will run automatically and attach the Windows executable to the release when complete
+
+**Benefits:**
+- Fully automated - no manual steps required
+- Executable is directly attached to the release
+- Easy for users to download the correct version
+- Consistent builds tied to release tags
+
+#### Manual Build
+
+You can also manually trigger a build without creating a release:
 
 1. Go to the **Actions** tab in the GitHub repository
 2. Select **"Build Windows Executable"**
@@ -273,7 +294,24 @@ You can integrate the build process into CI/CD pipelines.
 
 ### GitHub Actions (Included)
 
-This repository includes a ready-to-use GitHub Actions workflow for building Windows executables:
+This repository includes two ready-to-use GitHub Actions workflows for building Windows executables:
+
+#### Release Workflow (Automatic)
+
+**File:** `.github/workflows/release.yml`
+
+**Features:**
+- Automatic trigger on release creation/publication
+- Builds Windows executable for the release
+- Uploads executable as a release asset
+- Uses release tag for versioning
+
+**To use:**
+1. Create a new release on GitHub
+2. The workflow runs automatically
+3. Download the executable from the release assets
+
+#### Manual Build Workflow
 
 **File:** `.github/workflows/build-windows-exe.yml`
 

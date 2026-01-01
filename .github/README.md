@@ -4,6 +4,49 @@ This directory contains automated workflows for the Media Player project.
 
 ## Available Workflows
 
+### Release Build (Automatic)
+
+**File:** `release.yml`
+
+**Trigger:** Automatic on release creation/publication
+
+**Purpose:** Automatically builds and attaches the Windows executable to GitHub releases.
+
+#### How to Use
+
+1. Go to the **Releases** section in the GitHub repository
+2. Click **"Create a new release"** or **"Draft a new release"**
+3. Choose or create a new tag (e.g., `v1.0.0`)
+4. Fill in the release title and description
+5. Click **"Publish release"**
+6. The workflow runs automatically and attaches the executable to the release
+
+#### What It Does
+
+1. Detects when a new release is created or published
+2. Sets up Python 3.13 and Node.js 20
+3. Installs all dependencies
+4. Builds the React frontend
+5. Creates a Windows executable using PyInstaller
+6. Uploads the executable as a release asset with the naming format: `media-player-windows-[tag]-[filename]`
+
+#### Output
+
+The executable is automatically attached to the release as:
+- `media-player-windows-v1.0.0-media-player.exe` (for single-file bundle), or
+- `media-player-windows-v1.0.0-media-player.zip` (for one-dir bundle)
+
+#### Downloading
+
+1. Go to the **Releases** page
+2. Find your release
+3. Download the Windows executable from the release assets
+4. Extract (if ZIP) and run `media-player.exe`
+
+#### Build Time
+
+Typical build time: 5-10 minutes
+
 ### Run Tests
 
 **File:** `test.yml`
@@ -39,13 +82,13 @@ After the workflow completes, you can:
 
 Typical run time: 3-5 minutes per platform/Python combination
 
-### Build Windows Executable
+### Build Windows Executable (Manual)
 
 **File:** `build-windows-exe.yml`
 
 **Trigger:** Manual (workflow_dispatch)
 
-**Purpose:** Creates a standalone Windows executable (.exe) bundle with the built frontend included.
+**Purpose:** Creates a standalone Windows executable (.exe) bundle with the built frontend included. Use this for testing builds without creating a release.
 
 #### How to Use
 
@@ -112,7 +155,6 @@ If the workflow fails:
 ## Future Workflows
 
 Potential future workflows could include:
-- Automated builds on release tags
 - Unix/Linux distribution packages
 - Multi-platform builds
 - Integration tests with running server
