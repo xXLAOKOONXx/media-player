@@ -64,8 +64,8 @@ jobs:
         id: release-info
         run: |
           $tagName = "${{ github.event.release.tag_name }}"
-          # Sanitize tag name for use in filename
-          $safeTagName = $tagName -replace '[\\/:*?"<>|]', '_'
+          # Sanitize tag name for use in filename - only allow safe characters
+          $safeTagName = $tagName -replace '[^a-zA-Z0-9._-]', '_'
           $assetName = "media-player-windows-${safeTagName}${{ env.EXE_EXTENSION }}"
           echo "asset-name=$assetName" >> $env:GITHUB_OUTPUT
           Write-Host "Asset name: $assetName"
@@ -90,5 +90,13 @@ jobs:
           $tagName = "${{ github.event.release.tag_name }}"
           
           Write-Host "Uploading $uploadPath to release $tagName"
+          Write-Host "Note: If an asset with the same name exists, it will be overwritten"
           gh release upload $tagName $uploadPath --clobber --repo ${{ github.repository }}
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Asset uploaded successfully"
+          } else {
+            Write-Error "Failed to upload asset"
+            exit 1
+          }
         shell: pwsh
