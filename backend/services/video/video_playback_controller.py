@@ -39,6 +39,13 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
+# MPV-based duration extraction can block indefinitely on some files/paths
+# (especially remote/UNC shares). Keep this bounded so playlist loading can't
+# stall forever.
+MPV_DURATION_EXTRACTION_TIMEOUT = 2.0
+MPV_DURATION_PROPERTY_TIMEOUT = 1.0
+
+
 def _running_under_pytest() -> bool:
     # Avoid initializing MPV during unit tests. python-mpv can spawn background
     # threads and has been observed to crash on Windows in CI/dev environments.
@@ -76,7 +83,21 @@ def get_video_duration(video_path):
         try:
             temp_player = mpv.MPV(video=False, audio=False)
             temp_player.play(video_path)
-            temp_player.wait_until_playing()
+            # Bound the time we wait for playback to start. Without a timeout
+            # this can hang on some network paths or corrupted files.
+            temp_player.wait_until_playing(timeout=MPV_DURATION_EXTRACTION_TIMEOUT)
+
+            # Give mpv a moment to populate duration after playback starts.
+            # Not all files will provide this quickly (or at all).
+            try:
+                temp_player.wait_for_property(
+                    'duration',
+                    lambda d: d is not None and float(d) > 0,
+                    timeout=MPV_DURATION_PROPERTY_TIMEOUT,
+                )
+            except Exception:
+                pass
+
             duration = temp_player.duration
             if duration:
                 return float(duration)
@@ -370,7 +391,7 @@ class VideoPlaybackController:
                 return None
         return None
 
-    def _get_custom_times_for_path(self, video_path: str, cached: dict | None = None):
+    def _get_custom_times_for_path(self, video_path: str, cached: dict | None = None, scraped_metadata: dict | None = None):
         """Get custom start/end times (seconds) for a given video file path."""
         try:
             if cached is None and self.db is not None:
@@ -394,15 +415,21 @@ class VideoPlaybackController:
             if start_sec is not None or end_sec is not None:
                 return start_sec, end_sec
 
-        try:
-            metadata = read_video_metadata(
-                video_path,
-                include_duration=False,
-                check_nfo=True,
-                include_thumbnail=False,
-            )
-        except Exception:
+            # If the item exists in cache but has no custom times, treat that as
+            # authoritative: do not probe the file/NFO for start/end times.
             return None, None
+
+        metadata = scraped_metadata
+        if not isinstance(metadata, dict):
+            try:
+                metadata = read_video_metadata(
+                    video_path,
+                    include_duration=False,
+                    check_nfo=True,
+                    include_thumbnail=False,
+                )
+            except Exception:
+                return None, None
 
         start_sec = self._ms_to_seconds(metadata.get('start_time_in_ms'))
         end_sec = self._ms_to_seconds(metadata.get('end_time_in_ms'))
@@ -468,6 +495,8 @@ class VideoPlaybackController:
             has_thumbnail = cached.get('has_thumbnail')
             thumbnail_url = cached.get('thumbnail_url')
 
+        scraped = None
+
         if not isinstance(title, str) or not title.strip():
             try:
                 scraped = read_video_metadata(
@@ -502,7 +531,11 @@ class VideoPlaybackController:
         if not isinstance(media_id, str) or not media_id.strip():
             media_id = self._stable_media_id_for_path(track_path)
 
-        start_time, end_time = self._get_custom_times_for_path(track_path, cached=cached if isinstance(cached, dict) else None)
+        start_time, end_time = self._get_custom_times_for_path(
+            track_path,
+            cached=cached if isinstance(cached, dict) else None,
+            scraped_metadata=scraped if isinstance(scraped, dict) else None,
+        )
 
         entry = {
             'path': track_path,
@@ -570,6 +603,8 @@ class VideoPlaybackController:
 
         # Preload cached metadata for absolute paths when possible.
         cached_by_path = {}
+        cached_by_path_nocase = {}
+        raw_lines = None
         if self.db is not None:
             try:
                 # Best-effort: collect paths (including relative candidates) first.
@@ -577,14 +612,10 @@ class VideoPlaybackController:
                     raw_lines = [ln.strip() for ln in f.readlines()]
 
                 candidate_paths = []
-                extinf_title = None
                 for line in raw_lines:
                     if not line:
                         continue
                     if line.startswith('#'):
-                        if line.startswith('#EXTINF:'):
-                            parts = line[8:].split(',', 1)
-                            extinf_title = parts[1].strip() if len(parts) == 2 else None
                         continue
 
                     # Normalize Windows path separators in M3U (non-URL).
@@ -600,37 +631,65 @@ class VideoPlaybackController:
                         candidate_paths.append(os.path.normpath(os.path.join(playlist_dir, line)))
 
                 cached_by_path = self.db.get_videos_by_paths(candidate_paths)
+
+                # On Windows, SQLite path comparisons are case-sensitive by default,
+                # but the filesystem is typically case-insensitive. Build a secondary
+                # map keyed by normcase(path) so playlist paths with different casing
+                # can still hit the cache.
+                if os.name == 'nt' and isinstance(cached_by_path, dict):
+                    try:
+                        cached_by_path_nocase = {
+                            os.path.normcase(os.path.normpath(k)): v
+                            for k, v in cached_by_path.items()
+                            if isinstance(k, str)
+                        }
+                    except Exception:
+                        cached_by_path_nocase = {}
+
             except Exception:
                 cached_by_path = {}
+                cached_by_path_nocase = {}
 
         try:
-            with open(playlist_path, 'r', encoding='utf-8-sig') as f:
+            if raw_lines is None:
+                with open(playlist_path, 'r', encoding='utf-8-sig') as f:
+                    raw_lines = [ln.strip() for ln in f.readlines()]
+
+            extinf_title = None
+            for line in raw_lines:
+                line = (line or '').strip()
+                if not line:
+                    continue
+                if line.startswith('#'):
+                    if line.startswith('#EXTINF:'):
+                        parts = line[8:].split(',', 1)
+                        extinf_title = parts[1].strip() if len(parts) == 2 else None
+                    continue
+
+                # Normalize Windows path separators in M3U (non-URL).
+                # NOTE: Do not collapse leading UNC prefixes (e.g. \\server\share).
+                if '://' not in line:
+                    line = line.replace('\\', '/')
+
+                if os.path.isabs(line):
+                    track_path = os.path.normpath(line)
+                else:
+                    track_path = os.path.normpath(os.path.join(playlist_dir, line))
+
+                cached = None
+                if isinstance(cached_by_path, dict):
+                    cached = cached_by_path.get(os.path.normpath(track_path))
+                if cached is None and os.name == 'nt' and isinstance(cached_by_path_nocase, dict):
+                    cached = cached_by_path_nocase.get(os.path.normcase(os.path.normpath(track_path)))
+
+                entry = self._build_track_entry(
+                    track_path,
+                    extinf_title=extinf_title,
+                    cached=cached,
+                )
                 extinf_title = None
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if line.startswith('#'):
-                        if line.startswith('#EXTINF:'):
-                            parts = line[8:].split(',', 1)
-                            extinf_title = parts[1].strip() if len(parts) == 2 else None
-                        continue
-
-                    # Normalize Windows path separators in M3U (non-URL).
-                    # NOTE: Do not collapse leading UNC prefixes (e.g. \\server\share).
-                    if '://' not in line:
-                        line = line.replace('\\', '/')
-
-                    if os.path.isabs(line):
-                        track_path = os.path.normpath(line)
-                    else:
-                        track_path = os.path.normpath(os.path.join(playlist_dir, line))
-
-                    cached = cached_by_path.get(os.path.normpath(track_path)) if isinstance(cached_by_path, dict) else None
-                    entry = self._build_track_entry(track_path, extinf_title=extinf_title, cached=cached)
-                    extinf_title = None
-                    if entry:
-                        tracks.append(entry)
+                if entry:
+                    tracks.append(entry)
 
         except Exception as e:
             logger.error(f"Error loading playlist {playlist_path}: {e}")
