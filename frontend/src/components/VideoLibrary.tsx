@@ -126,7 +126,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
-  const [searchTags, setSearchTags] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchDurationMin, setSearchDurationMin] = useState('');
   const [searchDurationMax, setSearchDurationMax] = useState('');
@@ -158,7 +157,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   useEffect(() => {
     applyFilters();
-  }, [videos, searchArtist, searchTitle, searchTags, selectedTags, searchDurationMin, searchDurationMax]);
+  }, [videos, searchArtist, searchTitle, selectedTags, searchDurationMin, searchDurationMax]);
 
   useEffect(() => {
     if (playlistFolder) {
@@ -272,7 +271,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       );
     }
 
-    // Tag filtering: Use selectedTags dropdown if available, fallback to searchTags text input
+    // Tag filtering: Use selectedTags dropdown
     if (selectedTags.length > 0) {
       const hasNoTags = selectedTags.includes('__NO_TAGS__');
       const regularTags = selectedTags.filter(t => t !== '__NO_TAGS__');
@@ -297,14 +296,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           t.tags?.some(videoTag => videoTag.toLowerCase() === selectedTag.toLowerCase())
         );
       });
-    } else if (searchTags) {
-      // Fallback to old text-based search
-      const tagList = searchTags.split(',').map(t => t.trim().toLowerCase());
-      filtered = filtered.filter(t => 
-        t.tags?.some(tag => 
-          tagList.some(searchTag => tag.toLowerCase().includes(searchTag))
-        )
-      );
     }
 
     if (searchDurationMin) {
@@ -1206,7 +1197,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 onClick={() => {
                   setSearchArtist('');
                   setSearchTitle('');
-                  setSearchTags('');
                   setSelectedTags([]);
                   setSearchDurationMin('');
                   setSearchDurationMax('');
