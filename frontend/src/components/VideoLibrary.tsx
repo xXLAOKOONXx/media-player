@@ -311,12 +311,16 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
     if (searchDurationMin) {
       const minDuration = parseFloat(searchDurationMin);
-      filtered = filtered.filter(t => (t.duration || 0) >= minDuration);
+      if (!isNaN(minDuration)) {
+        filtered = filtered.filter(t => (t.duration || 0) >= minDuration);
+      }
     }
 
     if (searchDurationMax) {
       const maxDuration = parseFloat(searchDurationMax);
-      filtered = filtered.filter(t => (t.duration || 0) <= maxDuration);
+      if (!isNaN(maxDuration)) {
+        filtered = filtered.filter(t => (t.duration || 0) <= maxDuration);
+      }
     }
 
     // Modified date filtering
