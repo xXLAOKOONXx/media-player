@@ -1,0 +1,92 @@
+name: Release Build
+
+on:
+  release:
+    types: [created, published]
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          working-directory: backend
+          python-version: '3.13'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install Python dependencies
+        working-directory: backend
+        run: |
+          uv sync --frozen --extra build
+
+      - name: Build Windows executable (build script)
+        run: build.bat
+        shell: cmd
+      
+      - name: Verify executable creation
+        run: |
+          if (Test-Path backend/dist/media-player.exe) {
+            Write-Host "✓ Executable created successfully"
+            Get-Item backend/dist/media-player.exe | Format-List Name, Length, LastWriteTime
+            echo "EXE_PATH=backend/dist/media-player.exe" >> $env:GITHUB_ENV
+            echo "EXE_NAME=media-player.exe" >> $env:GITHUB_ENV
+          } elseif (Test-Path backend/dist/media-player/media-player.exe) {
+            Write-Host "✓ Executable created successfully (one-dir layout)"
+            Get-ChildItem backend/dist/media-player | Format-Table Name, Length, LastWriteTime
+            # Create a zip file for the one-dir layout
+            Compress-Archive -Path backend/dist/media-player -DestinationPath backend/dist/media-player.zip
+            echo "EXE_PATH=backend/dist/media-player.zip" >> $env:GITHUB_ENV
+            echo "EXE_NAME=media-player.zip" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "Executable not found"
+            exit 1
+          }
+        shell: pwsh
+      
+      - name: Get release info
+        id: release-info
+        run: |
+          $tagName = "${{ github.event.release.tag_name }}"
+          $assetName = "media-player-windows-${tagName}"
+          echo "asset-name=$assetName" >> $env:GITHUB_OUTPUT
+          Write-Host "Asset name: $assetName"
+        shell: pwsh
+      
+      - name: Rename asset for upload
+        run: |
+          $assetName = "${{ steps.release-info.outputs.asset-name }}-${{ env.EXE_NAME }}"
+          $sourcePath = "${{ env.EXE_PATH }}"
+          $destPath = "backend/dist/$assetName"
+          
+          Write-Host "Renaming $sourcePath to $destPath"
+          Copy-Item -Path $sourcePath -Destination $destPath
+          echo "UPLOAD_PATH=$destPath" >> $env:GITHUB_ENV
+        shell: pwsh
+      
+      - name: Upload Release Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $uploadPath = "${{ env.UPLOAD_PATH }}"
+          $tagName = "${{ github.event.release.tag_name }}"
+          
+          Write-Host "Uploading $uploadPath to release $tagName"
+          gh release upload $tagName $uploadPath --clobber --repo ${{ github.repository }}
+        shell: pwsh
