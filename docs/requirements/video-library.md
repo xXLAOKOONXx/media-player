@@ -246,22 +246,34 @@ Inputs:
 
 - Artist (text)
 - Title (text)
-- Tags (comma-separated text)
+- Tags (multi-select dropdown)
+  - Users can select multiple tags from a dropdown containing all unique tags across all videos
+  - Special option "No Tags" shows videos that have no tags assigned
+  - When multiple tags are selected (excluding "No Tags"), only videos that have ALL selected tags are shown (AND logic)
+  - When "No Tags" is selected along with other tags, videos with no tags OR videos matching all selected tags are shown
+  - The dropdown is populated from all available tags across all loaded videos
 - Min Duration (number, seconds)
 - Max Duration (number, seconds)
 
-Button:
+Buttons:
 
+- **Configure Columns**
+  - Opens/closes the column configuration panel
+  - Allows users to show/hide table columns using checkboxes
+  - Title and Actions columns are always visible and cannot be hidden
+  
 - **Clear Filters**
-  - Resets all filter inputs to empty strings.
+  - Resets all filter inputs to empty state (including selected tags)
 
 Filtering behavior:
 
 - Artist filter matches substring against lowercased `video.artist`.
   - Fallback (legacy): if `video.artist` is missing, match against `video.director`.
 - Title filter matches substring against `video.title` or `video.name`.
-- Tags filter splits by commas and checks if any video tag contains any search token.
+- Tags filter uses a multi-select dropdown with AND logic (all selected tags must match).
+  - Special "No Tags" option filters for videos without any tags.
 - Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
+- All filters work with all columns, including the newly added columns.
 
 Tag sources:
 
@@ -271,16 +283,36 @@ Tag sources:
 
 ### Video table columns
 
-The video table shows these columns:
+The video table supports configurable columns. Users can show/hide columns using the "Configure Columns" button.
 
-- Title
+Available columns:
+
+- Title (always visible)
+  - Display: `video.title` or `video.name`
 - Artist
   - Display: the first 30 characters of `video.artist` (fallback: `video.director`).
   - The full artist string is still available via the cell tooltip/title.
 - Album (series)
+  - Display: `video.series`
 - Duration
+  - Display: formatted as `mm:ss`
 - Tags
-- Actions
+  - Display: list of tag badges
+- Modified
+  - Display: file modification date from `video.modified` (Unix timestamp)
+  - Formatted as locale date string
+- Play Count
+  - Display: `video.playcount` (number of times the video has been played)
+  - Sourced from playback statistics database
+- Promotion Score
+  - Display: `video.promotion_score` (calculated ranking/recommendation score)
+  - Formatted to 2 decimal places
+- Rating
+  - Display: `video.user_rating` (user rating value, typically 0-10)
+- Actions (always visible)
+  - Contains action buttons (add to playlist, add to current playlist)
+
+Default visible columns: Title, Artist, Album, Duration, Tags, Actions
 
 ### Thumbnails
 

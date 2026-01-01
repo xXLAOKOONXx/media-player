@@ -28,6 +28,10 @@ interface Video {
   tags?: string[];
   description?: string;
   user_rating?: number;
+  playcount?: number;
+  last_played?: number | null;
+  promotion_score?: number;
+  modified?: number;
 }
 
 const truncateText = (value: string, maxChars: number) => {
@@ -123,8 +127,15 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [searchArtist, setSearchArtist] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
   const [searchTags, setSearchTags] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchDurationMin, setSearchDurationMin] = useState('');
   const [searchDurationMax, setSearchDurationMax] = useState('');
+  
+  // Column configuration
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(['title', 'artist', 'album', 'duration', 'tags', 'actions'])
+  );
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
   
   const [newFolder, setNewFolder] = useState({
     name: '',
@@ -147,7 +158,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   useEffect(() => {
     applyFilters();
-  }, [videos, searchArtist, searchTitle, searchTags, searchDurationMin, searchDurationMax]);
+  }, [videos, searchArtist, searchTitle, searchTags, selectedTags, searchDurationMin, searchDurationMax]);
 
   useEffect(() => {
     if (playlistFolder) {
@@ -261,7 +272,33 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       );
     }
 
-    if (searchTags) {
+    // Tag filtering: Use selectedTags dropdown if available, fallback to searchTags text input
+    if (selectedTags.length > 0) {
+      const hasNoTags = selectedTags.includes('__NO_TAGS__');
+      const regularTags = selectedTags.filter(t => t !== '__NO_TAGS__');
+      
+      filtered = filtered.filter(t => {
+        // If "No Tags" is selected and no other tags, only show videos without tags
+        if (hasNoTags && regularTags.length === 0) {
+          return !t.tags || t.tags.length === 0;
+        }
+        
+        // If "No Tags" and other tags are selected, show videos with no tags OR matching all selected tags
+        if (hasNoTags && regularTags.length > 0) {
+          const hasNoTagsMatch = !t.tags || t.tags.length === 0;
+          const hasAllTags = regularTags.every(selectedTag =>
+            t.tags?.some(videoTag => videoTag.toLowerCase() === selectedTag.toLowerCase())
+          );
+          return hasNoTagsMatch || hasAllTags;
+        }
+        
+        // Regular case: video must have ALL selected tags
+        return regularTags.every(selectedTag =>
+          t.tags?.some(videoTag => videoTag.toLowerCase() === selectedTag.toLowerCase())
+        );
+      });
+    } else if (searchTags) {
+      // Fallback to old text-based search
       const tagList = searchTags.split(',').map(t => t.trim().toLowerCase());
       filtered = filtered.filter(t => 
         t.tags?.some(tag => 
@@ -606,6 +643,44 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const formatDate = (timestamp?: number) => {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString();
+  };
+
+  const toggleColumnVisibility = (columnId: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnId)) {
+        newSet.delete(columnId);
+      } else {
+        newSet.add(columnId);
+      }
+      return newSet;
+    });
+  };
+
+  // Collect all unique tags from all videos
+  const allUniqueTags = Array.from(
+    new Set(
+      videos.flatMap(v => v.tags || [])
+    )
+  ).sort();
+
+  const availableColumns = [
+    { id: 'title', label: 'Title', alwaysVisible: true },
+    { id: 'artist', label: 'Artist', alwaysVisible: false },
+    { id: 'album', label: 'Album', alwaysVisible: false },
+    { id: 'duration', label: 'Duration', alwaysVisible: false },
+    { id: 'tags', label: 'Tags', alwaysVisible: false },
+    { id: 'modified', label: 'Modified', alwaysVisible: false },
+    { id: 'playcount', label: 'Play Count', alwaysVisible: false },
+    { id: 'promotion_score', label: 'Promotion Score', alwaysVisible: false },
+    { id: 'user_rating', label: 'Rating', alwaysVisible: false },
+    { id: 'actions', label: 'Actions', alwaysVisible: true },
+  ];
 
   return (
     <div className="music-manager">
@@ -1047,7 +1122,42 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           <h3>{globalSearch ? 'All Videos' : 'Videos'}</h3>
           
           <div className="search-filters">
-            <h4>Search Filters</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h4 style={{ margin: 0 }}>Search Filters</h4>
+              <button 
+                onClick={() => setShowColumnConfig(!showColumnConfig)}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                <span className="material-icons">view_column</span>
+                Configure Columns
+              </button>
+            </div>
+
+            {showColumnConfig && (
+              <div style={{ 
+                padding: '1rem', 
+                border: '1px solid #ccc', 
+                borderRadius: '4px', 
+                marginBottom: '1rem',
+                backgroundColor: '#f5f5f5'
+              }}>
+                <h5 style={{ marginTop: 0 }}>Visible Columns:</h5>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                  {availableColumns.map(col => (
+                    <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns.has(col.id)}
+                        disabled={col.alwaysVisible}
+                        onChange={() => toggleColumnVisibility(col.id)}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="filter-row">
               <input
                 type="text"
@@ -1061,12 +1171,23 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
               />
-              <input
-                type="text"
-                placeholder="Tags (comma-separated)"
-                value={searchTags}
-                onChange={(e) => setSearchTags(e.target.value)}
-              />
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Tags (select multiple):</label>
+                <select
+                  multiple
+                  value={selectedTags}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value);
+                    setSelectedTags(selected);
+                  }}
+                  style={{ width: '100%', minHeight: '80px' }}
+                >
+                  <option value="__NO_TAGS__">No Tags</option>
+                  {allUniqueTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="filter-row">
               <input
@@ -1086,6 +1207,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   setSearchArtist('');
                   setSearchTitle('');
                   setSearchTags('');
+                  setSelectedTags([]);
                   setSearchDurationMin('');
                   setSearchDurationMax('');
                 }}
@@ -1127,12 +1249,16 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 <thead>
                   <tr>
                     <th></th>
-                    <th>Title</th>
-                    <th>Artist</th>
-                    <th>Album</th>
-                    <th>Duration</th>
-                    <th>Tags</th>
-                    <th>Actions</th>
+                    {visibleColumns.has('title') && <th>Title</th>}
+                    {visibleColumns.has('artist') && <th>Artist</th>}
+                    {visibleColumns.has('album') && <th>Album</th>}
+                    {visibleColumns.has('duration') && <th>Duration</th>}
+                    {visibleColumns.has('tags') && <th>Tags</th>}
+                    {visibleColumns.has('modified') && <th>Modified</th>}
+                    {visibleColumns.has('playcount') && <th>Play Count</th>}
+                    {visibleColumns.has('promotion_score') && <th>Promotion Score</th>}
+                    {visibleColumns.has('user_rating') && <th>Rating</th>}
+                    {visibleColumns.has('actions') && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1159,56 +1285,82 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td data-label="Title">{track.title || track.name}</td>
-                      <td data-label="Artist" title={getArtistText(track) || undefined}>
-                        {getArtistText(track)
-                          ? truncateText(getArtistText(track), 30)
-                          : '-'}
-                      </td>
-                      <td data-label="Album">{track.series || '-'}</td>
-                      <td data-label="Duration">{formatDuration(track.duration)}</td>
-                      <td data-label="Tags">
-                        {track.tags && track.tags.length > 0 ? (
-                          <div className="tags">
-                            {track.tags.map((tag, i) => (
-                              <span key={i} className="tag">{tag}</span>
-                            ))}
-                          </div>
-                        ) : '-'}
-                      </td>
-                      <td data-label="Actions">
-                        <button
-                          onClick={() => {
-                            setDetailsVideo(null);
-                            setVideoToAdd(track);
-                            setShowAddToPlaylistForm(true);
-                          }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClickCapture={(e) => e.stopPropagation()}
-                          disabled={!currentUser || !playlistFolder || availablePlaylists.length === 0}
-                          title={
-                            !currentUser
-                              ? 'Login required'
-                              : !playlistFolder 
-                                ? 'Configure playlist folder first'
-                                : availablePlaylists.length === 0
-                                  ? 'Create a playlist first'
-                                  : 'Add to playlist'
-                          }
-                        >
-                          <span className="material-icons">playlist_add</span>
-                        </button>
+                      {visibleColumns.has('title') && (
+                        <td data-label="Title">{track.title || track.name}</td>
+                      )}
+                      {visibleColumns.has('artist') && (
+                        <td data-label="Artist" title={getArtistText(track) || undefined}>
+                          {getArtistText(track)
+                            ? truncateText(getArtistText(track), 30)
+                            : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.has('album') && (
+                        <td data-label="Album">{track.series || '-'}</td>
+                      )}
+                      {visibleColumns.has('duration') && (
+                        <td data-label="Duration">{formatDuration(track.duration)}</td>
+                      )}
+                      {visibleColumns.has('tags') && (
+                        <td data-label="Tags">
+                          {track.tags && track.tags.length > 0 ? (
+                            <div className="tags">
+                              {track.tags.map((tag, i) => (
+                                <span key={i} className="tag">{tag}</span>
+                              ))}
+                            </div>
+                          ) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.has('modified') && (
+                        <td data-label="Modified">{formatDate(track.modified)}</td>
+                      )}
+                      {visibleColumns.has('playcount') && (
+                        <td data-label="Play Count">{track.playcount ?? 0}</td>
+                      )}
+                      {visibleColumns.has('promotion_score') && (
+                        <td data-label="Promotion Score">
+                          {track.promotion_score != null ? track.promotion_score.toFixed(2) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.has('user_rating') && (
+                        <td data-label="Rating">{track.user_rating != null ? track.user_rating : '-'}</td>
+                      )}
+                      {visibleColumns.has('actions') && (
+                        <td data-label="Actions">
+                          <button
+                            onClick={() => {
+                              setDetailsVideo(null);
+                              setVideoToAdd(track);
+                              setShowAddToPlaylistForm(true);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClickCapture={(e) => e.stopPropagation()}
+                            disabled={!currentUser || !playlistFolder || availablePlaylists.length === 0}
+                            title={
+                              !currentUser
+                                ? 'Login required'
+                                : !playlistFolder 
+                                  ? 'Configure playlist folder first'
+                                  : availablePlaylists.length === 0
+                                    ? 'Create a playlist first'
+                                    : 'Add to playlist'
+                            }
+                          >
+                            <span className="material-icons">playlist_add</span>
+                          </button>
 
-                        <button
-                          onClick={() => handleAddSingleToCurrentPlaylist(track)}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClickCapture={(e) => e.stopPropagation()}
-                          disabled={!track.media_id}
-                          title={!track.media_id ? 'Missing media_id' : 'Add to current playlist'}
-                        >
-                          <span className="material-icons">queue_music</span>
-                        </button>
-                      </td>
+                          <button
+                            onClick={() => handleAddSingleToCurrentPlaylist(track)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClickCapture={(e) => e.stopPropagation()}
+                            disabled={!track.media_id}
+                            title={!track.media_id ? 'Missing media_id' : 'Add to current playlist'}
+                          >
+                            <span className="material-icons">queue_music</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
