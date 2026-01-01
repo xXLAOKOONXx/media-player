@@ -322,48 +322,64 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     // Modified date filtering
     if (searchModifiedAfter) {
       const afterDate = new Date(searchModifiedAfter).getTime() / 1000;
-      filtered = filtered.filter(t => (t.modified || 0) >= afterDate);
+      if (!isNaN(afterDate)) {
+        filtered = filtered.filter(t => (t.modified || 0) >= afterDate);
+      }
     }
 
     if (searchModifiedBefore) {
       const beforeDate = new Date(searchModifiedBefore).getTime() / 1000;
-      filtered = filtered.filter(t => (t.modified || 0) <= beforeDate);
+      if (!isNaN(beforeDate)) {
+        filtered = filtered.filter(t => (t.modified || 0) <= beforeDate);
+      }
     }
 
     // Play count filtering
     if (searchPlaycountMin) {
       const minPlaycount = parseInt(searchPlaycountMin, 10);
-      filtered = filtered.filter(t => (t.playcount || 0) >= minPlaycount);
+      if (!isNaN(minPlaycount)) {
+        filtered = filtered.filter(t => (t.playcount || 0) >= minPlaycount);
+      }
     }
 
     if (searchPlaycountMax) {
       const maxPlaycount = parseInt(searchPlaycountMax, 10);
-      filtered = filtered.filter(t => (t.playcount || 0) <= maxPlaycount);
+      if (!isNaN(maxPlaycount)) {
+        filtered = filtered.filter(t => (t.playcount || 0) <= maxPlaycount);
+      }
     }
 
     // Promotion score filtering
     if (searchPromotionScoreMin) {
       const minScore = parseFloat(searchPromotionScoreMin);
-      filtered = filtered.filter(t => (t.promotion_score || 0) >= minScore);
+      if (!isNaN(minScore)) {
+        filtered = filtered.filter(t => (t.promotion_score || 0) >= minScore);
+      }
     }
 
     if (searchPromotionScoreMax) {
       const maxScore = parseFloat(searchPromotionScoreMax);
-      filtered = filtered.filter(t => (t.promotion_score || 0) <= maxScore);
+      if (!isNaN(maxScore)) {
+        filtered = filtered.filter(t => (t.promotion_score || 0) <= maxScore);
+      }
     }
 
     // Rating filtering
     if (searchNoRating) {
-      filtered = filtered.filter(t => t.user_rating == null || t.user_rating === undefined);
+      filtered = filtered.filter(t => t.user_rating == null);
     } else {
       if (searchRatingMin) {
         const minRating = parseFloat(searchRatingMin);
-        filtered = filtered.filter(t => t.user_rating != null && t.user_rating >= minRating);
+        if (!isNaN(minRating)) {
+          filtered = filtered.filter(t => t.user_rating != null && t.user_rating >= minRating);
+        }
       }
 
       if (searchRatingMax) {
         const maxRating = parseFloat(searchRatingMax);
-        filtered = filtered.filter(t => t.user_rating != null && t.user_rating <= maxRating);
+        if (!isNaN(maxRating)) {
+          filtered = filtered.filter(t => t.user_rating != null && t.user_rating <= maxRating);
+        }
       }
     }
 
