@@ -109,7 +109,12 @@ export default function VideoDetailsModal({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = prevOverflow;
+      // Explicitly restore the previous value, or remove the style property entirely if it was empty
+      if (prevOverflow) {
+        document.body.style.overflow = prevOverflow;
+      } else {
+        document.body.style.removeProperty('overflow');
+      }
     };
   }, []);
 
