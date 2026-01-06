@@ -54,7 +54,7 @@ export function createWeightedPlaylist(
 
     case 'rating':
       // Each item appears N times where N = rating (rounded to nearest integer)
-      // Items without rating appear once (rating = 0 means don't include)
+      // Items with rating 0 are excluded
       for (const item of validItems) {
         const rating = item.user_rating ?? 0;
         const count = Math.max(0, Math.round(rating));
@@ -68,7 +68,7 @@ export function createWeightedPlaylist(
 
     case 'rating_squared':
       // Each item appears N times where N = rating²
-      // Items without rating appear once (rating = 0 means don't include)
+      // Items with rating 0 are excluded
       for (const item of validItems) {
         const rating = item.user_rating ?? 0;
         const count = Math.max(0, Math.round(rating * rating));
