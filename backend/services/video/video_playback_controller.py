@@ -1170,6 +1170,16 @@ class VideoPlaybackController:
                 'selected': bool(t.get('selected')),
             })
 
+        # If only one audio track exists, ensure it's selected
+        if len(audio_tracks) == 1:
+            track = audio_tracks[0]
+            self.selected_audio_track_id = int(track['id'])
+            try:
+                self.player.aid = int(track['id'])
+            except Exception:
+                pass
+            return
+
         if len(audio_tracks) < 2:
             return
 
