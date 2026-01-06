@@ -8,6 +8,8 @@ export type OrderMode = 'current' | 'shuffle';
 export interface MediaItem {
   media_id?: string;
   user_rating?: number;
+  // Allow other properties without explicitly listing them
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
