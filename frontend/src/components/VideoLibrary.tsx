@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { User } from '../types';
+import { createWeightedPlaylist } from '../utils/playlistUtils';
 import './VideoLibrary.css';
 import VideoDetailsModal from './VideoDetailsModal';
 
@@ -74,6 +75,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [showCreatePlaylistForm, setShowCreatePlaylistForm] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
+  const [playlistOrderMode, setPlaylistOrderMode] = useState<'current' | 'shuffle'>('current');
+  const [playlistOccurrenceMode, setPlaylistOccurrenceMode] = useState<'once' | 'rating' | 'rating_squared'>('once');
   const [availablePlaylists, setAvailablePlaylists] = useState<Playlist[]>([]);
   const [showAddToPlaylistForm, setShowAddToPlaylistForm] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');
@@ -465,10 +468,21 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
     try {
       const selectedVideoObjects = filteredVideos.filter(t => t.media_id && selectedVideos.has(t.media_id));
-      const mediaIds = selectedVideoObjects.map(v => v.media_id).filter(Boolean);
+
+      if (selectedVideoObjects.length === 0) {
+        alert('Selected videos are missing media_id');
+        return;
+      }
+
+      // Apply weighted playlist logic
+      const mediaIds = createWeightedPlaylist(
+        selectedVideoObjects,
+        playlistOccurrenceMode,
+        playlistOrderMode
+      );
 
       if (mediaIds.length === 0) {
-        alert('Selected videos are missing media_id');
+        alert('No videos to add to playlist (check ratings if using rating-based occurrence)');
         return;
       }
 
@@ -486,6 +500,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         setNewPlaylistName('');
         setShowCreatePlaylistForm(false);
         setSelectedVideos(new Set());
+        setPlaylistOrderMode('current');
+        setPlaylistOccurrenceMode('once');
         loadAvailablePlaylists();
       } else {
         const error = await response.json();
@@ -861,6 +877,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   required
                 />
               </div>
+              
+              <div className="form-group">
+                <label>Order:</label>
+                <select 
+                  value={playlistOrderMode} 
+                  onChange={(e) => setPlaylistOrderMode(e.target.value as 'current' | 'shuffle')}
+                >
+                  <option value="current">Current Order</option>
+                  <option value="shuffle">Shuffle</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Occurrence:</label>
+                <select 
+                  value={playlistOccurrenceMode} 
+                  onChange={(e) => setPlaylistOccurrenceMode(e.target.value as 'once' | 'rating' | 'rating_squared')}
+                >
+                  <option value="once">Everything Once</option>
+                  <option value="rating">Amount = Rating</option>
+                  <option value="rating_squared">Amount = Rating²</option>
+                </select>
+              </div>
+
               <p>{selectedVideos.size} video(s) selected</p>
               <div className="form-actions">
                 <button type="submit">Create Playlist</button>
