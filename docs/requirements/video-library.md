@@ -135,17 +135,28 @@ Behavior:
 Fields:
 
 - Playlist Name (required)
+- Order (dropdown):
+  - "Current Order" (default): Maintains the current filtered order of videos
+  - "Shuffle": Randomizes the order of videos
+- Occurrence (dropdown):
+  - "Everything Once" (default): Each video appears exactly once
+  - "Amount = Rating": Each video appears N times, where N = user_rating (rounded). Videos without rating (0) are excluded.
+  - "Amount = Rating²": Each video appears N times, where N = user_rating² (rounded). Videos without rating (0) are excluded.
+
+Note: Videos support user_rating (0-10 scale). The rating-based occurrence options allow creating weighted playlists where highly-rated videos appear more frequently.
 
 Buttons:
 
 - **Create Playlist** (submit)
+  - Applies the selected order and occurrence options to the selected videos
   - POST `/api/video/playlists/create` with:
     - `playlist_name: newPlaylistName`
-    - `media_ids: <selected video media ids>` (derived from the currently filtered list)
+    - `media_ids: <processed media_id values based on order and occurrence options>`
   - On success:
     - `alert('Playlist created successfully!')`
     - Close modal
     - Clear selection
+    - Reset order and occurrence options to defaults
     - Reload available playlists
   - On failure: `alert('Failed to create playlist: <server error>')`
   - Requires the user to be authenticated.

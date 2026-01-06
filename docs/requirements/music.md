@@ -116,16 +116,27 @@ Behavior:
 
 Fields:
 - Playlist Name (required)
+- Order (dropdown):
+  - "Current Order" (default): Maintains the current filtered order of tracks
+  - "Shuffle": Randomizes the order of tracks
+- Occurrence (dropdown):
+  - "Everything Once" (default): Each track appears exactly once
+  - "Amount = Rating": Each track appears N times, where N = user_rating (rounded). Tracks without rating (0) are excluded.
+  - "Amount = Rating²": Each track appears N times, where N = user_rating² (rounded). Tracks without rating (0) are excluded.
+
+Note: Audio tracks currently do not support user_rating. For audio playlists, "Amount = Rating" and "Amount = Rating²" options will result in empty playlists unless rating support is added to audio tracks in the future. The "Everything Once" option should be used for audio tracks.
 
 Buttons:
 - **Create Playlist** (submit)
+  - Applies the selected order and occurrence options to the selected tracks
   - POST `/api/audio/music/playlists/create` with:
     - `playlist_name: newPlaylistName`
-    - `media_ids: <selected track media_id values>` (derived from the currently filtered list)
+    - `media_ids: <processed media_id values based on order and occurrence options>`
   - On success:
     - `alert('Playlist created successfully!')`
     - Close modal
     - Clear selection
+    - Reset order and occurrence options to defaults
     - Reload available playlists
   - On failure: `alert('Failed to create playlist: <server error>')`
 - **Cancel** closes the modal.
