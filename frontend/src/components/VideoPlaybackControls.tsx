@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import './VideoPlaybackControls.css';
-import { displayToActualVolume, actualToDisplayVolume } from '../utils/volumeUtils';
 
 const API_BASE_URL = '';
 
@@ -10,11 +9,7 @@ interface VideoPlaybackControlsProps {
 }
 
 const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps) => {
-  // Store display volume (linear 0-100 for UI)
-  const [displayVolume, setDisplayVolume] = useState(() => {
-    const actualVol = status?.volume || 50;
-    return actualToDisplayVolume(actualVol);
-  });
+  const [volume, setVolume] = useState(status?.volume || 50);
 
   const audioTracks = Array.isArray(status?.audio_tracks) ? status.audio_tracks : [];
   const subtitleTracks = Array.isArray(status?.subtitle_tracks) ? status.subtitle_tracks : [];
@@ -88,15 +83,13 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
     }
   };
 
-  const handleVolumeChange = async (newDisplayVolume: number) => {
-    setDisplayVolume(newDisplayVolume);
-    // Convert display volume to actual logarithmic volume for backend
-    const actualVolume = displayToActualVolume(newDisplayVolume);
+  const handleVolumeChange = async (newVolume: number) => {
+    setVolume(newVolume);
     try {
       await fetch(`${API_BASE_URL}/api/video/playback/volume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume: actualVolume })
+        body: JSON.stringify({ volume: newVolume })
       });
     } catch (err) {
       console.error('Error setting volume:', err);
@@ -104,13 +97,13 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
   };
 
   const handleVolumeDecrease = () => {
-    const newDisplayVolume = Math.max(0, displayVolume - 1);
-    handleVolumeChange(newDisplayVolume);
+    const newVolume = Math.max(0, volume - 1);
+    handleVolumeChange(newVolume);
   };
 
   const handleVolumeIncrease = () => {
-    const newDisplayVolume = Math.min(100, displayVolume + 1);
-    handleVolumeChange(newDisplayVolume);
+    const newVolume = Math.min(100, volume + 1);
+    handleVolumeChange(newVolume);
   };
 
   const handleShuffle = async () => {
@@ -256,7 +249,7 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
         <button 
           className="volume-btn" 
           onClick={handleVolumeDecrease}
-          disabled={displayVolume === 0}
+          disabled={volume === 0}
           title="Decrease volume by 1%"
         >
           <span className="material-icons">remove</span>
@@ -265,19 +258,19 @@ const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps)
           type="range"
           min="0"
           max="100"
-          value={displayVolume}
+          value={volume}
           onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
           className="volume-slider"
         />
         <button 
           className="volume-btn" 
           onClick={handleVolumeIncrease}
-          disabled={displayVolume === 100}
+          disabled={volume === 100}
           title="Increase volume by 1%"
         >
           <span className="material-icons">add</span>
         </button>
-        <span className="volume-value">{displayVolume}%</span>
+        <span className="volume-value">{volume}%</span>
       </div>
 
       {(showAudioTrackSelect || showSubtitleSelect) && (
