@@ -1167,87 +1167,117 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
             <h3>Configure Columns</h3>
             <div className="form-group">
               <label>Select columns to display:</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginTop: '10px' }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.title}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, title: e.target.checked })}
-                  />
-                  Title
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.artist}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, artist: e.target.checked })}
-                  />
-                  Artist
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.album}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, album: e.target.checked })}
-                  />
-                  Album
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.duration}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, duration: e.target.checked })}
-                  />
-                  Duration
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.tags}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, tags: e.target.checked })}
-                  />
-                  Tags
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.playcount}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, playcount: e.target.checked })}
-                  />
-                  Play Count
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.lastPlayed}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, lastPlayed: e.target.checked })}
-                  />
-                  Last Played
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.promotionScore}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, promotionScore: e.target.checked })}
-                  />
-                  Promotion Score
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.userRating}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, userRating: e.target.checked })}
-                  />
-                  User Rating
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={tempVisibleColumns.modified}
-                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, modified: e.target.checked })}
-                  />
-                  Modified
-                </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '15px', marginTop: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.title ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, title: !tempVisibleColumns.title })}
+                    title="Title"
+                  >
+                    <span className="material-icons">title</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Title</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.artist ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, artist: !tempVisibleColumns.artist })}
+                    title="Artist"
+                  >
+                    <span className="material-icons">person</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Artist</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.album ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, album: !tempVisibleColumns.album })}
+                    title="Album"
+                  >
+                    <span className="material-icons">album</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Album</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.duration ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, duration: !tempVisibleColumns.duration })}
+                    title="Duration"
+                  >
+                    <span className="material-icons">schedule</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Duration</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.tags ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, tags: !tempVisibleColumns.tags })}
+                    title="Tags"
+                  >
+                    <span className="material-icons">label</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Tags</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.playcount ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, playcount: !tempVisibleColumns.playcount })}
+                    title="Play Count"
+                  >
+                    <span className="material-icons">play_circle</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Play Count</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.lastPlayed ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, lastPlayed: !tempVisibleColumns.lastPlayed })}
+                    title="Last Played"
+                  >
+                    <span className="material-icons">history</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Last Played</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.promotionScore ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, promotionScore: !tempVisibleColumns.promotionScore })}
+                    title="Promotion Score"
+                  >
+                    <span className="material-icons">trending_up</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Promotion Score</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.userRating ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, userRating: !tempVisibleColumns.userRating })}
+                    title="User Rating"
+                  >
+                    <span className="material-icons">star</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>User Rating</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`column-toggle-btn ${tempVisibleColumns.modified ? 'active' : ''}`}
+                    onClick={() => setTempVisibleColumns({ ...tempVisibleColumns, modified: !tempVisibleColumns.modified })}
+                    title="Modified"
+                  >
+                    <span className="material-icons">update</span>
+                  </button>
+                  <span style={{ fontSize: '12px', textAlign: 'center' }}>Modified</span>
+                </div>
               </div>
             </div>
             <div className="form-actions">
