@@ -157,6 +157,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     modified: false,
   });
   const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [tempVisibleColumns, setTempVisibleColumns] = useState(visibleColumns);
   
   const [newFolder, setNewFolder] = useState({
     name: '',
@@ -777,6 +778,20 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
   };
 
+  const handleOpenColumnConfig = () => {
+    setTempVisibleColumns({ ...visibleColumns });
+    setShowColumnConfig(true);
+  };
+
+  const handleApplyColumnConfig = () => {
+    setVisibleColumns({ ...tempVisibleColumns });
+    setShowColumnConfig(false);
+  };
+
+  const handleCancelColumnConfig = () => {
+    setShowColumnConfig(false);
+  };
+
   return (
     <div className="music-manager">
       <div className="music-header">
@@ -1146,6 +1161,103 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         </div>
       )}
 
+      {showColumnConfig && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Configure Columns</h3>
+            <div className="form-group">
+              <label>Select columns to display:</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.title}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, title: e.target.checked })}
+                  />
+                  Title
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.artist}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, artist: e.target.checked })}
+                  />
+                  Artist
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.album}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, album: e.target.checked })}
+                  />
+                  Album
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.duration}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, duration: e.target.checked })}
+                  />
+                  Duration
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.tags}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, tags: e.target.checked })}
+                  />
+                  Tags
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.playcount}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, playcount: e.target.checked })}
+                  />
+                  Play Count
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.lastPlayed}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, lastPlayed: e.target.checked })}
+                  />
+                  Last Played
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.promotionScore}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, promotionScore: e.target.checked })}
+                  />
+                  Promotion Score
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.userRating}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, userRating: e.target.checked })}
+                  />
+                  User Rating
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tempVisibleColumns.modified}
+                    onChange={(e) => setTempVisibleColumns({ ...tempVisibleColumns, modified: e.target.checked })}
+                  />
+                  Modified
+                </label>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="button" onClick={handleApplyColumnConfig}>Apply</button>
+              <button type="button" onClick={handleCancelColumnConfig}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="music-folders">
         <h3 onClick={() => setFoldersCollapsed(!foldersCollapsed)}>
           <span className="material-icons">
@@ -1243,105 +1355,11 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           <div className="search-filters">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4>Search Filters</h4>
-              <button onClick={() => setShowColumnConfig(!showColumnConfig)}>
+              <button onClick={handleOpenColumnConfig}>
                 <span className="material-icons">view_column</span>
                 Configure Columns
               </button>
             </div>
-
-            {showColumnConfig && (
-              <div className="column-config" style={{ 
-                backgroundColor: 'var(--card-background)', 
-                padding: '15px', 
-                marginBottom: '15px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)'
-              }}>
-                <h5>Visible Columns</h5>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.title}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, title: e.target.checked })}
-                    />
-                    Title
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.artist}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, artist: e.target.checked })}
-                    />
-                    Artist
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.album}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, album: e.target.checked })}
-                    />
-                    Album
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.duration}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, duration: e.target.checked })}
-                    />
-                    Duration
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.tags}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, tags: e.target.checked })}
-                    />
-                    Tags
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.playcount}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, playcount: e.target.checked })}
-                    />
-                    Play Count
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.lastPlayed}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, lastPlayed: e.target.checked })}
-                    />
-                    Last Played
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.promotionScore}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, promotionScore: e.target.checked })}
-                    />
-                    Promotion Score
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.userRating}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, userRating: e.target.checked })}
-                    />
-                    User Rating
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.modified}
-                      onChange={(e) => setVisibleColumns({ ...visibleColumns, modified: e.target.checked })}
-                    />
-                    Modified
-                  </label>
-                </div>
-              </div>
-            )}
 
             <div className="filter-row">
               {visibleColumns.artist && (
