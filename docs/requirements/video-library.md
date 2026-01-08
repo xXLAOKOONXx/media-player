@@ -314,7 +314,12 @@ Inputs (conditional on column visibility):
 - Tags (multi-select dropdown) - shown when Tags column is visible
   - Lists all unique tags from the video collection
   - Includes a "No Tags" option to filter for videos without tags
-  - Supports multiple tag selection (AND logic: videos must have ALL selected tags)
+  - Supports multiple tag selection with the following logic:
+    - When only tags are selected: AND logic (videos must have ALL selected tags)
+    - When only "No Tags" is selected: shows videos with no tags
+    - When "No Tags" is selected WITH other tags: OR logic (shows videos with no tags OR videos that have all selected tags)
+  - Shows help text: "Hold Ctrl/Cmd to select multiple tags"
+  - Displays list of selected tags below the dropdown
 - Min Duration (number, seconds) - shown when Duration column is visible
 - Max Duration (number, seconds) - shown when Duration column is visible
 - Min Play Count (number) - shown when Play Count column is visible
@@ -335,8 +340,9 @@ Filtering behavior:
   - Fallback (legacy): if `video.artist` is missing, match against `video.director`.
 - Title filter matches substring against `video.title` or `video.name`.
 - Tags filter:
-  - When "No Tags" is selected: shows only videos with no tags or empty tag array
-  - When tags are selected: shows videos that have ALL selected tags (AND logic)
+  - When only "No Tags" is selected: shows only videos with no tags or empty tag array
+  - When only tags are selected: shows videos that have ALL selected tags (AND logic)
+  - When "No Tags" is selected WITH other tags: shows videos with no tags OR videos that have ALL selected tags (OR logic)
   - Case-insensitive exact tag matching
 - Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
 - Play Count min/max compares against numeric `video.playcount` (defaulting to 0 when missing).

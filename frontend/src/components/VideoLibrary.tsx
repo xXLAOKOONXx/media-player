@@ -305,13 +305,26 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     // Tags filter - support array of selected tags and "No Tags" option
     if (searchTags.length > 0) {
       filtered = filtered.filter(t => {
-        // Check if "No Tags" is selected
-        if (searchTags.includes(NO_TAGS_OPTION)) {
+        const hasNoTagsOption = searchTags.includes(NO_TAGS_OPTION);
+        const actualTags = searchTags.filter(tag => tag !== NO_TAGS_OPTION);
+        
+        // If "No Tags" is selected along with other tags, use OR logic
+        if (hasNoTagsOption && actualTags.length > 0) {
+          // Return videos with no tags OR videos that have all selected tags
+          const matchesNoTags = !t.tags || t.tags.length === 0;
+          const matchesAllTags = actualTags.every(searchTag => 
+            t.tags?.some(tag => tag.toLowerCase() === searchTag.toLowerCase())
+          );
+          return matchesNoTags || matchesAllTags;
+        }
+        
+        // If only "No Tags" is selected
+        if (hasNoTagsOption) {
           return !t.tags || t.tags.length === 0;
         }
         
-        // All selected tags must match (AND logic)
-        return searchTags.every(searchTag => 
+        // If only actual tags are selected, all must match (AND logic)
+        return actualTags.every(searchTag => 
           t.tags?.some(tag => tag.toLowerCase() === searchTag.toLowerCase())
         );
       });
@@ -1295,12 +1308,17 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       setSearchTags(options);
                     }}
                     style={{ width: '100%', minHeight: '38px' }}
+                    aria-label="Filter by tags"
+                    aria-describedby="tags-filter-help"
                   >
                     <option value={NO_TAGS_OPTION}>No Tags</option>
                     {getAllUniqueTags().map(tag => (
                       <option key={tag} value={tag}>{tag}</option>
                     ))}
                   </select>
+                  <div id="tags-filter-help" style={{ fontSize: '11px', marginTop: '2px', opacity: 0.7 }}>
+                    Hold Ctrl/Cmd to select multiple tags
+                  </div>
                   {searchTags.length > 0 && (
                     <div style={{ fontSize: '12px', marginTop: '2px' }}>
                       Selected: {searchTags.map(t => t === NO_TAGS_OPTION ? 'No Tags' : t).join(', ')}
