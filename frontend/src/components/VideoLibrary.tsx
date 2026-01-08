@@ -1390,7 +1390,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 Configure Columns
               </button>
             </div>
-
+            
+            {/* Text filters row */}
             <div className="filter-row">
               {visibleColumns.artist && (
                 <input
@@ -1416,8 +1417,13 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   onChange={(e) => setSearchAlbum(e.target.value)}
                 />
               )}
-              {visibleColumns.tags && (
+            </div>
+
+            {/* Tags filter row */}
+            {visibleColumns.tags && (
+              <div className="filter-row">
                 <div style={{ flex: 1 }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '5px', display: 'block' }}>Tags</label>
                   <select
                     multiple
                     value={searchTags}
@@ -1443,23 +1449,25 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             
-            <div className="filter-row">
-              {visibleColumns.duration && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+            {/* Duration filter row */}
+            {visibleColumns.duration && (
+              <div className="filter-row">
+                <div style={{ flex: 1, padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Duration</label>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="number"
-                      placeholder="Min Duration (seconds)"
+                      placeholder="Min (seconds)"
                       value={searchDurationMin}
                       onChange={(e) => setSearchDurationMin(e.target.value)}
                       style={{ flex: 1 }}
                     />
                     <input
                       type="number"
-                      placeholder="Max Duration (seconds)"
+                      placeholder="Max (seconds)"
                       value={searchDurationMax}
                       onChange={(e) => setSearchDurationMax(e.target.value)}
                       style={{ flex: 1 }}
@@ -1470,25 +1478,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     if (minVal === 0 && maxVal === 0) return null;
                     return (
                       <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                        Range: {formatDuration(minVal)} - {formatDuration(maxVal)}
+                        Available range: {formatDuration(minVal)} - {formatDuration(maxVal)}
                       </div>
                     );
                   })()}
                 </div>
-              )}
-              {visibleColumns.playcount && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+              </div>
+            )}
+
+            {/* Play Count filter row */}
+            {visibleColumns.playcount && (
+              <div className="filter-row">
+                <div style={{ flex: 1, padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Play Count</label>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="number"
-                      placeholder="Min Play Count"
+                      placeholder="Min"
                       value={searchPlaycountMin}
                       onChange={(e) => setSearchPlaycountMin(e.target.value)}
                       style={{ flex: 1 }}
                     />
                     <input
                       type="number"
-                      placeholder="Max Play Count"
+                      placeholder="Max"
                       value={searchPlaycountMax}
                       onChange={(e) => setSearchPlaycountMax(e.target.value)}
                       style={{ flex: 1 }}
@@ -1497,32 +1510,34 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   {(() => {
                     const [minVal, maxVal] = getMinMaxPlaycount();
                     return (
-                      <input
-                        type="range"
-                        min={minVal}
-                        max={maxVal}
-                        value={searchPlaycountMin || minVal}
-                        onChange={(e) => setSearchPlaycountMin(e.target.value)}
-                        style={{ width: '100%', marginTop: '2px' }}
-                      />
-                    );
-                  })()}
-                  {(() => {
-                    const [minVal, maxVal] = getMinMaxPlaycount();
-                    return (
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                        Range: {minVal} - {maxVal}
-                      </div>
+                      <>
+                        <input
+                          type="range"
+                          min={minVal}
+                          max={maxVal}
+                          value={searchPlaycountMin || minVal}
+                          onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                          style={{ width: '100%', marginBottom: '5px' }}
+                        />
+                        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                          Available range: {minVal} - {maxVal}
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
-              )}
-              {visibleColumns.userRating && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+              </div>
+            )}
+
+            {/* User Rating filter row */}
+            {visibleColumns.userRating && (
+              <div className="filter-row">
+                <div style={{ flex: 1, padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>User Rating</label>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="number"
-                      placeholder="Min Rating (0-10)"
+                      placeholder="Min (0-10)"
                       value={searchRatingMin}
                       onChange={(e) => setSearchRatingMin(e.target.value)}
                       min="0"
@@ -1532,7 +1547,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     />
                     <input
                       type="number"
-                      placeholder="Max Rating (0-10)"
+                      placeholder="Max (0-10)"
                       value={searchRatingMax}
                       onChange={(e) => setSearchRatingMax(e.target.value)}
                       min="0"
@@ -1544,33 +1559,35 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   {(() => {
                     const [minVal, maxVal] = getMinMaxRating();
                     return (
-                      <input
-                        type="range"
-                        min={minVal}
-                        max={maxVal}
-                        step="0.1"
-                        value={searchRatingMin || minVal}
-                        onChange={(e) => setSearchRatingMin(e.target.value)}
-                        style={{ width: '100%', marginTop: '2px' }}
-                      />
-                    );
-                  })()}
-                  {(() => {
-                    const [minVal, maxVal] = getMinMaxRating();
-                    return (
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                        Range: {minVal.toFixed(1)} - {maxVal.toFixed(1)}
-                      </div>
+                      <>
+                        <input
+                          type="range"
+                          min={minVal}
+                          max={maxVal}
+                          step="0.1"
+                          value={searchRatingMin || minVal}
+                          onChange={(e) => setSearchRatingMin(e.target.value)}
+                          style={{ width: '100%', marginBottom: '5px' }}
+                        />
+                        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                          Available range: {minVal.toFixed(1)} - {maxVal.toFixed(1)}
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
-              )}
-              {visibleColumns.promotionScore && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+              </div>
+            )}
+
+            {/* Promotion Score filter row */}
+            {visibleColumns.promotionScore && (
+              <div className="filter-row">
+                <div style={{ flex: 1, padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Promotion Score</label>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="number"
-                      placeholder="Min Promotion Score"
+                      placeholder="Min"
                       value={searchPromotionScoreMin}
                       onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
                       step="0.1"
@@ -1578,7 +1595,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     />
                     <input
                       type="number"
-                      placeholder="Max Promotion Score"
+                      placeholder="Max"
                       value={searchPromotionScoreMax}
                       onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
                       step="0.1"
@@ -1588,30 +1605,32 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   {(() => {
                     const [minVal, maxVal] = getMinMaxPromotionScore();
                     return (
-                      <input
-                        type="range"
-                        min={minVal}
-                        max={maxVal}
-                        step="0.1"
-                        value={searchPromotionScoreMin || minVal}
-                        onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
-                        style={{ width: '100%', marginTop: '2px' }}
-                      />
-                    );
-                  })()}
-                  {(() => {
-                    const [minVal, maxVal] = getMinMaxPromotionScore();
-                    return (
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                        Range: {minVal.toFixed(2)} - {maxVal.toFixed(2)}
-                      </div>
+                      <>
+                        <input
+                          type="range"
+                          min={minVal}
+                          max={maxVal}
+                          step="0.1"
+                          value={searchPromotionScoreMin || minVal}
+                          onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                          style={{ width: '100%', marginBottom: '5px' }}
+                        />
+                        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                          Available range: {minVal.toFixed(2)} - {maxVal.toFixed(2)}
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
-              )}
-              {visibleColumns.modified && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+              </div>
+            )}
+
+            {/* Modified filter row */}
+            {visibleColumns.modified && (
+              <div className="filter-row">
+                <div style={{ flex: 1, padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px' }}>
+                  <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Modified Date</label>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="date"
                       placeholder="Min Date"
@@ -1638,15 +1657,15 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     if (minVal === 0 && maxVal === 0) return null;
                     return (
                       <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                        Range: {new Date(minVal * 1000).toLocaleDateString()} - {new Date(maxVal * 1000).toLocaleDateString()}
+                        Available range: {new Date(minVal * 1000).toLocaleDateString()} - {new Date(maxVal * 1000).toLocaleDateString()}
                       </div>
                     );
                   })()}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            <div className="filter-row">
+            {/* Clear filters button */}<div className="filter-row">
               <button
                 onClick={() => {
                   setSearchArtist('');
