@@ -158,6 +158,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   });
   const [showColumnConfig, setShowColumnConfig] = useState(false);
   const [tempVisibleColumns, setTempVisibleColumns] = useState(visibleColumns);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   
   const [newFolder, setNewFolder] = useState({
     name: '',
@@ -1423,13 +1424,33 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           
           <div className="search-filters">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <h4>Search Filters</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h4 style={{ margin: 0 }}>Search Filters</h4>
+                <button 
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  title={filtersExpanded ? 'Collapse filters' : 'Expand filters'}
+                >
+                  <span className="material-icons">
+                    {filtersExpanded ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+              </div>
               <button onClick={handleOpenColumnConfig}>
                 <span className="material-icons">view_column</span>
                 Configure Columns
               </button>
             </div>
             
+            {filtersExpanded && (
+              <>
             {/* Text filters row */}
             <div className="filter-row">
               {visibleColumns.artist && (
@@ -1776,6 +1797,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 Clear Filters
               </button>
             </div>
+              </>
+            )}
           </div>
 
           {isLoading ? (
