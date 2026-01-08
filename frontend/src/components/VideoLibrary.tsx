@@ -130,6 +130,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
+  const [searchAlbum, setSearchAlbum] = useState('');
   const [searchTags, setSearchTags] = useState<string[]>([]);
   const [searchDurationMin, setSearchDurationMin] = useState('');
   const [searchDurationMax, setSearchDurationMax] = useState('');
@@ -139,6 +140,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [searchRatingMax, setSearchRatingMax] = useState('');
   const [searchPromotionScoreMin, setSearchPromotionScoreMin] = useState('');
   const [searchPromotionScoreMax, setSearchPromotionScoreMax] = useState('');
+  const [searchModifiedMin, setSearchModifiedMin] = useState('');
+  const [searchModifiedMax, setSearchModifiedMax] = useState('');
   
   // Configurable columns
   const [visibleColumns, setVisibleColumns] = useState({
@@ -176,9 +179,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   useEffect(() => {
     applyFilters();
-  }, [videos, searchArtist, searchTitle, searchTags, searchDurationMin, searchDurationMax, 
+  }, [videos, searchArtist, searchTitle, searchAlbum, searchTags, searchDurationMin, searchDurationMax, 
       searchPlaycountMin, searchPlaycountMax, searchRatingMin, searchRatingMax,
-      searchPromotionScoreMin, searchPromotionScoreMax]);
+      searchPromotionScoreMin, searchPromotionScoreMax, searchModifiedMin, searchModifiedMax]);
 
   useEffect(() => {
     if (playlistFolder) {
@@ -292,6 +295,13 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       );
     }
 
+    if (searchAlbum) {
+      const albumLower = searchAlbum.toLowerCase();
+      filtered = filtered.filter(t => 
+        (t.series || '').toLowerCase().includes(albumLower)
+      );
+    }
+
     if (searchDurationMin) {
       const minDuration = parseFloat(searchDurationMin);
       filtered = filtered.filter(t => (t.duration || 0) >= minDuration);
@@ -360,6 +370,16 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       filtered = filtered.filter(t => (t.promotion_score || 0) <= maxScore);
     }
 
+    // Modified date filters (Unix timestamp in seconds)
+    if (searchModifiedMin) {
+      const minModified = parseFloat(searchModifiedMin);
+      filtered = filtered.filter(t => (t.modified || 0) >= minModified);
+    }
+    if (searchModifiedMax) {
+      const maxModified = parseFloat(searchModifiedMax);
+      filtered = filtered.filter(t => (t.modified || 0) <= maxModified);
+    }
+
     setFilteredVideos(filtered);
   };
 
@@ -370,6 +390,40 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       video.tags?.forEach(tag => tagsSet.add(tag));
     });
     return Array.from(tagsSet).sort();
+  };
+
+  // Helper functions to get min/max values from filtered videos for sliders
+  const getMinMaxDuration = (): [number, number] => {
+    if (filteredVideos.length === 0) return [0, 0];
+    const durations = filteredVideos.map(v => v.duration || 0).filter(d => d > 0);
+    if (durations.length === 0) return [0, 0];
+    return [Math.min(...durations), Math.max(...durations)];
+  };
+
+  const getMinMaxPlaycount = (): [number, number] => {
+    if (filteredVideos.length === 0) return [0, 0];
+    const playcounts = filteredVideos.map(v => v.playcount || 0);
+    return [Math.min(...playcounts), Math.max(...playcounts)];
+  };
+
+  const getMinMaxRating = (): [number, number] => {
+    if (filteredVideos.length === 0) return [0, 10];
+    const ratings = filteredVideos.map(v => v.user_rating || 0).filter(r => r > 0);
+    if (ratings.length === 0) return [0, 10];
+    return [Math.min(...ratings), Math.max(...ratings)];
+  };
+
+  const getMinMaxPromotionScore = (): [number, number] => {
+    if (filteredVideos.length === 0) return [0, 0];
+    const scores = filteredVideos.map(v => v.promotion_score || 0);
+    return [Math.min(...scores), Math.max(...scores)];
+  };
+
+  const getMinMaxModified = (): [number, number] => {
+    if (filteredVideos.length === 0) return [0, 0];
+    const timestamps = filteredVideos.map(v => v.modified || 0).filter(t => t > 0);
+    if (timestamps.length === 0) return [0, 0];
+    return [Math.min(...timestamps), Math.max(...timestamps)];
   };
 
   const formatDuration = (seconds?: number) => {
@@ -1306,6 +1360,14 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   onChange={(e) => setSearchTitle(e.target.value)}
                 />
               )}
+              {visibleColumns.album && (
+                <input
+                  type="text"
+                  placeholder="Album"
+                  value={searchAlbum}
+                  onChange={(e) => setSearchAlbum(e.target.value)}
+                />
+              )}
               {visibleColumns.tags && (
                 <div style={{ flex: 1 }}>
                   <select
@@ -1338,76 +1400,201 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
             
             <div className="filter-row">
               {visibleColumns.duration && (
-                <>
-                  <input
-                    type="number"
-                    placeholder="Min Duration (seconds)"
-                    value={searchDurationMin}
-                    onChange={(e) => setSearchDurationMin(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max Duration (seconds)"
-                    value={searchDurationMax}
-                    onChange={(e) => setSearchDurationMax(e.target.value)}
-                  />
-                </>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                    <input
+                      type="number"
+                      placeholder="Min Duration (seconds)"
+                      value={searchDurationMin}
+                      onChange={(e) => setSearchDurationMin(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max Duration (seconds)"
+                      value={searchDurationMax}
+                      onChange={(e) => setSearchDurationMax(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxDuration();
+                    if (minVal === 0 && maxVal === 0) return null;
+                    return (
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        Range: {formatDuration(minVal)} - {formatDuration(maxVal)}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
               {visibleColumns.playcount && (
-                <>
-                  <input
-                    type="number"
-                    placeholder="Min Play Count"
-                    value={searchPlaycountMin}
-                    onChange={(e) => setSearchPlaycountMin(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max Play Count"
-                    value={searchPlaycountMax}
-                    onChange={(e) => setSearchPlaycountMax(e.target.value)}
-                  />
-                </>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                    <input
+                      type="number"
+                      placeholder="Min Play Count"
+                      value={searchPlaycountMin}
+                      onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max Play Count"
+                      value={searchPlaycountMax}
+                      onChange={(e) => setSearchPlaycountMax(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxPlaycount();
+                    return (
+                      <input
+                        type="range"
+                        min={minVal}
+                        max={maxVal}
+                        value={searchPlaycountMin || minVal}
+                        onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                        style={{ width: '100%', marginTop: '2px' }}
+                      />
+                    );
+                  })()}
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxPlaycount();
+                    return (
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        Range: {minVal} - {maxVal}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
               {visibleColumns.userRating && (
-                <>
-                  <input
-                    type="number"
-                    placeholder="Min Rating (0-10)"
-                    value={searchRatingMin}
-                    onChange={(e) => setSearchRatingMin(e.target.value)}
-                    min="0"
-                    max="10"
-                    step="0.1"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max Rating (0-10)"
-                    value={searchRatingMax}
-                    onChange={(e) => setSearchRatingMax(e.target.value)}
-                    min="0"
-                    max="10"
-                    step="0.1"
-                  />
-                </>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                    <input
+                      type="number"
+                      placeholder="Min Rating (0-10)"
+                      value={searchRatingMin}
+                      onChange={(e) => setSearchRatingMin(e.target.value)}
+                      min="0"
+                      max="10"
+                      step="0.1"
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max Rating (0-10)"
+                      value={searchRatingMax}
+                      onChange={(e) => setSearchRatingMax(e.target.value)}
+                      min="0"
+                      max="10"
+                      step="0.1"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxRating();
+                    return (
+                      <input
+                        type="range"
+                        min={minVal}
+                        max={maxVal}
+                        step="0.1"
+                        value={searchRatingMin || minVal}
+                        onChange={(e) => setSearchRatingMin(e.target.value)}
+                        style={{ width: '100%', marginTop: '2px' }}
+                      />
+                    );
+                  })()}
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxRating();
+                    return (
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        Range: {minVal.toFixed(1)} - {maxVal.toFixed(1)}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
               {visibleColumns.promotionScore && (
-                <>
-                  <input
-                    type="number"
-                    placeholder="Min Promotion Score"
-                    value={searchPromotionScoreMin}
-                    onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
-                    step="0.1"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max Promotion Score"
-                    value={searchPromotionScoreMax}
-                    onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
-                    step="0.1"
-                  />
-                </>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                    <input
+                      type="number"
+                      placeholder="Min Promotion Score"
+                      value={searchPromotionScoreMin}
+                      onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                      step="0.1"
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max Promotion Score"
+                      value={searchPromotionScoreMax}
+                      onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
+                      step="0.1"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxPromotionScore();
+                    return (
+                      <input
+                        type="range"
+                        min={minVal}
+                        max={maxVal}
+                        step="0.1"
+                        value={searchPromotionScoreMin || minVal}
+                        onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                        style={{ width: '100%', marginTop: '2px' }}
+                      />
+                    );
+                  })()}
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxPromotionScore();
+                    return (
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        Range: {minVal.toFixed(2)} - {maxVal.toFixed(2)}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              {visibleColumns.modified && (
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                    <input
+                      type="date"
+                      placeholder="Min Date"
+                      value={searchModifiedMin ? new Date(parseFloat(searchModifiedMin) * 1000).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const timestamp = e.target.value ? new Date(e.target.value).getTime() / 1000 : '';
+                        setSearchModifiedMin(timestamp.toString());
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="date"
+                      placeholder="Max Date"
+                      value={searchModifiedMax ? new Date(parseFloat(searchModifiedMax) * 1000).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const timestamp = e.target.value ? new Date(e.target.value).getTime() / 1000 : '';
+                        setSearchModifiedMax(timestamp.toString());
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  {(() => {
+                    const [minVal, maxVal] = getMinMaxModified();
+                    if (minVal === 0 && maxVal === 0) return null;
+                    return (
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        Range: {new Date(minVal * 1000).toLocaleDateString()} - {new Date(maxVal * 1000).toLocaleDateString()}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
             </div>
 
@@ -1416,6 +1603,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 onClick={() => {
                   setSearchArtist('');
                   setSearchTitle('');
+                  setSearchAlbum('');
                   setSearchTags([]);
                   setSearchDurationMin('');
                   setSearchDurationMax('');
@@ -1425,6 +1613,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   setSearchRatingMax('');
                   setSearchPromotionScoreMin('');
                   setSearchPromotionScoreMax('');
+                  setSearchModifiedMin('');
+                  setSearchModifiedMax('');
                 }}
               >
                 Clear Filters
