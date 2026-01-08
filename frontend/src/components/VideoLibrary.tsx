@@ -385,12 +385,12 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  const formatScore = (score?: number) => {
-    return score !== undefined ? score.toFixed(2) : '-';
+  const formatScore = (score?: number | null) => {
+    return score != null ? score.toFixed(2) : '-';
   };
 
-  const formatRating = (rating?: number) => {
-    return rating !== undefined ? rating.toFixed(1) : '-';
+  const formatRating = (rating?: number | null) => {
+    return rating != null ? rating.toFixed(1) : '-';
   };
 
   const browsePath_fn = async (path: string) => {
