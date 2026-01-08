@@ -5,6 +5,7 @@ import './VideoLibrary.css';
 import VideoDetailsModal from './VideoDetailsModal';
 
 const API_BASE_URL = '';
+const NO_TAGS_OPTION = '__NO_TAGS__';
 
 interface VideoLibrary {
   id: number;
@@ -305,7 +306,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     if (searchTags.length > 0) {
       filtered = filtered.filter(t => {
         // Check if "No Tags" is selected
-        if (searchTags.includes('__NO_TAGS__')) {
+        if (searchTags.includes(NO_TAGS_OPTION)) {
           return !t.tags || t.tags.length === 0;
         }
         
@@ -359,7 +360,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '--:--';
+    if (seconds == null) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -1295,14 +1296,14 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     }}
                     style={{ width: '100%', minHeight: '38px' }}
                   >
-                    <option value="__NO_TAGS__">No Tags</option>
+                    <option value={NO_TAGS_OPTION}>No Tags</option>
                     {getAllUniqueTags().map(tag => (
                       <option key={tag} value={tag}>{tag}</option>
                     ))}
                   </select>
                   {searchTags.length > 0 && (
                     <div style={{ fontSize: '12px', marginTop: '2px' }}>
-                      Selected: {searchTags.map(t => t === '__NO_TAGS__' ? 'No Tags' : t).join(', ')}
+                      Selected: {searchTags.map(t => t === NO_TAGS_OPTION ? 'No Tags' : t).join(', ')}
                     </div>
                   )}
                 </div>
