@@ -1550,14 +1550,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     const [minVal, maxVal] = getMinMaxPlaycount();
                     return (
                       <>
-                        <input
-                          type="range"
-                          min={minVal}
-                          max={maxVal}
-                          value={searchPlaycountMin || minVal}
-                          onChange={(e) => setSearchPlaycountMin(e.target.value)}
-                          style={{ width: '100%', marginBottom: '5px' }}
-                        />
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Min</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              value={searchPlaycountMin || minVal}
+                              onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Max</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              value={searchPlaycountMax || maxVal}
+                              onChange={(e) => setSearchPlaycountMax(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
                         <div style={{ fontSize: '11px', opacity: 0.7 }}>
                           Available range: {minVal} - {maxVal}
                         </div>
@@ -1599,15 +1615,32 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     const [minVal, maxVal] = getMinMaxRating();
                     return (
                       <>
-                        <input
-                          type="range"
-                          min={minVal}
-                          max={maxVal}
-                          step="0.1"
-                          value={searchRatingMin || minVal}
-                          onChange={(e) => setSearchRatingMin(e.target.value)}
-                          style={{ width: '100%', marginBottom: '5px' }}
-                        />
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Min</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              step="0.1"
+                              value={searchRatingMin || minVal}
+                              onChange={(e) => setSearchRatingMin(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Max</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              step="0.1"
+                              value={searchRatingMax || maxVal}
+                              onChange={(e) => setSearchRatingMax(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
                         <div style={{ fontSize: '11px', opacity: 0.7 }}>
                           Available range: {minVal.toFixed(1)} - {maxVal.toFixed(1)}
                         </div>
@@ -1645,15 +1678,32 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     const [minVal, maxVal] = getMinMaxPromotionScore();
                     return (
                       <>
-                        <input
-                          type="range"
-                          min={minVal}
-                          max={maxVal}
-                          step="0.1"
-                          value={searchPromotionScoreMin || minVal}
-                          onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
-                          style={{ width: '100%', marginBottom: '5px' }}
-                        />
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Min</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              step="0.1"
+                              value={searchPromotionScoreMin || minVal}
+                              onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '11px', opacity: 0.7, display: 'block', marginBottom: '2px' }}>Max</label>
+                            <input
+                              type="range"
+                              min={minVal}
+                              max={maxVal}
+                              step="0.1"
+                              value={searchPromotionScoreMax || maxVal}
+                              onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
                         <div style={{ fontSize: '11px', opacity: 0.7 }}>
                           Available range: {minVal.toFixed(2)} - {maxVal.toFixed(2)}
                         </div>
