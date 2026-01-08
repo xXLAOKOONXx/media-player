@@ -410,6 +410,19 @@
   font-size: 18px;
 }
 
+/* Actions column styling */
+.tracks-list th:last-child,
+.tracks-list td:last-child {
+  min-width: 120px;
+  width: 120px;
+}
+
+.tracks-list td:last-child {
+  display: flex;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
 .modal {
   position: fixed;
   top: 0;
