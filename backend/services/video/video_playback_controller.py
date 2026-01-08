@@ -123,7 +123,7 @@ class VideoPlaybackController:
     DEFAULT_VOLUME = 50  # Volume as integer 0-100
     DURATION_DETECTION_TIMEOUT = 2  # Seconds to wait for duration during playback
     
-    def __init__(self, video_config=None, stats_manager=None, db_manager=None):
+    def __init__(self, video_config=None, stats_manager=None, db_manager=None, status_callback=None):
         self.current_playlist = []
         self.original_playlist = []  # Store original order for shuffle
         self.current_track_index = 0
@@ -178,6 +178,9 @@ class VideoPlaybackController:
         self.track_start_time = None  # System time when track started
         self.pause_start_time = None  # System time when paused
         self.total_pause_duration = 0  # Total time spent paused
+        
+        # Status callback for WebSocket updates
+        self.status_callback = status_callback
         
         # Flag to prevent end-file event handling during manual operations
         self._manual_track_change = False
@@ -791,6 +794,7 @@ class VideoPlaybackController:
             
             self.is_paused = True
             self.pause_start_time = time.time()  # Track when pause started
+            self._broadcast_status()
             return True
         return False
     
@@ -815,6 +819,7 @@ class VideoPlaybackController:
                     self.total_pause_duration += time.time() - self.pause_start_time
                     self.pause_start_time = None
                 logger.info("Resumed video playback")
+                self._broadcast_status()
                 return True
             except Exception as e:
                 logger.error(f"Error resuming video: {e}")
@@ -911,6 +916,7 @@ class VideoPlaybackController:
                         logger.debug(f"Could not get duration from MPV: {e}")
                 
                 logger.info(f"Playing video {self.current_track_index + 1}/{len(self.current_playlist)}: {video_path}")
+                self._broadcast_status()
                 return True
             except Exception as e:
                 logger.error(f"Error playing video: {e}")
@@ -922,6 +928,7 @@ class VideoPlaybackController:
             # Reset end-time trigger guard for this track
             self._custom_end_time_triggered = False
             logger.info(f"Video playback state updated (no player available)")
+            self._broadcast_status()
             return True
 
     def _maybe_apply_saved_track_preferences(self) -> None:
@@ -1459,6 +1466,7 @@ class VideoPlaybackController:
         self.is_playing = False
         self.is_paused = False
         self.current_position = 0
+        self._broadcast_status()
         return True
 
     def clear_playlist(self):
@@ -1561,6 +1569,7 @@ class VideoPlaybackController:
         else:
             logger.info(f"Volume set to {self.volume}% (no player available)")
         
+        self._broadcast_status()
         return True
     
     def seek(self, position):
@@ -1576,6 +1585,7 @@ class VideoPlaybackController:
         else:
             logger.info(f"Seek position set to {position}s (no active player)")
         
+        self._broadcast_status()
         return True
     
     def set_shuffle(self, enabled):
@@ -1614,6 +1624,7 @@ class VideoPlaybackController:
             
             logger.info("Shuffle disabled")
         
+        self._broadcast_status()
         return True
     
     def set_repeat_mode(self, mode):
@@ -1621,6 +1632,7 @@ class VideoPlaybackController:
         if mode in ['none', 'all', 'one']:
             self.repeat_mode = mode
             logger.info(f"Repeat mode set to: {mode}")
+            self._broadcast_status()
             return True
         return False
     
@@ -1707,6 +1719,15 @@ class VideoPlaybackController:
             'current_audio_track_id': current_audio_track_id,
             'current_subtitle_track_id': current_subtitle_track_id,
         }
+    
+    def _broadcast_status(self):
+        """Broadcast status update via callback if available"""
+        if self.status_callback:
+            try:
+                self.status_callback()
+            except Exception as e:
+                logger.error(f"Error in status callback: {e}")
+    
     
     def get_playlist(self):
         """Get the current playlist"""
