@@ -11,6 +11,7 @@ import VideoExplorer from '../components/VideoExplorer';
 import VideoSeries from '../components/VideoSeries';
 import PageMenu from '../components/PageMenu';
 import { useWebSocketStatus } from '../hooks/useWebSocketStatus';
+import { useInterpolatedPosition } from '../hooks/useInterpolatedPosition';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -60,6 +61,9 @@ function VideoPage({ currentUser }: VideoPageProps) {
     enabled: true,
   });
 
+  // Interpolate position between WebSocket updates for smooth progress
+  const interpolatedStatus = useInterpolatedPosition(playbackStatus);
+
   // Fallback: fetch initial status on mount
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/video/playback/status`)
@@ -88,8 +92,8 @@ function VideoPage({ currentUser }: VideoPageProps) {
       <main className="video-main">
         {activeTab === 'player' && (
           <div className="player-view">
-            <VideoPlayer status={playbackStatus} />
-            <VideoPlaybackControls status={playbackStatus} onUpdate={() => {}} />
+            <VideoPlayer status={interpolatedStatus} />
+            <VideoPlaybackControls status={interpolatedStatus} onUpdate={() => {}} />
           </div>
         )}
 

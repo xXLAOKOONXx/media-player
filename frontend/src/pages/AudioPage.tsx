@@ -9,6 +9,7 @@ import MusicManager from '../components/MusicManager';
 import SettingsManager from '../components/SettingsManager';
 import PageMenu from '../components/PageMenu';
 import { useWebSocketStatus } from '../hooks/useWebSocketStatus';
+import { useInterpolatedPosition } from '../hooks/useInterpolatedPosition';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -57,6 +58,9 @@ function AudioPage({ currentUser }: AudioPageProps) {
     enabled: true,
   });
 
+  // Interpolate position between WebSocket updates for smooth progress
+  const interpolatedStatus = useInterpolatedPosition(playbackStatus);
+
   // Fallback: fetch initial status on mount
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/audio/playback/status`)
@@ -84,8 +88,8 @@ function AudioPage({ currentUser }: AudioPageProps) {
       <main className="App-main">
         {activeTab === 'player' && (
           <div className="player-view">
-            <NowPlaying status={playbackStatus} />
-            <PlaybackControls status={playbackStatus} onUpdate={() => {}} />
+            <NowPlaying status={interpolatedStatus} />
+            <PlaybackControls status={interpolatedStatus} onUpdate={() => {}} />
           </div>
         )}
         
