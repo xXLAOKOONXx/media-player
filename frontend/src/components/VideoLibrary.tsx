@@ -723,15 +723,28 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       return;
     }
 
-    const mediaIds = getSelectedMediaIdsInOrder();
-    if (mediaIds.length === 0) {
-      alert('Selected videos are missing media_id');
-      return;
-    }
-
     try {
+      const selectedVideoObjects = filteredVideos.filter(t => t.media_id && selectedVideos.has(t.media_id));
+
+      if (selectedVideoObjects.length === 0) {
+        alert('Selected videos are missing media_id');
+        return;
+      }
+
+      // Apply weighted playlist logic
+      const mediaIds = createWeightedPlaylist(
+        selectedVideoObjects,
+        playlistOccurrenceMode,
+        playlistOrderMode
+      );
+
+      if (mediaIds.length === 0) {
+        alert('No videos to add to playlist (check ratings if using rating-based occurrence)');
+        return;
+      }
+
+      // Add each media_id to the playlist
       for (const media_id of mediaIds) {
-        // Use existing endpoint; add in display order.
         const res = await fetch(`${API_BASE_URL}/api/video/playlists/${bulkSelectedPlaylist}/add-video`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -748,6 +761,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       setShowBulkAddToPlaylistForm(false);
       setBulkSelectedPlaylist('');
       setSelectedVideos(new Set());
+      setPlaylistOrderMode('current');
+      setPlaylistOccurrenceMode('once');
     } catch (err) {
       console.error('Error adding videos to playlist:', err);
       alert('Failed to add videos to playlist');
@@ -1143,6 +1158,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                   ))}
                 </select>
               </div>
+              
+              <div className="form-group">
+                <label>Order:</label>
+                <select 
+                  value={playlistOrderMode} 
+                  onChange={(e) => setPlaylistOrderMode(e.target.value as 'current' | 'shuffle')}
+                >
+                  <option value="current">Current Order</option>
+                  <option value="shuffle">Shuffle</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Occurrence:</label>
+                <select 
+                  value={playlistOccurrenceMode} 
+                  onChange={(e) => setPlaylistOccurrenceMode(e.target.value as 'once' | 'rating' | 'rating_squared')}
+                >
+                  <option value="once">Everything Once</option>
+                  <option value="rating">Amount = Rating</option>
+                  <option value="rating_squared">Amount = Rating²</option>
+                </select>
+              </div>
+
               <p>{selectedVideos.size} video(s) selected</p>
               <div className="form-actions">
                 <button type="submit">Add to Playlist</button>
