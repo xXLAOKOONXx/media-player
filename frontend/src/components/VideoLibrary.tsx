@@ -385,6 +385,14 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
+  const formatScore = (score?: number) => {
+    return score !== undefined ? score.toFixed(2) : '-';
+  };
+
+  const formatRating = (rating?: number) => {
+    return rating !== undefined ? rating.toFixed(1) : '-';
+  };
+
   const browsePath_fn = async (path: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/browse`, {
@@ -1317,7 +1325,7 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                     ))}
                   </select>
                   <div id="tags-filter-help" style={{ fontSize: '11px', marginTop: '2px', opacity: 0.7 }}>
-                    Hold Ctrl/Cmd to select multiple tags
+                    Hold Ctrl (Windows/Linux) or Cmd (Mac) to select multiple tags
                   </div>
                   {searchTags.length > 0 && (
                     <div style={{ fontSize: '12px', marginTop: '2px' }}>
@@ -1522,12 +1530,12 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       )}
                       {visibleColumns.promotionScore && (
                         <td data-label="Promotion Score">
-                          {track.promotion_score !== undefined ? track.promotion_score.toFixed(2) : '-'}
+                          {formatScore(track.promotion_score)}
                         </td>
                       )}
                       {visibleColumns.userRating && (
                         <td data-label="User Rating">
-                          {track.user_rating !== undefined ? track.user_rating.toFixed(1) : '-'}
+                          {formatRating(track.user_rating)}
                         </td>
                       )}
                       {visibleColumns.modified && (
