@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { User } from '../types';
 import PlaylistManager from '../components/PlaylistManager';
@@ -8,6 +8,7 @@ import SoundEffectsManager from '../components/SoundEffectsManager';
 import MusicManager from '../components/MusicManager';
 import SettingsManager from '../components/SettingsManager';
 import PageMenu from '../components/PageMenu';
+import { useWebSocketStatus } from '../hooks/useWebSocketStatus';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
 const API_BASE_URL = '';
@@ -45,16 +46,23 @@ function AudioPage({ currentUser }: AudioPageProps) {
     navigate(`/audio/${tab}`);
   };
 
-  useEffect(() => {
-    // Poll playback status
-    const interval = setInterval(() => {
-      fetch(`${API_BASE_URL}/api/audio/playback/status`)
-        .then(res => res.json())
-        .then(data => setPlaybackStatus(data))
-        .catch(err => console.error('Error fetching status:', err));
-    }, 1000);
+  // Use WebSocket for real-time status updates instead of polling
+  const handleStatusUpdate = useCallback((status: any) => {
+    setPlaybackStatus(status);
+  }, []);
 
-    return () => clearInterval(interval);
+  const { isConnected } = useWebSocketStatus({
+    eventName: 'audio_status',
+    onStatusUpdate: handleStatusUpdate,
+    enabled: true,
+  });
+
+  // Fallback: fetch initial status on mount
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/audio/playback/status`)
+      .then(res => res.json())
+      .then(data => setPlaybackStatus(data))
+      .catch(err => console.error('Error fetching initial status:', err));
   }, []);
 
   return (

@@ -83,7 +83,7 @@ class PlaybackController:
     CROSSFADE_LOG_FREQUENCY = 20  # Log every Nth step (100/20 = 5 log entries)
     FADEOUT_BUFFER_SECONDS = 0.5  # Buffer time to ensure fadeout and queue transition complete
     
-    def __init__(self, crossfade_config=None, stats_manager=None):
+    def __init__(self, crossfade_config=None, stats_manager=None, status_callback=None):
         # Initialize pygame mixer
         self.audio_available = False
         if PYGAME_AVAILABLE:
@@ -134,6 +134,9 @@ class PlaybackController:
         self.stats_manager = stats_manager
         self.current_username = None  # Set by app when playback starts
         self.stats_recorded = False  # Track if stats have been recorded for current track
+        
+        # Status callback for WebSocket updates
+        self.status_callback = status_callback
         
         # Set initial volume if audio is available
         if self.audio_available:
@@ -388,6 +391,7 @@ class PlaybackController:
                 self.monitor_thread.daemon = True
                 self.monitor_thread.start()
             
+            self._broadcast_status()
             return True
             
         except Exception as e:
@@ -401,6 +405,7 @@ class PlaybackController:
                 pygame.mixer.music.pause()
             self.is_paused = True
             self.pause_time = time.time()
+            self._broadcast_status()
     
     def resume(self):
         """Resume playback"""
@@ -412,6 +417,7 @@ class PlaybackController:
             if self.pause_time is not None:
                 self.total_pause_duration += time.time() - self.pause_time
                 self.pause_time = None
+            self._broadcast_status()
         elif not self.is_playing and self.current_playlist:
             self.play()
     
@@ -421,6 +427,7 @@ class PlaybackController:
             pygame.mixer.music.stop()
         self.is_playing = False
         self.is_paused = False
+        self._broadcast_status()
 
     def clear_playlist(self):
         """Clear the current playlist/queue without changing user settings.
@@ -490,6 +497,7 @@ class PlaybackController:
         self.volume = volume / 100.0
         if self.audio_available:
             pygame.mixer.music.set_volume(self.volume)
+        self._broadcast_status()
     
     def get_status(self):
         """Get current playback status"""
@@ -538,6 +546,14 @@ class PlaybackController:
                 }
         
         return status
+    
+    def _broadcast_status(self):
+        """Broadcast status update via callback if available"""
+        if self.status_callback:
+            try:
+                self.status_callback()
+            except Exception as e:
+                logger.error(f"Error in status callback: {e}")
     
     def _monitor_playback(self):
         """Monitor playback and handle crossfading to next track"""
@@ -936,6 +952,7 @@ class PlaybackController:
                             self.current_track_index = i
                             break
         
+        self._broadcast_status()
         return True
     
     def _apply_shuffle(self, preserve_current=True):
@@ -973,6 +990,7 @@ class PlaybackController:
             return False
         
         self.repeat_mode = mode
+        self._broadcast_status()
         return True
     
     def get_shuffle(self):
@@ -1030,6 +1048,7 @@ class PlaybackController:
                 self.total_pause_duration = 0
                 self.is_paused = False
                 
+                self._broadcast_status()
                 return True
             else:
                 logger.info(f"Simulating seek to {position}s")

@@ -4,6 +4,7 @@ Main Flask application for media player control
 """
 
 from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
+from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 import os
 import sys
@@ -59,6 +60,9 @@ from services.general.promotion_score import calculate_promotion_score
 # We manually serve assets under /assets/* and use 404 handler for HTML.
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=None)
+
+# Initialize SocketIO with CORS support
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 _configure_logging()
 
@@ -170,15 +174,41 @@ if not stats_folder:
         stats_folder = os.path.dirname(os.path.abspath(__file__))
 stats_manager = StatsManager(stats_folder)
 
-# Initialize playback controllers with stats manager
-playback_controller = PlaybackController(crossfade_config=crossfade_config, stats_manager=stats_manager)
+# Define status broadcast functions
+def broadcast_audio_status():
+    """Broadcast audio playback status to all connected clients"""
+    try:
+        status = playback_controller.get_status()
+        socketio.emit('audio_status', status, namespace='/')
+    except Exception as e:
+        logger.error(f"Error broadcasting audio status: {e}")
+
+def broadcast_video_status():
+    """Broadcast video playback status to all connected clients"""
+    try:
+        status = video_playback_controller.get_status()
+        socketio.emit('video_status', status, namespace='/')
+    except Exception as e:
+        logger.error(f"Error broadcasting video status: {e}")
+
+# Initialize playback controllers with stats manager and status broadcast callbacks
+playback_controller = PlaybackController(
+    crossfade_config=crossfade_config, 
+    stats_manager=stats_manager,
+    status_callback=broadcast_audio_status
+)
 
 # Initialize video playback controller with video settings
 video_config = config.get('video', {
     'fullscreen': True,
     'preferred_screen': None
 })
-video_playback_controller = VideoPlaybackController(video_config=video_config, stats_manager=stats_manager, db_manager=db)
+video_playback_controller = VideoPlaybackController(
+    video_config=video_config, 
+    stats_manager=stats_manager, 
+    db_manager=db,
+    status_callback=broadcast_video_status
+)
 
 
 _MEDIA_ID_RE = re.compile(r'^[0-9a-fA-F]{64}$')
@@ -2463,4 +2493,4 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    app.run(host=host, port=port, debug=debug_mode)
+    socketio.run(app, host=host, port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
