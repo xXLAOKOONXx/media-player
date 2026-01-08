@@ -29,6 +29,10 @@ interface Video {
   tags?: string[];
   description?: string;
   user_rating?: number;
+  playcount?: number;
+  last_played?: number | null;
+  promotion_score?: number;
+  modified?: number;
 }
 
 const truncateText = (value: string, maxChars: number) => {
@@ -125,9 +129,30 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
-  const [searchTags, setSearchTags] = useState('');
+  const [searchTags, setSearchTags] = useState<string[]>([]);
   const [searchDurationMin, setSearchDurationMin] = useState('');
   const [searchDurationMax, setSearchDurationMax] = useState('');
+  const [searchPlaycountMin, setSearchPlaycountMin] = useState('');
+  const [searchPlaycountMax, setSearchPlaycountMax] = useState('');
+  const [searchRatingMin, setSearchRatingMin] = useState('');
+  const [searchRatingMax, setSearchRatingMax] = useState('');
+  const [searchPromotionScoreMin, setSearchPromotionScoreMin] = useState('');
+  const [searchPromotionScoreMax, setSearchPromotionScoreMax] = useState('');
+  
+  // Configurable columns
+  const [visibleColumns, setVisibleColumns] = useState({
+    title: true,
+    artist: true,
+    album: true,
+    duration: true,
+    tags: true,
+    playcount: false,
+    lastPlayed: false,
+    promotionScore: false,
+    userRating: false,
+    modified: false,
+  });
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
   
   const [newFolder, setNewFolder] = useState({
     name: '',
@@ -150,7 +175,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   useEffect(() => {
     applyFilters();
-  }, [videos, searchArtist, searchTitle, searchTags, searchDurationMin, searchDurationMax]);
+  }, [videos, searchArtist, searchTitle, searchTags, searchDurationMin, searchDurationMax, 
+      searchPlaycountMin, searchPlaycountMax, searchRatingMin, searchRatingMax,
+      searchPromotionScoreMin, searchPromotionScoreMax]);
 
   useEffect(() => {
     if (playlistFolder) {
@@ -283,7 +310,74 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       filtered = filtered.filter(t => (t.duration || 0) <= maxDuration);
     }
 
+    // Tags filter - support array of selected tags and "No Tags" option
+    if (searchTags.length > 0) {
+      filtered = filtered.filter(t => {
+        // Check if "No Tags" is selected
+        if (searchTags.includes('__NO_TAGS__')) {
+          return !t.tags || t.tags.length === 0;
+        }
+        
+        // All selected tags must match (AND logic)
+        return searchTags.every(searchTag => 
+          t.tags?.some(tag => tag.toLowerCase() === searchTag.toLowerCase())
+        );
+      });
+    }
+
+    // Playcount filters
+    if (searchPlaycountMin) {
+      const minPlaycount = parseInt(searchPlaycountMin);
+      filtered = filtered.filter(t => (t.playcount || 0) >= minPlaycount);
+    }
+    if (searchPlaycountMax) {
+      const maxPlaycount = parseInt(searchPlaycountMax);
+      filtered = filtered.filter(t => (t.playcount || 0) <= maxPlaycount);
+    }
+
+    // User rating filters
+    if (searchRatingMin) {
+      const minRating = parseFloat(searchRatingMin);
+      filtered = filtered.filter(t => (t.user_rating || 0) >= minRating);
+    }
+    if (searchRatingMax) {
+      const maxRating = parseFloat(searchRatingMax);
+      filtered = filtered.filter(t => (t.user_rating || 0) <= maxRating);
+    }
+
+    // Promotion score filters
+    if (searchPromotionScoreMin) {
+      const minScore = parseFloat(searchPromotionScoreMin);
+      filtered = filtered.filter(t => (t.promotion_score || 0) >= minScore);
+    }
+    if (searchPromotionScoreMax) {
+      const maxScore = parseFloat(searchPromotionScoreMax);
+      filtered = filtered.filter(t => (t.promotion_score || 0) <= maxScore);
+    }
+
     setFilteredVideos(filtered);
+  };
+
+  // Get all unique tags from videos
+  const getAllUniqueTags = (): string[] => {
+    const tagsSet = new Set<string>();
+    videos.forEach(video => {
+      video.tags?.forEach(tag => tagsSet.add(tag));
+    });
+    return Array.from(tagsSet).sort();
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTimestamp = (timestamp?: number | null) => {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
   const browsePath_fn = async (path: string) => {
@@ -614,13 +708,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       console.error('Error starting playback:', err);
       alert('Failed to start playback');
     }
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -1087,47 +1174,239 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
           <h3>{globalSearch ? 'All Videos' : 'Videos'}</h3>
           
           <div className="search-filters">
-            <h4>Search Filters</h4>
-            <div className="filter-row">
-              <input
-                type="text"
-                placeholder="Artist"
-                value={searchArtist}
-                onChange={(e) => setSearchArtist(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={searchTitle}
-                onChange={(e) => setSearchTitle(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Tags (comma-separated)"
-                value={searchTags}
-                onChange={(e) => setSearchTags(e.target.value)}
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h4>Search Filters</h4>
+              <button onClick={() => setShowColumnConfig(!showColumnConfig)}>
+                <span className="material-icons">view_column</span>
+                Configure Columns
+              </button>
             </div>
+
+            {showColumnConfig && (
+              <div className="column-config" style={{ 
+                backgroundColor: 'var(--card-background)', 
+                padding: '15px', 
+                marginBottom: '15px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <h5>Visible Columns</h5>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.title}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, title: e.target.checked })}
+                    />
+                    Title
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.artist}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, artist: e.target.checked })}
+                    />
+                    Artist
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.album}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, album: e.target.checked })}
+                    />
+                    Album
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.duration}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, duration: e.target.checked })}
+                    />
+                    Duration
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.tags}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, tags: e.target.checked })}
+                    />
+                    Tags
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.playcount}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, playcount: e.target.checked })}
+                    />
+                    Play Count
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.lastPlayed}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, lastPlayed: e.target.checked })}
+                    />
+                    Last Played
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.promotionScore}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, promotionScore: e.target.checked })}
+                    />
+                    Promotion Score
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.userRating}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, userRating: e.target.checked })}
+                    />
+                    User Rating
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.modified}
+                      onChange={(e) => setVisibleColumns({ ...visibleColumns, modified: e.target.checked })}
+                    />
+                    Modified
+                  </label>
+                </div>
+              </div>
+            )}
+
             <div className="filter-row">
-              <input
-                type="number"
-                placeholder="Min Duration (seconds)"
-                value={searchDurationMin}
-                onChange={(e) => setSearchDurationMin(e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Max Duration (seconds)"
-                value={searchDurationMax}
-                onChange={(e) => setSearchDurationMax(e.target.value)}
-              />
+              {visibleColumns.artist && (
+                <input
+                  type="text"
+                  placeholder="Artist"
+                  value={searchArtist}
+                  onChange={(e) => setSearchArtist(e.target.value)}
+                />
+              )}
+              {visibleColumns.title && (
+                <input
+                  type="text"
+                  placeholder="Title"
+                  value={searchTitle}
+                  onChange={(e) => setSearchTitle(e.target.value)}
+                />
+              )}
+              {visibleColumns.tags && (
+                <div style={{ flex: 1 }}>
+                  <select
+                    multiple
+                    value={searchTags}
+                    onChange={(e) => {
+                      const options = Array.from(e.target.selectedOptions, option => option.value);
+                      setSearchTags(options);
+                    }}
+                    style={{ width: '100%', minHeight: '38px' }}
+                  >
+                    <option value="__NO_TAGS__">No Tags</option>
+                    {getAllUniqueTags().map(tag => (
+                      <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                  </select>
+                  {searchTags.length > 0 && (
+                    <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                      Selected: {searchTags.map(t => t === '__NO_TAGS__' ? 'No Tags' : t).join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="filter-row">
+              {visibleColumns.duration && (
+                <>
+                  <input
+                    type="number"
+                    placeholder="Min Duration (seconds)"
+                    value={searchDurationMin}
+                    onChange={(e) => setSearchDurationMin(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Duration (seconds)"
+                    value={searchDurationMax}
+                    onChange={(e) => setSearchDurationMax(e.target.value)}
+                  />
+                </>
+              )}
+              {visibleColumns.playcount && (
+                <>
+                  <input
+                    type="number"
+                    placeholder="Min Play Count"
+                    value={searchPlaycountMin}
+                    onChange={(e) => setSearchPlaycountMin(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Play Count"
+                    value={searchPlaycountMax}
+                    onChange={(e) => setSearchPlaycountMax(e.target.value)}
+                  />
+                </>
+              )}
+              {visibleColumns.userRating && (
+                <>
+                  <input
+                    type="number"
+                    placeholder="Min Rating (0-10)"
+                    value={searchRatingMin}
+                    onChange={(e) => setSearchRatingMin(e.target.value)}
+                    min="0"
+                    max="10"
+                    step="0.1"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Rating (0-10)"
+                    value={searchRatingMax}
+                    onChange={(e) => setSearchRatingMax(e.target.value)}
+                    min="0"
+                    max="10"
+                    step="0.1"
+                  />
+                </>
+              )}
+              {visibleColumns.promotionScore && (
+                <>
+                  <input
+                    type="number"
+                    placeholder="Min Promotion Score"
+                    value={searchPromotionScoreMin}
+                    onChange={(e) => setSearchPromotionScoreMin(e.target.value)}
+                    step="0.1"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Promotion Score"
+                    value={searchPromotionScoreMax}
+                    onChange={(e) => setSearchPromotionScoreMax(e.target.value)}
+                    step="0.1"
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="filter-row">
               <button
                 onClick={() => {
                   setSearchArtist('');
                   setSearchTitle('');
-                  setSearchTags('');
+                  setSearchTags([]);
                   setSearchDurationMin('');
                   setSearchDurationMax('');
+                  setSearchPlaycountMin('');
+                  setSearchPlaycountMax('');
+                  setSearchRatingMin('');
+                  setSearchRatingMax('');
+                  setSearchPromotionScoreMin('');
+                  setSearchPromotionScoreMax('');
                 }}
               >
                 Clear Filters
@@ -1167,11 +1446,16 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 <thead>
                   <tr>
                     <th></th>
-                    <th>Title</th>
-                    <th>Artist</th>
-                    <th>Album</th>
-                    <th>Duration</th>
-                    <th>Tags</th>
+                    {visibleColumns.title && <th>Title</th>}
+                    {visibleColumns.artist && <th>Artist</th>}
+                    {visibleColumns.album && <th>Album</th>}
+                    {visibleColumns.duration && <th>Duration</th>}
+                    {visibleColumns.tags && <th>Tags</th>}
+                    {visibleColumns.playcount && <th>Play Count</th>}
+                    {visibleColumns.lastPlayed && <th>Last Played</th>}
+                    {visibleColumns.promotionScore && <th>Promotion Score</th>}
+                    {visibleColumns.userRating && <th>User Rating</th>}
+                    {visibleColumns.modified && <th>Modified</th>}
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1199,23 +1483,46 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td data-label="Title">{track.title || track.name}</td>
-                      <td data-label="Artist" title={getArtistText(track) || undefined}>
-                        {getArtistText(track)
-                          ? truncateText(getArtistText(track), 30)
-                          : '-'}
-                      </td>
-                      <td data-label="Album">{track.series || '-'}</td>
-                      <td data-label="Duration">{formatDuration(track.duration)}</td>
-                      <td data-label="Tags">
-                        {track.tags && track.tags.length > 0 ? (
-                          <div className="tags">
-                            {track.tags.map((tag, i) => (
-                              <span key={i} className="tag">{tag}</span>
-                            ))}
-                          </div>
-                        ) : '-'}
-                      </td>
+                      {visibleColumns.title && <td data-label="Title">{track.title || track.name}</td>}
+                      {visibleColumns.artist && (
+                        <td data-label="Artist" title={getArtistText(track) || undefined}>
+                          {getArtistText(track)
+                            ? truncateText(getArtistText(track), 30)
+                            : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.album && <td data-label="Album">{track.series || '-'}</td>}
+                      {visibleColumns.duration && <td data-label="Duration">{formatDuration(track.duration)}</td>}
+                      {visibleColumns.tags && (
+                        <td data-label="Tags">
+                          {track.tags && track.tags.length > 0 ? (
+                            <div className="tags">
+                              {track.tags.map((tag, i) => (
+                                <span key={i} className="tag">{tag}</span>
+                              ))}
+                            </div>
+                          ) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.playcount && (
+                        <td data-label="Play Count">{track.playcount || 0}</td>
+                      )}
+                      {visibleColumns.lastPlayed && (
+                        <td data-label="Last Played">{formatTimestamp(track.last_played)}</td>
+                      )}
+                      {visibleColumns.promotionScore && (
+                        <td data-label="Promotion Score">
+                          {track.promotion_score !== undefined ? track.promotion_score.toFixed(2) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.userRating && (
+                        <td data-label="User Rating">
+                          {track.user_rating !== undefined ? track.user_rating.toFixed(1) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.modified && (
+                        <td data-label="Modified">{formatTimestamp(track.modified)}</td>
+                      )}
                       <td data-label="Actions">
                         <button
                           onClick={() => {
