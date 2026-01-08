@@ -51,7 +51,7 @@ function AudioPage({ currentUser }: AudioPageProps) {
     setPlaybackStatus(status);
   }, []);
 
-  const { isConnected } = useWebSocketStatus({
+  useWebSocketStatus({
     eventName: 'audio_status',
     onStatusUpdate: handleStatusUpdate,
     enabled: true,

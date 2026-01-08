@@ -224,3 +224,13 @@ Video playback is handled client-side in the browser using HTML5 video elements.
 - Volume level management
 
 The actual video rendering and streaming is done through the browser's native video capabilities.
+
+## Status Updates (WebSocket)
+
+The Video Player view receives real-time status updates via WebSocket instead of polling:
+- **WebSocket Event**: `video_status`
+- **Connection**: Established automatically when the VideoPage component mounts
+- **Source**: `frontend/src/hooks/useWebSocketStatus.ts` provides the WebSocket hook
+- **Updates**: Pushed from server when playback state changes (play, pause, stop, volume, track changes, seek, etc.)
+- **Fallback**: Initial status is fetched via REST API (`/api/video/playback/status`) on mount
+- **Reconnection**: Automatic reconnection with exponential backoff on connection loss

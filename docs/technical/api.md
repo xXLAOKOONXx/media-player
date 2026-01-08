@@ -445,6 +445,135 @@ The application supports M3U and M3U8 playlist formats:
 - `#EXTINF:duration,artist - title` provides track information
 - File paths can be absolute or relative to the playlist location
 
-## WebSocket Support (Future Enhancement)
+## WebSocket Support
 
-Currently, the frontend polls the `/playback/status` endpoint every second. A future enhancement could implement WebSocket support for real-time updates without polling.
+The Media Player now uses WebSocket connections for real-time status updates, replacing the previous polling-based approach.
+
+### Connection
+
+The WebSocket server is available at the same origin as the REST API:
+- Development: `http://localhost:5000`
+- Production: Same as your deployment URL
+
+Clients should use Socket.IO client library to connect with the following transports:
+- WebSocket (preferred)
+- Long-polling (fallback)
+
+### Events
+
+#### Audio Status Updates
+
+**Event Name:** `audio_status`
+
+The server automatically broadcasts audio playback status updates whenever there is a state change (play, pause, stop, volume change, track change, etc.).
+
+**Event Data:**
+```json
+{
+  "is_playing": true,
+  "is_paused": false,
+  "volume": 75,
+  "playlist_length": 15,
+  "current_track_index": 3,
+  "current_track": {
+    "title": "Song Title - Artist",
+    "path": "/path/to/track.mp3",
+    "duration": "180",
+    "start_time": null,
+    "end_time": null,
+    "artist": "Artist Name",
+    "album": "Album Name"
+  },
+  "next_track": {
+    "title": "Next Song - Artist",
+    "artist": "Artist Name",
+    "album": "Album Name"
+  },
+  "shuffle": false,
+  "repeat_mode": "none",
+  "current_position": 45.5
+}
+```
+
+#### Video Status Updates
+
+**Event Name:** `video_status`
+
+The server automatically broadcasts video playback status updates whenever there is a state change.
+
+**Event Data:**
+```json
+{
+  "is_playing": true,
+  "is_paused": false,
+  "current_track": {
+    "title": "Video Title",
+    "path": "/path/to/video.mp4",
+    "duration": 3600
+  },
+  "next_track": {
+    "title": "Next Video"
+  },
+  "current_track_index": 0,
+  "playlist_length": 10,
+  "volume": 50,
+  "shuffle": false,
+  "repeat_mode": "none",
+  "current_position": 120.5,
+  "audio_tracks": [...],
+  "subtitle_tracks": [...],
+  "current_audio_track_id": 1,
+  "current_subtitle_track_id": 2
+}
+```
+
+### Client Example
+
+Using Socket.IO client in JavaScript/TypeScript:
+
+```typescript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000', {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+});
+
+socket.on('connect', () => {
+  console.log('Connected to WebSocket');
+});
+
+socket.on('audio_status', (status) => {
+  console.log('Audio status update:', status);
+  // Update UI with new status
+});
+
+socket.on('video_status', (status) => {
+  console.log('Video status update:', status);
+  // Update UI with new status
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+});
+```
+
+### Migration from Polling
+
+Previous implementations used REST polling every second:
+```typescript
+// Old approach (deprecated)
+setInterval(() => {
+  fetch('/api/audio/playback/status')
+    .then(res => res.json())
+    .then(status => updateUI(status));
+}, 1000);
+```
+
+The new WebSocket approach provides:
+- **Real-time updates**: Changes are pushed immediately, not polled
+- **Reduced latency**: No waiting for the next poll interval
+- **Lower network overhead**: No repeated HTTP requests
+- **Better scalability**: Server pushes only when state changes
+
+The REST endpoints (`/api/audio/playback/status` and `/api/video/playback/status`) remain available for initial status fetching or fallback scenarios.

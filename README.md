@@ -68,6 +68,7 @@ A comprehensive media player system designed for Raspberry Pi with network stora
 graph TB
     A[Web Browser] -->|HTTP| B[React Frontend]
     B -->|REST API| C[Flask Backend]
+    B -->|WebSocket| C
     C -->|Controls| D[Pygame Audio]
     C -->|Manages| E[Network Storage]
     C -->|Reads| F[M3U Playlists]

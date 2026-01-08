@@ -131,3 +131,13 @@ Behavior:
 
 - Network errors are logged to the console.
 - The UI does not currently display error banners/toasts for these controls; requirements should match this (no extra UX).
+
+## Status Updates (WebSocket)
+
+The Player view receives real-time status updates via WebSocket instead of polling:
+- **WebSocket Event**: `audio_status`
+- **Connection**: Established automatically when the AudioPage component mounts
+- **Source**: `frontend/src/hooks/useWebSocketStatus.ts` provides the WebSocket hook
+- **Updates**: Pushed from server when playback state changes (play, pause, stop, volume, track changes, etc.)
+- **Fallback**: Initial status is fetched via REST API (`/api/audio/playback/status`) on mount
+- **Reconnection**: Automatic reconnection with exponential backoff on connection loss
