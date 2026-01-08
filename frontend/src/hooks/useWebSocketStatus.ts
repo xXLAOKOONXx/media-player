@@ -11,9 +11,42 @@ const getSocketUrl = () => {
   return window.location.origin;
 };
 
+// Type definitions for playback status
+export interface PlaybackStatus {
+  is_playing: boolean;
+  is_paused: boolean;
+  volume: number;
+  playlist_length: number;
+  current_track_index: number | null;
+  current_track: {
+    title: string;
+    path: string;
+    duration: string | number;
+    start_time?: number | null;
+    end_time?: number | null;
+    artist?: string;
+    album?: string;
+  } | null;
+  next_track: {
+    title: string;
+    artist?: string;
+    album?: string;
+  } | null;
+  shuffle: boolean;
+  repeat_mode: 'none' | 'all' | 'one';
+  current_position: number | null;
+}
+
+export interface VideoPlaybackStatus extends PlaybackStatus {
+  audio_tracks: Array<{ id: number; label: string; selected: boolean }>;
+  subtitle_tracks: Array<{ id: number; label: string; selected: boolean }>;
+  current_audio_track_id: number | null;
+  current_subtitle_track_id: number | null;
+}
+
 interface UseWebSocketStatusOptions {
   eventName: 'audio_status' | 'video_status';
-  onStatusUpdate: (status: any) => void;
+  onStatusUpdate: (status: PlaybackStatus | VideoPlaybackStatus) => void;
   enabled?: boolean;
 }
 
@@ -48,29 +81,37 @@ export function useWebSocketStatus({ eventName, onStatusUpdate, enabled = true }
     socketRef.current = socket;
 
     // Connection event handlers
-    socket.on('connect', () => {
+    const onConnect = () => {
       console.log(`WebSocket connected for ${eventName}`);
       setIsConnected(true);
-    });
+    };
 
-    socket.on('disconnect', (reason) => {
+    const onDisconnect = (reason: string) => {
       console.log(`WebSocket disconnected for ${eventName}:`, reason);
       setIsConnected(false);
-    });
+    };
 
-    socket.on('connect_error', (error) => {
+    const onConnectError = (error: Error) => {
       console.error(`WebSocket connection error for ${eventName}:`, error);
       setIsConnected(false);
-    });
+    };
 
-    // Listen for status updates
-    socket.on(eventName, (status) => {
+    const onStatus = (status: PlaybackStatus | VideoPlaybackStatus) => {
       onStatusUpdateRef.current(status);
-    });
+    };
+
+    // Register event listeners
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
+    socket.on(eventName, onStatus);
 
     // Cleanup on unmount
     return () => {
-      socket.off(eventName);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
+      socket.off(eventName, onStatus);
       socket.disconnect();
       socketRef.current = null;
     };
