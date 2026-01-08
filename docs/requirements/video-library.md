@@ -69,10 +69,33 @@ During loading:
 
 ### Video object fields
 
-The video objects returned by `GET /api/video/libraries/{libraryId}/videos` include playback statistics fields sourced from the `media-player-stats.db` database:
+The video objects returned by `GET /api/video/libraries/{libraryId}/videos` include the following fields:
 
-- `playcount`: number of plays recorded for this video path
+Core fields:
+- `name`: filename
+- `path`: full file path
+- `media_id`: unique identifier for the video
+- `title`: video title (from metadata)
+- `artist`: artist/creator (from metadata)
+- `director`: director (legacy, fallback for artist)
+- `series`: series/album name
+- `duration`: video duration in seconds
+- `tags`: array of genre/tag strings
+- `description`: video description
+- `size`: file size in bytes
+
+Playback statistics (sourced from `media-player-stats.db`):
+- `playcount`: number of plays recorded for this video path (defaults to 0)
 - `last_played`: latest play timestamp (Unix epoch seconds) or `null` if never played
+- `promotion_score`: calculated recommendation score based on playcount, last_played, and user_rating
+
+User metadata:
+- `user_rating`: user-assigned rating (0-10 scale) or `undefined` if not rated
+- `start_time_in_ms`: custom start time in milliseconds
+- `end_time_in_ms`: custom end time in milliseconds
+
+File metadata:
+- `modified`: file modification timestamp (Unix epoch seconds)
 
 ## Configure Playlist Folder modal
 
@@ -251,28 +274,74 @@ Visibility:
 
 - Shown when either a library is selected OR global search is enabled.
 
+### Column configuration
+
+Users can configure which columns to display in the video table:
+
+Button:
+
+- **Configure Columns**
+  - Toggles visibility of the column configuration panel
+  - Shows checkboxes for all available columns
+
+Available columns:
+
+- Title (default: visible)
+- Artist (default: visible)
+- Album (default: visible)
+- Duration (default: visible)
+- Tags (default: visible)
+- Play Count (default: hidden)
+- Last Played (default: hidden)
+- Promotion Score (default: hidden)
+- User Rating (default: hidden)
+- Modified (default: hidden)
+
+Column behavior:
+
+- Checking/unchecking a column checkbox shows/hides that column in the video table
+- Filter inputs are shown/hidden based on column visibility
+- Actions column is always visible
+
 ### Search filters
 
-Inputs:
+The search filters section includes a **Configure Columns** button and filter inputs for visible columns.
 
-- Artist (text)
-- Title (text)
-- Tags (comma-separated text)
-- Min Duration (number, seconds)
-- Max Duration (number, seconds)
+Inputs (conditional on column visibility):
+
+- Artist (text) - shown when Artist column is visible
+- Title (text) - shown when Title column is visible
+- Tags (multi-select dropdown) - shown when Tags column is visible
+  - Lists all unique tags from the video collection
+  - Includes a "No Tags" option to filter for videos without tags
+  - Supports multiple tag selection (AND logic: videos must have ALL selected tags)
+- Min Duration (number, seconds) - shown when Duration column is visible
+- Max Duration (number, seconds) - shown when Duration column is visible
+- Min Play Count (number) - shown when Play Count column is visible
+- Max Play Count (number) - shown when Play Count column is visible
+- Min Rating (number, 0-10) - shown when User Rating column is visible
+- Max Rating (number, 0-10) - shown when User Rating column is visible
+- Min Promotion Score (number) - shown when Promotion Score column is visible
+- Max Promotion Score (number) - shown when Promotion Score column is visible
 
 Button:
 
 - **Clear Filters**
-  - Resets all filter inputs to empty strings.
+  - Resets all filter inputs to empty/default values
 
 Filtering behavior:
 
 - Artist filter matches substring against lowercased `video.artist`.
   - Fallback (legacy): if `video.artist` is missing, match against `video.director`.
 - Title filter matches substring against `video.title` or `video.name`.
-- Tags filter splits by commas and checks if any video tag contains any search token.
+- Tags filter:
+  - When "No Tags" is selected: shows only videos with no tags or empty tag array
+  - When tags are selected: shows videos that have ALL selected tags (AND logic)
+  - Case-insensitive exact tag matching
 - Duration min/max compares against numeric `video.duration` (defaulting to 0 when missing).
+- Play Count min/max compares against numeric `video.playcount` (defaulting to 0 when missing).
+- User Rating min/max compares against numeric `video.user_rating` (defaulting to 0 when missing).
+- Promotion Score min/max compares against numeric `video.promotion_score` (defaulting to 0 when missing).
 
 Tag sources:
 
@@ -282,7 +351,7 @@ Tag sources:
 
 ### Video table columns
 
-The video table shows these columns:
+The video table shows columns based on user configuration. Default columns:
 
 - Title
 - Artist
@@ -292,6 +361,24 @@ The video table shows these columns:
 - Duration
 - Tags
 - Actions
+
+Optional columns (hidden by default):
+
+- Play Count
+  - Display: `video.playcount` (defaults to 0)
+  - Number of times the video has been played
+- Last Played
+  - Display: formatted timestamp from `video.last_played` (Unix epoch seconds)
+  - Shows date and time of last playback, or '-' if never played
+- Promotion Score
+  - Display: `video.promotion_score` formatted to 2 decimal places
+  - Calculated recommendation score based on playcount, last played time, user rating
+- User Rating
+  - Display: `video.user_rating` formatted to 1 decimal place (0-10 scale)
+  - User-assigned rating, or '-' if not rated
+- Modified
+  - Display: formatted timestamp from `video.modified` (Unix epoch seconds)
+  - Shows date and time when the video file was last modified
 
 ### Thumbnails
 

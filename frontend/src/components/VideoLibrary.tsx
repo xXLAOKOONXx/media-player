@@ -291,15 +291,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       );
     }
 
-    if (searchTags) {
-      const tagList = searchTags.split(',').map(t => t.trim().toLowerCase());
-      filtered = filtered.filter(t => 
-        t.tags?.some(tag => 
-          tagList.some(searchTag => tag.toLowerCase().includes(searchTag))
-        )
-      );
-    }
-
     if (searchDurationMin) {
       const minDuration = parseFloat(searchDurationMin);
       filtered = filtered.filter(t => (t.duration || 0) >= minDuration);
