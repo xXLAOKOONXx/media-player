@@ -54,7 +54,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
     setPlaybackStatus(status);
   }, []);
 
-  const { isConnected } = useWebSocketStatus({
+  useWebSocketStatus({
     eventName: 'video_status',
     onStatusUpdate: handleStatusUpdate,
     enabled: true,
