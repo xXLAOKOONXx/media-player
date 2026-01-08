@@ -395,34 +395,34 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
 
   // Helper functions to get min/max values from filtered videos for sliders
   const getMinMaxDuration = (): [number, number] => {
-    if (filteredVideos.length === 0) return [0, 0];
-    const durations = filteredVideos.map(v => v.duration || 0).filter(d => d > 0);
+    if (videos.length === 0) return [0, 0];
+    const durations = videos.map(v => v.duration || 0).filter(d => d > 0);
     if (durations.length === 0) return [0, 0];
     return [Math.min(...durations), Math.max(...durations)];
   };
 
   const getMinMaxPlaycount = (): [number, number] => {
-    if (filteredVideos.length === 0) return [0, 0];
-    const playcounts = filteredVideos.map(v => v.playcount || 0);
+    if (videos.length === 0) return [0, 0];
+    const playcounts = videos.map(v => v.playcount || 0);
     return [Math.min(...playcounts), Math.max(...playcounts)];
   };
 
   const getMinMaxRating = (): [number, number] => {
-    if (filteredVideos.length === 0) return [0, 10];
-    const ratings = filteredVideos.map(v => v.user_rating || 0).filter(r => r > 0);
+    if (videos.length === 0) return [0, 10];
+    const ratings = videos.map(v => v.user_rating || 0).filter(r => r > 0);
     if (ratings.length === 0) return [0, 10];
     return [Math.min(...ratings), Math.max(...ratings)];
   };
 
   const getMinMaxPromotionScore = (): [number, number] => {
-    if (filteredVideos.length === 0) return [0, 0];
-    const scores = filteredVideos.map(v => v.promotion_score || 0);
+    if (videos.length === 0) return [0, 0];
+    const scores = videos.map(v => v.promotion_score || 0);
     return [Math.min(...scores), Math.max(...scores)];
   };
 
   const getMinMaxModified = (): [number, number] => {
-    if (filteredVideos.length === 0) return [0, 0];
-    const timestamps = filteredVideos.map(v => v.modified || 0).filter(t => t > 0);
+    if (videos.length === 0) return [0, 0];
+    const timestamps = videos.map(v => v.modified || 0).filter(t => t > 0);
     if (timestamps.length === 0) return [0, 0];
     return [Math.min(...timestamps), Math.max(...timestamps)];
   };
