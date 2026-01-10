@@ -77,6 +77,7 @@ socketio = None
 if SOCKETIO_AVAILABLE:
     try:
         # Configure SocketIO with better error handling and logging
+        # Use polling transport to avoid WebSocket upgrade issues with Werkzeug
         socketio = SocketIO(
             app, 
             cors_allowed_origins="*",
@@ -84,9 +85,12 @@ if SOCKETIO_AVAILABLE:
             logger=False,
             engineio_logger=False,
             ping_timeout=60,
-            ping_interval=25
+            ping_interval=25,
+            # Disable WebSocket transport to prevent WSGI protocol errors
+            # Polling transport is more reliable with Flask development server
+            transports=['polling']
         )
-        logger.info("SocketIO initialized successfully")
+        logger.info("SocketIO initialized successfully (polling transport only)")
     except Exception as e:
         print(f"Warning: Failed to initialize SocketIO: {e}")
         logger.warning(f"Failed to initialize SocketIO: {e}")
