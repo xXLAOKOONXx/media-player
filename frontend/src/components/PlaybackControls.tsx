@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './PlaybackControls.css';
 
 const API_BASE_URL = '';
@@ -10,6 +10,13 @@ interface PlaybackControlsProps {
 
 const PlaybackControls = ({ status, onUpdate }: PlaybackControlsProps) => {
   const [volume, setVolume] = useState(status?.volume || 50);
+
+  // Sync volume state with status prop when it changes
+  useEffect(() => {
+    if (typeof status?.volume === 'number') {
+      setVolume(status.volume);
+    }
+  }, [status?.volume]);
 
   const handlePlay = async () => {
     try {

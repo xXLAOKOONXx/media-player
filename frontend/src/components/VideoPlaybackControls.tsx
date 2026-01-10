@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './VideoPlaybackControls.css';
 
 const API_BASE_URL = '';
@@ -10,6 +10,13 @@ interface VideoPlaybackControlsProps {
 
 const VideoPlaybackControls = ({ status, onUpdate }: VideoPlaybackControlsProps) => {
   const [volume, setVolume] = useState(status?.volume || 50);
+
+  // Sync volume state with status prop when it changes
+  useEffect(() => {
+    if (typeof status?.volume === 'number') {
+      setVolume(status.volume);
+    }
+  }, [status?.volume]);
 
   const audioTracks = Array.isArray(status?.audio_tracks) ? status.audio_tracks : [];
   const subtitleTracks = Array.isArray(status?.subtitle_tracks) ? status.subtitle_tracks : [];
