@@ -77,7 +77,6 @@ socketio = None
 if SOCKETIO_AVAILABLE:
     try:
         # Configure SocketIO with better error handling and logging
-        # Use polling transport to avoid WebSocket upgrade issues with Werkzeug
         socketio = SocketIO(
             app, 
             cors_allowed_origins="*",
@@ -85,12 +84,9 @@ if SOCKETIO_AVAILABLE:
             logger=False,
             engineio_logger=False,
             ping_timeout=60,
-            ping_interval=25,
-            # Disable WebSocket transport to prevent WSGI protocol errors
-            # Polling transport is more reliable with Flask development server
-            transports=['polling']
+            ping_interval=25
         )
-        logger.info("SocketIO initialized successfully (polling transport only)")
+        logger.info("SocketIO initialized successfully with WebSocket and polling support")
     except Exception as e:
         print(f"Warning: Failed to initialize SocketIO: {e}")
         logger.warning(f"Failed to initialize SocketIO: {e}")
@@ -216,6 +212,7 @@ def broadcast_audio_status():
 def broadcast_video_status():
     """Broadcast video playback status to all connected clients"""
     if not socketio or not SOCKETIO_AVAILABLE:
+        logger.warning("SocketIO not available, cannot broadcast video status")
         return
     try:
         status = video_playback_controller.get_status()
