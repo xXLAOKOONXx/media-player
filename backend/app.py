@@ -4,8 +4,15 @@ Main Flask application for media player control
 """
 
 from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
-from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+
+# Try to import SocketIO, but make it optional for compatibility
+try:
+    from flask_socketio import SocketIO, emit
+    SOCKETIO_AVAILABLE = True
+except ImportError:
+    SOCKETIO_AVAILABLE = False
+    print("Warning: flask-socketio not available, WebSocket support disabled")
 import os
 import sys
 import json
@@ -61,8 +68,14 @@ from services.general.promotion_score import calculate_promotion_score
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=None)
 
-# Initialize SocketIO with CORS support
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Initialize SocketIO with CORS support if available
+socketio = None
+if SOCKETIO_AVAILABLE:
+    try:
+        socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+    except Exception as e:
+        print(f"Warning: Failed to initialize SocketIO: {e}")
+        SOCKETIO_AVAILABLE = False
 
 _configure_logging()
 
@@ -177,6 +190,8 @@ stats_manager = StatsManager(stats_folder)
 # Define status broadcast functions
 def broadcast_audio_status():
     """Broadcast audio playback status to all connected clients"""
+    if not socketio or not SOCKETIO_AVAILABLE:
+        return
     try:
         status = playback_controller.get_status()
         socketio.emit('audio_status', status, namespace='/')
@@ -185,6 +200,8 @@ def broadcast_audio_status():
 
 def broadcast_video_status():
     """Broadcast video playback status to all connected clients"""
+    if not socketio or not SOCKETIO_AVAILABLE:
+        return
     try:
         status = video_playback_controller.get_status()
         socketio.emit('video_status', status, namespace='/')
@@ -192,10 +209,11 @@ def broadcast_video_status():
         logger.error(f"Error broadcasting video status: {e}")
 
 # Initialize playback controllers with stats manager and status broadcast callbacks
+# Only pass callbacks if SocketIO is available
 playback_controller = PlaybackController(
     crossfade_config=crossfade_config, 
     stats_manager=stats_manager,
-    status_callback=broadcast_audio_status
+    status_callback=broadcast_audio_status if SOCKETIO_AVAILABLE else None
 )
 
 # Initialize video playback controller with video settings
@@ -207,7 +225,7 @@ video_playback_controller = VideoPlaybackController(
     video_config=video_config, 
     stats_manager=stats_manager, 
     db_manager=db,
-    status_callback=broadcast_video_status
+    status_callback=broadcast_video_status if SOCKETIO_AVAILABLE else None
 )
 
 
@@ -2493,4 +2511,9 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    socketio.run(app, host=host, port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
+    # Use socketio.run if available, otherwise fall back to app.run
+    if socketio and SOCKETIO_AVAILABLE:
+        socketio.run(app, host=host, port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
+    else:
+        print("Warning: Running without WebSocket support (flask-socketio not available)")
+        app.run(host=host, port=port, debug=debug_mode)
