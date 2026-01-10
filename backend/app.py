@@ -68,18 +68,29 @@ from services.general.promotion_score import calculate_promotion_score
 static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
 app = Flask(__name__, static_folder=None)
 
+_configure_logging()
+
+logger = logging.getLogger(__name__)
+
 # Initialize SocketIO with CORS support if available
 socketio = None
 if SOCKETIO_AVAILABLE:
     try:
-        socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+        # Configure SocketIO with better error handling and logging
+        socketio = SocketIO(
+            app, 
+            cors_allowed_origins="*",
+            async_mode='threading',
+            logger=False,
+            engineio_logger=False,
+            ping_timeout=60,
+            ping_interval=25
+        )
+        logger.info("SocketIO initialized successfully")
     except Exception as e:
         print(f"Warning: Failed to initialize SocketIO: {e}")
+        logger.warning(f"Failed to initialize SocketIO: {e}")
         SOCKETIO_AVAILABLE = False
-
-_configure_logging()
-
-logger = logging.getLogger(__name__)
 
 PREFERRED_LANGUAGE_OPTIONS = ('deu', 'eng')
 
@@ -2465,6 +2476,16 @@ def browse_path():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Health check endpoint
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint to verify server is running and WebSocket status"""
+    return jsonify({
+        'status': 'ok',
+        'websocket_available': SOCKETIO_AVAILABLE,
+        'socketio_initialized': socketio is not None
+    })
+
 # Serve React frontend
 @app.route('/')
 def serve_index():
@@ -2501,6 +2522,16 @@ def handle_404(e):
             'error': 'Frontend not built',
             'message': 'Run "cd frontend && npm run build" to build the frontend'
         }), 404
+
+@app.errorhandler(400)
+def handle_400(e):
+    """Handle 400 Bad Request errors - often caused by non-HTTP traffic or protocol mismatches"""
+    # Log the error for debugging
+    logger.warning(f"HTTP 400 Bad Request: {e}. This often occurs when non-HTTP traffic (like TLS handshake) is sent to an HTTP server.")
+    return jsonify({
+        'error': 'Bad Request',
+        'message': 'Invalid request. If using WebSocket, ensure the client is connecting to the correct protocol (http:// not https://)'
+    }), 400
 
 if __name__ == '__main__':
     # Development server configuration
