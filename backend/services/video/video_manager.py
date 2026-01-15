@@ -51,6 +51,9 @@ class VideoManager:
 
         t0 = time.perf_counter()
 
+        logger.info("VideoManager.get_video_files called folder_id=%s path=%s recursive=%s force_refresh=%s", folder_id, path, bool(recursive), bool(force_refresh))
+        logger.info("Cache context: %s", "enabled" if self.cache else "disabled")
+
         # If no cache context, fall back to the original behavior.
         if not self.cache or folder_id is None:
             video_files = self._scan_video_files(path, recursive)
@@ -83,6 +86,7 @@ class VideoManager:
             'update_folder_last_scan',
         )
         if not all(hasattr(self.cache, m) for m in required_methods):
+            logger.info("Cache context is a stub; performing full scan and caching results folder_id=%s", folder_id)
             if not force_refresh:
                 cached_videos = self.cache.get_cached_videos(folder_id)
                 if cached_videos is not None:
@@ -143,6 +147,7 @@ class VideoManager:
         # (new/deleted files, updated NFOs) are only reflected after a refresh.
         if not force_refresh:
             try:
+                logger.info("Attempting to load cached video list for folder_id=%s", folder_id)
                 t_cache_list0 = time.perf_counter()
                 cached_videos = self.cache.get_cached_videos(folder_id)
                 t_cache_list = time.perf_counter() - t_cache_list0
@@ -274,11 +279,18 @@ class VideoManager:
             counts['files_processed'] += 1
 
         try:
+            logger.info("Scanning video directory %s recursive=%s", path, bool(recursive))
             if recursive:
                 t_walk0 = time.perf_counter()
+                file_list_tuples = []
                 for root, _, files in os.walk(path):
                     for file_name in files:
-                        handle_file(os.path.join(root, file_name), file_name)
+                        file_list_tuples.append((root, file_name))
+                logger.info("Discovered %s files under %s", len(file_list_tuples), path)
+                for idx, (root, file_name) in enumerate(file_list_tuples):
+                    if idx > 0 and idx % 1000 == 0:
+                        logger.info("Processing file %s/%s: %s", idx, len(file_list_tuples), os.path.join(root, file_name))
+                    handle_file(os.path.join(root, file_name), file_name)
                 timings['os_walk'] += time.perf_counter() - t_walk0
             else:
                 t_scan0 = time.perf_counter()
@@ -292,6 +304,7 @@ class VideoManager:
 
         # Remove files that no longer exist.
         try:
+            logger.info("Deleting missing videos from cache for folder_id=%s", folder_id)
             t_del0 = time.perf_counter()
             self.cache.delete_videos_not_in_paths(folder_id, seen_paths)
             timings['cache_delete_missing'] += time.perf_counter() - t_del0
@@ -301,6 +314,7 @@ class VideoManager:
 
         # Rebuild cached series/seasons + refresh per-video links.
         if recursive:
+            logger.info("Rebuilding series tree for folder_id=%s", folder_id)
             t_series0 = time.perf_counter()
             sanitized_for_series = [self._sanitize_video_for_api(v) for v in processed_videos]
             timings['sanitize_for_series'] += time.perf_counter() - t_series0

@@ -13,6 +13,8 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   const [isSavingRating, setIsSavingRating] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [isSavingMusicPoint, setIsSavingMusicPoint] = useState<'start' | 'end' | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState<number>(0);
 
   useEffect(() => {
     if (!isRatingModalOpen) return;
@@ -92,14 +94,22 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSeek = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const position = parseFloat(e.target.value);
+    setIsDragging(true);
+    setDragPosition(position);
+  };
+
+  const handleSeekCommit = async () => {
+    if (!isDragging) return;
+    
+    setIsDragging(false);
     
     try {
       await fetch(`${API_BASE_URL}/api/video/playback/seek`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ position })
+        body: JSON.stringify({ position: dragPosition })
       });
     } catch (err) {
       console.error('Error seeking:', err);
@@ -256,8 +266,10 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
                   min={startTime}
                   max={endTime || duration || 100}
                   step="0.1"
-                  value={currentPos}
-                  onChange={handleSeek}
+                  value={isDragging ? dragPosition : currentPos}
+                  onChange={handleSeekChange}
+                  onMouseUp={handleSeekCommit}
+                  onTouchEnd={handleSeekCommit}
                   className="progress-bar-input"
                   disabled={!is_playing}
                 />

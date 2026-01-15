@@ -1767,6 +1767,9 @@ class DatabaseManager:
 
         This is useful for upgrades/backfills when videos are already cached but
         `video_series` / `video_seasons` are empty.
+        
+        Also updates the series_id and season_id foreign keys in the videos table
+        to link videos to their respective series/seasons.
         """
         conn = self._get_connection()
         try:
@@ -1788,6 +1791,10 @@ class DatabaseManager:
             )
 
             # video_seasons rows are deleted via ON DELETE CASCADE on video_series.
+            # Track mappings for updating video links
+            series_path_to_id = {}
+            season_path_to_id = {}
+            
             for series in series_tree:
                 if not isinstance(series, dict):
                     continue
@@ -1801,6 +1808,7 @@ class DatabaseManager:
                 artists = series.get('artists') if isinstance(series.get('artists'), list) else []
                 cover = series.get('cover') if isinstance(series.get('cover'), str) else None
 
+                normalized_series_path = os.path.normpath(full_path)
                 cursor.execute(
                     '''
                         INSERT INTO video_series (folder_id, full_path, title, user_rating, tags, artists, cover)
@@ -1808,7 +1816,7 @@ class DatabaseManager:
                     ''',
                     (
                         folder_id,
-                        os.path.normpath(full_path),
+                        normalized_series_path,
                         title,
                         float(user_rating) if isinstance(user_rating, (int, float)) else None,
                         json.dumps(tags),
@@ -1817,6 +1825,20 @@ class DatabaseManager:
                     ),
                 )
                 series_db_id = int(cursor.lastrowid)
+                series_path_to_id[normalized_series_path] = series_db_id
+
+                # Update videos at series root level
+                series_videos = series.get('videos')
+                if isinstance(series_videos, list):
+                    for video in series_videos:
+                        if not isinstance(video, dict):
+                            continue
+                        video_path = video.get('path')
+                        if isinstance(video_path, str) and video_path:
+                            cursor.execute(
+                                'UPDATE videos SET series_id = ?, season_id = NULL WHERE folder_id = ? AND file_path = ?',
+                                (series_db_id, folder_id, os.path.normpath(video_path)),
+                            )
 
                 seasons = series.get('seasons')
                 if isinstance(seasons, list):
@@ -1833,6 +1855,7 @@ class DatabaseManager:
                         season_cover = season.get('cover') if isinstance(season.get('cover'), str) else None
                         season_index = season.get('index_number') if isinstance(season.get('index_number'), int) else None
 
+                        normalized_season_path = os.path.normpath(season_full_path)
                         cursor.execute(
                             '''
                                 INSERT INTO video_seasons (series_id, full_path, title, user_rating, tags, artists, cover, index_number)
@@ -1840,7 +1863,7 @@ class DatabaseManager:
                             ''',
                             (
                                 series_db_id,
-                                os.path.normpath(season_full_path),
+                                normalized_season_path,
                                 season_title,
                                 float(season_user_rating) if isinstance(season_user_rating, (int, float)) else None,
                                 json.dumps(season_tags),
@@ -1849,6 +1872,21 @@ class DatabaseManager:
                                 season_index,
                             ),
                         )
+                        season_db_id = int(cursor.lastrowid)
+                        season_path_to_id[normalized_season_path] = season_db_id
+                        
+                        # Update videos in this season
+                        season_videos = season.get('videos')
+                        if isinstance(season_videos, list):
+                            for video in season_videos:
+                                if not isinstance(video, dict):
+                                    continue
+                                video_path = video.get('path')
+                                if isinstance(video_path, str) and video_path:
+                                    cursor.execute(
+                                        'UPDATE videos SET series_id = ?, season_id = ? WHERE folder_id = ? AND file_path = ?',
+                                        (series_db_id, season_db_id, folder_id, os.path.normpath(video_path)),
+                                    )
 
             conn.commit()
         finally:

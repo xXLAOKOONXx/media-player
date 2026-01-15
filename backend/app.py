@@ -1556,6 +1556,7 @@ def get_library_series(library_id):
     - Series: top-level folder inside the library root
     - Season: second-level folder inside a series folder
     """
+    logger.info("Library series request library_id=%s", library_id)
     config = load_config()
     libraries = config.get('video_libraries', [])
     library = next((lib for lib in libraries if lib['id'] == library_id), None)
@@ -1574,12 +1575,15 @@ def get_library_series(library_id):
     # Prefer the DB-backed series cache when available.
     if not force_refresh and getattr(video_manager, 'cache', None) is not None:
         try:
+            logger.info("Attempting to load series tree from cache for library_id=%s", library_id)
             series = video_manager.cache.get_cached_series_tree(library_id)
-        except Exception:
+        except Exception as ex:
+            logger.warning("Failed to load series tree from cache for library_id=%s: %s", library_id, ex)
             series = None
 
     if series is None:
         # Cache miss/invalid (or refresh requested): build from scan/cached videos.
+        logger.info("Building series tree from scan for library_id=%s force_refresh=%s", library_id, bool(force_refresh))
         series = video_manager.build_series_tree(
             library['path'],
             folder_id=library_id,
@@ -1590,12 +1594,14 @@ def get_library_series(library_id):
         # Series/Season tables without rewriting videos.
         if not force_refresh and getattr(video_manager, 'cache', None) is not None:
             try:
+                logger.info("Caching series tree for library_id=%s", library_id)
                 video_manager.cache.cache_series_tree(library_id, series)
             except Exception:
                 pass
 
     # Optionally enrich nested videos with play stats.
     try:
+        logger.info("Enriching series videos with play stats for library_id=%s", library_id)
         all_video_paths: list[str] = []
         all_media_ids: list[str] = []
         for s in series:
@@ -1657,6 +1663,7 @@ def get_library_series(library_id):
 
     # Add a promotion score for ranking/recommendations (matching /videos endpoint).
     try:
+        logger.info("Calculating promotion scores for series videos for library_id=%s", library_id)
         for s in series:
             if not isinstance(s, dict):
                 continue
