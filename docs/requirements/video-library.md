@@ -18,7 +18,7 @@ Buttons in the "Video Library" header:
 
 1. **Add Video Library**: Opens a modal to add a new video library folder to scan. Visible to **admin** users only.
 
-1. **Search All Folders**: Switches the view into global search mode. Sets `globalSearch = true`, clears `selectedFolder`, and triggers loading videos from all folders.
+1. **Search All Folders**: Checks all library checkboxes to show videos from all libraries.
 
 Conditional buttons (only when at least one video is selected):
 
@@ -52,10 +52,9 @@ When `playlistFolder` changes and is non-empty:
 
 ### Video loading modes
 
-- If a folder is selected: load videos for that folder:
-  - GET `/api/video/libraries/{libraryId}/videos`
-- Else if global search is enabled: load videos from all folders:
-  - For each folder in `videoLibraries`, GET `/api/video/libraries/{libraryId}/videos` concurrently.
+- Videos are loaded from all checked (visible) libraries:
+  - For each library where the checkbox is checked, GET `/api/video/libraries/{libraryId}/videos` concurrently.
+  - All results are combined into a single videos list.
 
 Backend caching behavior:
 
@@ -237,12 +236,22 @@ Buttons:
 - Clicking toggles collapsed state.
 - Icon switches between `expand_more` (collapsed) and `expand_less` (expanded).
 
+### Library visibility checkboxes
+
+Each library row displays a checkbox before the library name:
+
+- **Checked** (default): Library videos are included in the videos list below.
+- **Unchecked**: Library videos are excluded from the videos list.
+- Checking/unchecking a library immediately reloads the videos list.
+- Multiple libraries can be checked simultaneously to view videos from all of them.
+- If no libraries are checked, no videos are shown.
+
 ### Library row selection
 
 - Clicking the library info area:
-  - Sets `selectedFolder = library.id`
-  - Sets `globalSearch = false`
-  - Triggers loading videos for that library.
+  - Unchecks all library checkboxes except the clicked library
+  - Sets only the clicked library as visible (checked)
+  - Triggers loading videos for only that library.
 
 ### Library actions
 
@@ -272,7 +281,7 @@ Inline edit mode:
 
 Visibility:
 
-- Shown when either a library is selected OR global search is enabled.
+- Shown when at least one library checkbox is checked.
 
 ### Column configuration
 

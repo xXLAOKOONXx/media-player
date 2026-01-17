@@ -69,7 +69,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   const [videoLibraries, setVideoLibraries] = useState<VideoLibrary[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [browsePath, setBrowsePath] = useState('/');
   const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
@@ -123,9 +122,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         : prev,
     );
   };
-  const [globalSearch, setGlobalSearch] = useState(true); // Open by default
   const [isLoading, setIsLoading] = useState(false);
   const [foldersCollapsed, setFoldersCollapsed] = useState(true); // Collapsed by default
+  const [visibleLibraries, setVisibleLibraries] = useState<Set<number>>(new Set());
   
   // Search filters
   const [searchArtist, setSearchArtist] = useState('');
@@ -172,12 +171,10 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   }, []);
 
   useEffect(() => {
-    if (selectedFolder) {
-      loadVideos(selectedFolder);
-    } else if (globalSearch) {
+    if (visibleLibraries.size > 0) {
       loadAllVideos();
     }
-  }, [selectedFolder, globalSearch, videoLibraries]); // Add videoLibraries dependency
+  }, [videoLibraries, visibleLibraries]);
 
   useEffect(() => {
     applyFilters();
@@ -196,6 +193,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       const response = await fetch(`${API_BASE_URL}/api/video/libraries`);
       const data = await response.json();
       setVideoLibraries(data);
+      // Initialize all libraries as visible
+      setVisibleLibraries(new Set(data.map((lib: VideoLibrary) => lib.id)));
     } catch (err) {
       console.error('Error loading video libraries:', err);
     }
@@ -226,24 +225,12 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
     }
   };
 
-  const loadVideos = async (folderId: number) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/video/libraries/${folderId}/videos`);
-      const data = await response.json();
-      setVideos(data);
-    } catch (err) {
-      console.error('Error loading videos:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const loadAllVideos = async () => {
     try {
       setIsLoading(true);
-      // Load videos from all folders concurrently
-      const trackPromises = videoLibraries.map(folder =>
+      // Load videos from all visible (checked) folders concurrently
+      const visibleFolders = videoLibraries.filter(folder => visibleLibraries.has(folder.id));
+      const trackPromises = visibleFolders.map(folder =>
         fetch(`${API_BASE_URL}/api/video/libraries/${folder.id}/videos`).then(res => res.json())
       );
       const allVideosArrays = await Promise.all(trackPromises);
@@ -257,8 +244,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
   };
 
   const handleGlobalSearch = () => {
-    setGlobalSearch(true);
-    setSelectedFolder(null);
+    // Check all libraries
+    setVisibleLibraries(new Set(videoLibraries.map(lib => lib.id)));
   };
 
   const refreshFolder = async (folderId: number) => {
@@ -267,10 +254,8 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       await fetch(`${API_BASE_URL}/api/video/libraries/${folderId}/refresh`, {
         method: 'POST'
       });
-      // Reload videos
-      if (selectedFolder === folderId) {
-        await loadVideos(folderId);
-      } else if (globalSearch) {
+      // Reload videos if this folder is visible
+      if (visibleLibraries.has(folderId)) {
         await loadAllVideos();
       }
     } catch (err) {
@@ -503,10 +488,10 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
       await fetch(`${API_BASE_URL}/api/video/libraries/${folderId}`, {
         method: 'DELETE'
       });
-      if (selectedFolder === folderId) {
-        setSelectedFolder(null);
-        setVideos([]);
-      }
+      // Remove from visible libraries if it was checked
+      const newVisible = new Set(visibleLibraries);
+      newVisible.delete(folderId);
+      setVisibleLibraries(newVisible);
       loadVideoLibraries();
     } catch (err) {
       console.error('Error deleting video library:', err);
@@ -1344,7 +1329,6 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                 {videoLibraries.map((folder) => (
                   <li
                     key={folder.id}
-                    className={selectedFolder === folder.id ? 'selected' : ''}
                   >
                     {editingFolder === folder.id ? (
                       <div className="editing">
@@ -1367,11 +1351,27 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
                       </div>
                     ) : (
                       <>
+                        <input
+                          type="checkbox"
+                          checked={visibleLibraries.has(folder.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            const newVisible = new Set(visibleLibraries);
+                            if (e.target.checked) {
+                              newVisible.add(folder.id);
+                            } else {
+                              newVisible.delete(folder.id);
+                            }
+                            setVisibleLibraries(newVisible);
+                          }}
+                          title="Show/hide this library in the videos list"
+                          style={{ marginRight: '8px', cursor: 'pointer' }}
+                        />
                         <div
                           className="folder-info"
                           onClick={() => {
-                            setSelectedFolder(folder.id);
-                            setGlobalSearch(false);
+                            // Uncheck all libraries except the clicked one
+                            setVisibleLibraries(new Set([folder.id]));
                           }}
                         >
                           <span className="material-icons">
@@ -1418,9 +1418,9 @@ const VideoLibrary = ({ currentUser }: VideoLibraryProps) => {
         )}
       </div>
 
-      {(selectedFolder || globalSearch) && (
+      {visibleLibraries.size > 0 && (
         <div className="music-videos">
-          <h3>{globalSearch ? 'All Videos' : 'Videos'}</h3>
+          <h3>Videos</h3>
           
           <div className="search-filters">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
