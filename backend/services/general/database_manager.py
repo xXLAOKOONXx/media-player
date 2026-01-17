@@ -2319,7 +2319,8 @@ class DatabaseManager:
             cursor.execute(
                 f'''SELECT media_id, file_path, file_name, title, duration,
                           start_time_in_ms, end_time_in_ms, tags, artist,
-                          thumbnail, thumbnail_file, thumbnail_url
+                          thumbnail, thumbnail_file, thumbnail_url,
+                          description, premiere_date, user_rating
                      FROM videos
                     WHERE {where_expr}''',
                 tuple(unique_paths),
@@ -2331,7 +2332,8 @@ class DatabaseManager:
         results: dict[str, dict] = {}
         for (media_id, file_path, file_name, title, duration,
              start_ms, end_ms, tags_json, artist,
-             thumb_blob, thumb_file, thumb_url) in rows:
+             thumb_blob, thumb_file, thumb_url,
+             description, premiere_date, user_rating) in rows:
             norm = os.path.normpath(file_path) if file_path else None
             if not norm:
                 continue
@@ -2347,6 +2349,9 @@ class DatabaseManager:
                 'artist': artist,
                 'has_thumbnail': (thumb_blob is not None) or (thumb_file is not None) or (thumb_url is not None),
                 'thumbnail_url': thumb_url,
+                'description': description,
+                'premiere_date': premiere_date,
+                'user_rating': user_rating,
             }
 
         return results
