@@ -1945,6 +1945,10 @@ class DatabaseManager:
             - [] when cache is valid but no series rows exist
             - None when cache is invalid or DB doesn't support the schema
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        start_time = time.time()
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -1952,6 +1956,7 @@ class DatabaseManager:
         folder = cursor.fetchone()
         if not folder or folder[0] is None:
             conn.close()
+            logger.debug(f"get_cached_video_series_tree: folder_id={folder_id} not found or not scanned")
             return None
 
         try:
@@ -1960,6 +1965,8 @@ class DatabaseManager:
                 digest = hashlib.sha1(normalized.lower().encode('utf-8', errors='ignore')).hexdigest()[:12]
                 return f"{prefix}_{digest}"
 
+            # Fetch series
+            series_start = time.time()
             cursor.execute('''
                 SELECT id, full_path, title, user_rating, tags, artists, cover
                 FROM video_series
@@ -1967,16 +1974,20 @@ class DatabaseManager:
                 ORDER BY COALESCE(title, full_path)
             ''', (folder_id,))
             series_rows = cursor.fetchall()
+            logger.debug(f"get_cached_video_series_tree: fetched {len(series_rows)} series (took {(time.time() - series_start)*1000:.2f}ms)")
 
             series_by_id: dict[int, dict] = {}
             seasons_by_id: dict[int, dict] = {}
 
+            # Parse series (minimize work in loop)
+            parse_series_start = time.time()
             for row in series_rows:
                 sid = int(row[0])
+                full_path = row[1]
                 series_by_id[sid] = {
-                    'id': _stable_tree_id('ser', row[1]),
-                    'full_path': row[1],
-                    'title': row[2] or (os.path.basename(row[1]) if row[1] else 'Untitled'),
+                    'id': _stable_tree_id('ser', full_path),
+                    'full_path': full_path,
+                    'title': row[2] or (os.path.basename(full_path) if full_path else 'Untitled'),
                     'user_rating': row[3],
                     'tags': json.loads(row[4]) if row[4] else [],
                     'artists': json.loads(row[5]) if row[5] else [],
@@ -1984,8 +1995,11 @@ class DatabaseManager:
                     'seasons': [],
                     'videos': [],
                 }
+            logger.debug(f"get_cached_video_series_tree: parsed {len(series_by_id)} series (took {(time.time() - parse_series_start)*1000:.2f}ms)")
 
+            # Fetch seasons
             if series_by_id:
+                seasons_start = time.time()
                 placeholders = ','.join(['?'] * len(series_by_id))
                 cursor.execute(
                     f'''
@@ -1997,13 +2011,17 @@ class DatabaseManager:
                     tuple(series_by_id.keys()),
                 )
                 season_rows = cursor.fetchall()
+                logger.debug(f"get_cached_video_series_tree: fetched {len(season_rows)} seasons (took {(time.time() - seasons_start)*1000:.2f}ms)")
+                
+                parse_seasons_start = time.time()
                 for row in season_rows:
                     season_id = int(row[0])
                     series_id = int(row[1])
+                    full_path = row[2]
                     season_dict = {
-                        'id': _stable_tree_id('sea', row[2]),
-                        'full_path': row[2],
-                        'title': row[3] or (os.path.basename(row[2]) if row[2] else 'Untitled'),
+                        'id': _stable_tree_id('sea', full_path),
+                        'full_path': full_path,
+                        'title': row[3] or (os.path.basename(full_path) if full_path else 'Untitled'),
                         'user_rating': row[4],
                         'tags': json.loads(row[5]) if row[5] else [],
                         'artists': json.loads(row[6]) if row[6] else [],
@@ -2015,26 +2033,35 @@ class DatabaseManager:
                     parent = series_by_id.get(series_id)
                     if parent is not None:
                         parent['seasons'].append(season_dict)
+                logger.debug(f"get_cached_video_series_tree: parsed {len(seasons_by_id)} seasons (took {(time.time() - parse_seasons_start)*1000:.2f}ms)")
 
+            # Fetch videos - CRITICAL: Don't fetch thumbnail BLOB to avoid transferring GBs
+            videos_start = time.time()
             cursor.execute('''
                 SELECT folder_id, series_id, season_id, media_id, file_path, file_name, file_size, title,
                        index_number, duration, start_time_in_ms, end_time_in_ms, last_modified, tags, artist,
-                       thumbnail, thumbnail_mime_type, thumbnail_file, thumbnail_url, description, premiere_date, user_rating
+                       (thumbnail IS NOT NULL) AS has_thumbnail_blob,
+                       thumbnail_mime_type, thumbnail_file, thumbnail_url, description, premiere_date, user_rating
                 FROM videos
                 WHERE folder_id = ?
                 ORDER BY COALESCE(series_id, 0), COALESCE(season_id, 0), COALESCE(index_number, 999999), COALESCE(title, file_name)
             ''', (folder_id,))
             video_rows = cursor.fetchall()
+            logger.debug(f"get_cached_video_series_tree: fetched {len(video_rows)} videos (took {(time.time() - videos_start)*1000:.2f}ms)")
 
+            # Parse videos and build tree
+            parse_videos_start = time.time()
             for row in video_rows:
                 v_series_id = row[1]
                 v_season_id = row[2]
+                file_name = row[5]
+                title = row[7]
                 video = {
                     'media_id': row[3],
                     'path': row[4],
-                    'name': row[5],
+                    'name': file_name,
                     'size': row[6],
-                    'title': row[7] or os.path.splitext(row[5])[0],
+                    'title': title or os.path.splitext(file_name)[0],
                     'index_number': row[8],
                     'duration': row[9],
                     'start_time_in_ms': row[10],
@@ -2042,7 +2069,7 @@ class DatabaseManager:
                     'modified': row[12],
                     'tags': json.loads(row[13]) if row[13] else [],
                     'artist': row[14],
-                    'has_thumbnail': (row[15] is not None) or (row[17] is not None),
+                    'has_thumbnail': bool(row[15]) or (row[17] is not None),
                     'thumbnail_url': row[18],
                     'description': row[19],
                     'premiere_date': row[20],
@@ -2055,10 +2082,16 @@ class DatabaseManager:
                     series_by_id[v_series_id]['videos'].append(video)
 
             conn.close()
+            
+            parse_videos_ms = (time.time() - parse_videos_start) * 1000
+            total_ms = (time.time() - start_time) * 1000
+            logger.debug(f"get_cached_video_series_tree: parsed {len(video_rows)} videos (took {parse_videos_ms:.2f}ms, total {total_ms:.2f}ms)")
+            
             return list(series_by_id.values())
 
         except sqlite3.OperationalError:
             conn.close()
+            logger.debug(f"get_cached_video_series_tree: OperationalError - schema not supported (took {(time.time() - start_time)*1000:.2f}ms)")
             return None
     
     def get_video_thumbnail(self, file_path):
