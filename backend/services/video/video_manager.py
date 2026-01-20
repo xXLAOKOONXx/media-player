@@ -162,7 +162,8 @@ class VideoManager:
                         time.perf_counter() - t0,
                     )
                     return cached_videos
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to load cached video list for folder_id=%s: %s", folder_id, e)
                 pass
 
         processed_videos: list[dict] = []

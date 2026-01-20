@@ -341,6 +341,8 @@ class DatabaseManager:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_media_id ON videos (media_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_series_id ON videos (series_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_season_id ON videos (season_id)')
+        # Composite index for get_cached_videos ORDER BY optimization
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_folder_title_name ON videos (folder_id, title, file_name)')
 
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_artwork_source_path ON video_artwork (source_path)')
 
@@ -1659,9 +1661,15 @@ class DatabaseManager:
     
     def get_cached_videos(self, folder_id):
         """Retrieve cached videos for a folder"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        start_time = time.time()
         conn = self._get_connection()
         cursor = conn.cursor()
         
+        # Check if folder exists and has been scanned
+        db_query_start = time.time()
         cursor.execute(
             'SELECT last_scan FROM video_folders WHERE id = ?',
             (folder_id,)
@@ -1670,17 +1678,24 @@ class DatabaseManager:
         
         if not folder or folder[0] is None:
             conn.close()
+            logger.debug(f"get_cached_videos: folder_id={folder_id} not found or not scanned (took {(time.time() - start_time)*1000:.2f}ms)")
             return None
+        logger.debug(f"get_cached_videos: folder_id={folder_id} found with last_scan={folder[0]} (took {(time.time() - db_query_start)*1000:.2f}ms)")
         
+        # Fetch all videos with a single optimized query
+        # CRITICAL: Don't select thumbnail BLOB - only check if it exists to avoid transferring GBs of data
+        fetch_start = time.time()
         rows = []
         try:
             cursor.execute('''
                    SELECT v.media_id, v.file_path, v.file_name, v.file_size, v.title, v.index_number, v.duration,
                      v.start_time_in_ms, v.end_time_in_ms,
-                                         v.last_modified, v.tags, v.artist, v.thumbnail, v.thumbnail_mime_type, v.thumbnail_file, v.thumbnail_url,
+                     v.last_modified, v.tags, v.artist, 
+                     (v.thumbnail IS NOT NULL) AS has_thumbnail_blob,
+                     v.thumbnail_mime_type, v.thumbnail_file, v.thumbnail_url,
                      v.description, v.premiere_date, v.user_rating,
-                                         vs.full_path AS series_full_path,
-                                         vsea.full_path AS season_full_path
+                     vs.full_path AS series_full_path,
+                     vsea.full_path AS season_full_path
                 FROM videos v
                 LEFT JOIN video_series vs ON vs.id = v.series_id
                 LEFT JOIN video_seasons vsea ON vsea.id = v.season_id
@@ -1690,10 +1705,13 @@ class DatabaseManager:
             rows = cursor.fetchall()
         except sqlite3.OperationalError:
             # Backward compatibility if the DB lacks the new columns/tables.
+            logger.debug(f"get_cached_videos: folder_id={folder_id} query with series/season join failed, falling back (took {(time.time() - fetch_start)*1000:.2f}ms)")
             cursor.execute('''
                    SELECT media_id, file_path, file_name, file_size, title, index_number, duration,
                      start_time_in_ms, end_time_in_ms,
-                                         last_modified, tags, artist, thumbnail, thumbnail_mime_type, thumbnail_file, thumbnail_url,
+                     last_modified, tags, artist, 
+                     (thumbnail IS NOT NULL) AS has_thumbnail_blob,
+                     thumbnail_mime_type, thumbnail_file, thumbnail_url,
                      description, premiere_date, user_rating
                 FROM videos
                 WHERE folder_id = ?
@@ -1702,17 +1720,23 @@ class DatabaseManager:
             rows = cursor.fetchall()
         conn.close()
         
+        fetch_time_ms = (time.time() - fetch_start) * 1000
+        logger.debug(f"get_cached_videos: fetched {len(rows)} rows from DB (took {fetch_time_ms:.2f}ms)")
+        
         if not rows:
+            logger.debug(f"get_cached_videos: folder_id={folder_id} has no cached videos (took {(time.time() - start_time)*1000:.2f}ms)")
             return []
+        
+        # Optimize row parsing by detecting schema variant once
+        parse_start = time.time()
+        row_length = len(rows[0])
+        has_series_data = row_length >= 21
+        has_extended_metadata = row_length >= 19
         
         videos = []
         for row in rows:
-            series_full_path = None
-            season_full_path = None
-            thumb_file = None
-
-            # Handle multiple schema variants (older DBs may not have thumbnail_file or series tables).
-            if len(row) >= 21:
+            # Decode schema based on row length (determined once above)
+            if has_series_data:
                 thumb_file = row[14]
                 thumbnail_url = row[15]
                 description = row[16]
@@ -1720,24 +1744,37 @@ class DatabaseManager:
                 user_rating = row[18]
                 series_full_path = row[19]
                 season_full_path = row[20]
-            elif len(row) >= 19:
+            elif has_extended_metadata:
                 thumb_file = row[14]
                 thumbnail_url = row[15]
                 description = row[16]
                 premiere_date = row[17]
                 user_rating = row[18]
+                series_full_path = None
+                season_full_path = None
             else:
-                thumbnail_url = row[14] if len(row) > 14 else None
-                description = row[15] if len(row) > 15 else None
-                premiere_date = row[16] if len(row) > 16 else None
-                user_rating = row[17] if len(row) > 17 else None
+                thumb_file = None
+                thumbnail_url = row[14] if row_length > 14 else None
+                description = row[15] if row_length > 15 else None
+                premiere_date = row[16] if row_length > 16 else None
+                user_rating = row[17] if row_length > 17 else None
+                series_full_path = None
+                season_full_path = None
 
+            # Pre-compute title once (avoid splitext in hot path if title exists)
+            file_name = row[2]
+            title = row[4]
+            if not title:
+                # Only compute if title is missing
+                title = os.path.splitext(file_name)[0]
+            
+            # Build video dict - batch all operations
             video = {
                 'media_id': row[0],
                 'path': row[1],
-                'name': row[2],
+                'name': file_name,
                 'size': row[3],
-                'title': row[4] or os.path.splitext(row[2])[0],
+                'title': title,
                 'index_number': row[5],
                 'duration': row[6],
                 'start_time_in_ms': row[7],
@@ -1745,20 +1782,28 @@ class DatabaseManager:
                 'modified': row[9],
                 'tags': json.loads(row[10]) if row[10] else [],
                 'artist': row[11],
-                'has_thumbnail': (row[12] is not None) or (thumb_file is not None),
+                'has_thumbnail': bool(row[12]) or (thumb_file is not None),
                 'thumbnail_url': thumbnail_url,
                 'description': description,
                 'premiere_date': premiere_date,
                 'user_rating': user_rating,
             }
 
-            # Preserve the folder-name semantics for series/season.
-            # (The hierarchical /series endpoint provides the display titles.)
-            if isinstance(series_full_path, str) and series_full_path.strip():
-                video['series'] = os.path.basename(series_full_path.strip())
-            if isinstance(season_full_path, str) and season_full_path.strip():
-                video['season'] = os.path.basename(season_full_path.strip())
+            # Add series/season info if present
+            if series_full_path and isinstance(series_full_path, str):
+                stripped = series_full_path.strip()
+                if stripped:
+                    video['series'] = os.path.basename(stripped)
+            if season_full_path and isinstance(season_full_path, str):
+                stripped = season_full_path.strip()
+                if stripped:
+                    video['season'] = os.path.basename(stripped)
+            
             videos.append(video)
+        
+        parse_time_ms = (time.time() - parse_start) * 1000
+        total_time_ms = (time.time() - start_time) * 1000
+        logger.debug(f"get_cached_videos: parsed {len(videos)} videos (took {parse_time_ms:.2f}ms, total {total_time_ms:.2f}ms)")
         
         return videos
 

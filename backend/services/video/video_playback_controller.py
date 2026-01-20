@@ -1673,6 +1673,7 @@ class VideoPlaybackController:
     
     def get_status(self):
         """Get current playback status"""
+        logger.debug(f"playlist: {self.current_playlist}, index: {self.current_track_index}")
         current_track = self.get_current_track()
         next_track = self.get_next_track()
 
