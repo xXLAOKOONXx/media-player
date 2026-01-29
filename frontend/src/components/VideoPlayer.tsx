@@ -1,5 +1,6 @@
 import './VideoPlayer.css';
 import { useEffect, useState } from 'react';
+import VideoDetailsModal from './VideoDetailsModal';
 
 const API_BASE_URL = '';
 
@@ -15,6 +16,7 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   const [isSavingMusicPoint, setIsSavingMusicPoint] = useState<'start' | 'end' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState<number>(0);
+  const [detailsVideo, setDetailsVideo] = useState<any>(null);
 
   useEffect(() => {
     if (!isRatingModalOpen) return;
@@ -177,7 +179,14 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
         <div className="track-title">
           {is_playing && !is_paused && <span className="material-icons playing-icon">play_arrow</span>}
           {is_paused && <span className="material-icons paused-icon">pause</span>}
-          <span className="title">{current_track.title}</span>
+          <span 
+            className="title" 
+            onClick={() => current_track?.media_id && setDetailsVideo(current_track)}
+            style={{ cursor: current_track?.media_id ? 'pointer' : 'default' }}
+            title={current_track?.media_id ? 'Click to view details' : undefined}
+          >
+            {current_track.title}
+          </span>
 
           <div className="video-player-title-actions">
             <button
@@ -356,6 +365,16 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
             </div>
           </div>
         </div>
+      )}
+
+      {detailsVideo && (
+        <VideoDetailsModal
+          video={detailsVideo}
+          onClose={() => setDetailsVideo(null)}
+          onVideoUpdated={() => {
+            setDetailsVideo(null);
+          }}
+        />
       )}
     </div>
   );
