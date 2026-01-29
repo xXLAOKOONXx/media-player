@@ -1,4 +1,12 @@
 #!/bin/bash
+
+# Save the starting directory
+SCRIPT_DIR="$PWD"
+
+# Trap to return to original directory on exit or interrupt
+trap 'cd "$SCRIPT_DIR" 2>/dev/null' EXIT INT TERM
+
+# Exit on error, but trap will still run
 set -e
 
 echo "🚀 Starting Media Player Development Environment"
@@ -40,6 +48,5 @@ echo "Or run the backend (which serves the built frontend):"
 echo "  cd backend && uv run python app.py"
 echo ""
 
-cd backend
 echo "🌐 Starting backend server..."
-uv run python app.py
+cd backend && uv run python app.py
