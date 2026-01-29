@@ -10,7 +10,7 @@ import SettingsManager from '../components/SettingsManager';
 import VideoExplorer from '../components/VideoExplorer';
 import VideoSeries from '../components/VideoSeries';
 import PageMenu from '../components/PageMenu';
-import { useWebSocketStatus } from '../hooks/useWebSocketStatus';
+import { useSSEStatus } from '../hooks/useSSEStatus';
 import { useInterpolatedPosition } from '../hooks/useInterpolatedPosition';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
@@ -50,18 +50,18 @@ function VideoPage({ currentUser }: VideoPageProps) {
     navigate(`/video/${tab}`);
   };
 
-  // Use WebSocket for real-time status updates instead of polling
+  // Use SSE for real-time status updates
   const handleStatusUpdate = useCallback((status: any) => {
     setPlaybackStatus(status);
   }, []);
 
-  useWebSocketStatus({
-    eventName: 'video_status',
+  useSSEStatus({
+    endpoint: '/api/video/playback/events',
     onStatusUpdate: handleStatusUpdate,
     enabled: true,
   });
 
-  // Interpolate position between WebSocket updates for smooth progress
+  // Interpolate position between SSE updates for smooth progress
   const interpolatedStatus = useInterpolatedPosition(playbackStatus);
 
   // Fallback: fetch initial status on mount

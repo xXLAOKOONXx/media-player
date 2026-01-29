@@ -132,14 +132,13 @@ Behavior:
 - Network errors are logged to the console.
 - The UI does not currently display error banners/toasts for these controls; requirements should match this (no extra UX).
 
-## Status Updates (WebSocket with REST Fallback)
+## Status Updates (Server-Sent Events with REST Fallback)
 
-The Player view receives real-time status updates via WebSocket with automatic REST polling fallback:
-- **WebSocket Event**: `audio_status`
-- **Connection**: Established automatically when the AudioPage component mounts
-- **Source**: `frontend/src/hooks/useWebSocketStatus.ts` provides the WebSocket hook
+The Player view receives real-time status updates via Server-Sent Events (SSE):
+- **SSE Endpoint**: `/api/audio/playback/events`
+- **Connection**: Established automatically when the AudioPage component mounts using native `EventSource` API
+- **Source**: `frontend/src/hooks/useSSEStatus.ts` provides the SSE hook
 - **Updates**: Pushed from server when playback state changes (play, pause, stop, volume, track changes, etc.)
 - **Initial Status**: Fetched via REST API (`/api/audio/playback/status`) on mount
-- **Reconnection**: Automatic reconnection with exponential backoff on connection loss
-- **REST Fallback**: If WebSocket connection fails after 3 attempts, automatically switches to REST polling (`/api/audio/playback/status`) every 1 second
-- **Polling Behavior**: When using REST fallback, the frontend polls the status endpoint continuously until the component unmounts
+- **Reconnection**: Automatic reconnection with exponential backoff on connection loss (handled by browser)
+- **Reliability**: SSE is more reliable than WebSockets, with built-in browser reconnection support

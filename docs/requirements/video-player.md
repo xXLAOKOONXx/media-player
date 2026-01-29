@@ -225,14 +225,13 @@ Video playback is handled client-side in the browser using HTML5 video elements.
 
 The actual video rendering and streaming is done through the browser's native video capabilities.
 
-## Status Updates (WebSocket with REST Fallback)
+## Status Updates (Server-Sent Events with REST Fallback)
 
-The Video Player view receives real-time status updates via WebSocket with automatic REST polling fallback:
-- **WebSocket Event**: `video_status`
-- **Connection**: Established automatically when the VideoPage component mounts
-- **Source**: `frontend/src/hooks/useWebSocketStatus.ts` provides the WebSocket hook
+The Video Player view receives real-time status updates via Server-Sent Events (SSE):
+- **SSE Endpoint**: `/api/video/playback/events`
+- **Connection**: Established automatically when the VideoPage component mounts using native `EventSource` API
+- **Source**: `frontend/src/hooks/useSSEStatus.ts` provides the SSE hook
 - **Updates**: Pushed from server when playback state changes (play, pause, stop, volume, track changes, seek, etc.)
 - **Initial Status**: Fetched via REST API (`/api/video/playback/status`) on mount
-- **Reconnection**: Automatic reconnection with exponential backoff on connection loss
-- **REST Fallback**: If WebSocket connection fails after 3 attempts, automatically switches to REST polling (`/api/video/playback/status`) every 1 second
-- **Polling Behavior**: When using REST fallback, the frontend polls the status endpoint continuously until the component unmounts
+- **Reconnection**: Automatic reconnection with exponential backoff on connection loss (handled by browser)
+- **Reliability**: SSE is more reliable than WebSockets, with built-in browser reconnection support

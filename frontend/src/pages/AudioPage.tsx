@@ -8,7 +8,7 @@ import SoundEffectsManager from '../components/SoundEffectsManager';
 import MusicManager from '../components/MusicManager';
 import SettingsManager from '../components/SettingsManager';
 import PageMenu from '../components/PageMenu';
-import { useWebSocketStatus } from '../hooks/useWebSocketStatus';
+import { useSSEStatus } from '../hooks/useSSEStatus';
 import { useInterpolatedPosition } from '../hooks/useInterpolatedPosition';
 
 // Use relative URL - works for both dev (proxied) and production (same origin)
@@ -47,18 +47,18 @@ function AudioPage({ currentUser }: AudioPageProps) {
     navigate(`/audio/${tab}`);
   };
 
-  // Use WebSocket for real-time status updates instead of polling
+  // Use SSE for real-time status updates
   const handleStatusUpdate = useCallback((status: any) => {
     setPlaybackStatus(status);
   }, []);
 
-  useWebSocketStatus({
-    eventName: 'audio_status',
+  useSSEStatus({
+    endpoint: '/api/audio/playback/events',
     onStatusUpdate: handleStatusUpdate,
     enabled: true,
   });
 
-  // Interpolate position between WebSocket updates for smooth progress
+  // Interpolate position between SSE updates for smooth progress
   const interpolatedStatus = useInterpolatedPosition(playbackStatus);
 
   // Fallback: fetch initial status on mount

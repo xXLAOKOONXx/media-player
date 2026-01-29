@@ -445,27 +445,33 @@ The application supports M3U and M3U8 playlist formats:
 - `#EXTINF:duration,artist - title` provides track information
 - File paths can be absolute or relative to the playlist location
 
-## WebSocket Support
+## Server-Sent Events (SSE) Support
 
-The Media Player now uses WebSocket connections for real-time status updates, replacing the previous polling-based approach.
+The Media Player uses Server-Sent Events (SSE) for real-time status updates, providing reliable one-way communication from server to client.
 
 ### Connection
 
-The WebSocket server is available at the same origin as the REST API:
-- Development: `http://localhost:5000`
-- Production: Same as your deployment URL
+SSE endpoints are available at:
+- **Audio Status**: `/api/audio/playback/events`
+- **Video Status**: `/api/video/playback/events`
 
-Clients should use Socket.IO client library to connect with the following transports:
-- WebSocket (preferred)
-- Long-polling (fallback)
+SSE uses standard HTTP, making it more reliable than WebSockets and compatible with all modern browsers through the native `EventSource` API.
 
-### Events
+### Benefits of SSE
+
+- **Built-in reconnection**: Browser automatically handles connection drops
+- **HTTP-based**: Works through proxies and firewalls better than WebSockets
+- **No library needed**: Native browser support via `EventSource`
+- **Simpler**: Standard HTTP responses with `text/event-stream` content type
+- **Efficient**: Server pushes updates only when state changes
+
+### Status Update Events
 
 #### Audio Status Updates
 
-**Event Name:** `audio_status`
+**Endpoint:** `GET /api/audio/playback/events`
 
-The server automatically broadcasts audio playback status updates whenever there is a state change (play, pause, stop, volume change, track change, etc.).
+The server streams audio playback status updates whenever there is a state change (play, pause, stop, volume change, track change, etc.).
 
 **Event Data:**
 ```json
@@ -497,9 +503,9 @@ The server automatically broadcasts audio playback status updates whenever there
 
 #### Video Status Updates
 
-**Event Name:** `video_status`
+**Endpoint:** `GET /api/video/playback/events`
 
-The server automatically broadcasts video playback status updates whenever there is a state change.
+The server streams video playback status updates whenever there is a state change.
 
 **Event Data:**
 ```json
@@ -529,33 +535,39 @@ The server automatically broadcasts video playback status updates whenever there
 
 ### Client Example
 
-Using Socket.IO client in JavaScript/TypeScript:
+Using native `EventSource` API in JavaScript/TypeScript:
 
 ```typescript
-import { io } from 'socket.io-client';
+// Connect to audio status stream
+const audioEventSource = new EventSource('/api/audio/playback/events');
 
-const socket = io('http://localhost:5000', {
-  transports: ['websocket', 'polling'],
-  reconnection: true,
-});
+audioEventSource.onopen = () => {
+  console.log('Connected to audio status stream');
+};
 
-socket.on('connect', () => {
-  console.log('Connected to WebSocket');
-});
-
-socket.on('audio_status', (status) => {
+audioEventSource.onmessage = (event) => {
+  const status = JSON.parse(event.data);
   console.log('Audio status update:', status);
   // Update UI with new status
-});
+};
 
-socket.on('video_status', (status) => {
+audioEventSource.onerror = (error) => {
+  console.error('SSE error:', error);
+  // Browser will automatically attempt to reconnect
+};
+
+// Connect to video status stream
+const videoEventSource = new EventSource('/api/video/playback/events');
+
+videoEventSource.onmessage = (event) => {
+  const status = JSON.parse(event.data);
   console.log('Video status update:', status);
   // Update UI with new status
-});
+};
 
-socket.on('disconnect', (reason) => {
-  console.log('Disconnected:', reason);
-});
+// Close connections when done
+// audioEventSource.close();
+// videoEventSource.close();
 ```
 
 ### Migration from Polling
@@ -570,10 +582,11 @@ setInterval(() => {
 }, 1000);
 ```
 
-The new WebSocket approach provides:
+The new SSE approach provides:
 - **Real-time updates**: Changes are pushed immediately, not polled
 - **Reduced latency**: No waiting for the next poll interval
-- **Lower network overhead**: No repeated HTTP requests
+- **Lower network overhead**: Single persistent HTTP connection instead of repeated requests
 - **Better scalability**: Server pushes only when state changes
+- **Automatic reconnection**: Browser handles connection recovery
 
-The REST endpoints (`/api/audio/playback/status` and `/api/video/playback/status`) remain available for initial status fetching or fallback scenarios.
+The REST endpoints (`/api/audio/playback/status` and `/api/video/playback/status`) remain available for initial status fetching or as a fallback.

@@ -3,16 +3,8 @@ Media Player Backend
 Main Flask application for media player control
 """
 
-from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
+from flask import Flask, jsonify, request, send_from_directory, make_response, send_file, Response, stream_with_context
 from werkzeug.utils import secure_filename
-
-# Try to import SocketIO, but make it optional for compatibility
-try:
-    from flask_socketio import SocketIO, emit
-    SOCKETIO_AVAILABLE = True
-except ImportError:
-    SOCKETIO_AVAILABLE = False
-    print("Warning: flask-socketio not available, WebSocket support disabled")
 import os
 import sys
 import json
@@ -21,6 +13,8 @@ import time
 from pathlib import Path
 from io import BytesIO
 import re
+import queue
+import threading
 
 
 def _configure_logging() -> None:
@@ -72,25 +66,11 @@ _configure_logging()
 
 logger = logging.getLogger(__name__)
 
-# Initialize SocketIO with CORS support if available
-socketio = None
-if SOCKETIO_AVAILABLE:
-    try:
-        # Configure SocketIO with better error handling and logging
-        socketio = SocketIO(
-            app, 
-            cors_allowed_origins="*",
-            async_mode='threading',
-            logger=False,
-            engineio_logger=False,
-            ping_timeout=60,
-            ping_interval=25
-        )
-        logger.info("SocketIO initialized successfully with WebSocket and polling support")
-    except Exception as e:
-        print(f"Warning: Failed to initialize SocketIO: {e}")
-        logger.warning(f"Failed to initialize SocketIO: {e}")
-        SOCKETIO_AVAILABLE = False
+# SSE (Server-Sent Events) broadcast queues
+# Each connected client gets its own queue for receiving status updates
+audio_status_queues = []
+video_status_queues = []
+queues_lock = threading.Lock()
 
 PREFERRED_LANGUAGE_OPTIONS = ('deu', 'eng')
 
@@ -198,34 +178,38 @@ if not stats_folder:
         stats_folder = os.path.dirname(os.path.abspath(__file__))
 stats_manager = StatsManager(stats_folder)
 
-# Define status broadcast functions
+# Define SSE broadcast functions
 def broadcast_audio_status():
-    """Broadcast audio playback status to all connected clients"""
-    if not socketio or not SOCKETIO_AVAILABLE:
-        return
+    """Broadcast audio playback status to all connected SSE clients"""
     try:
         status = playback_controller.get_status()
-        socketio.emit('audio_status', status, namespace='/')
+        with queues_lock:
+            for q in audio_status_queues[:]:
+                try:
+                    q.put_nowait(status)
+                except queue.Full:
+                    pass  # Skip if queue is full
     except Exception as e:
         logger.error(f"Error broadcasting audio status: {e}")
 
 def broadcast_video_status():
-    """Broadcast video playback status to all connected clients"""
-    if not socketio or not SOCKETIO_AVAILABLE:
-        logger.warning("SocketIO not available, cannot broadcast video status")
-        return
+    """Broadcast video playback status to all connected SSE clients"""
     try:
         status = video_playback_controller.get_status()
-        socketio.emit('video_status', status, namespace='/')
+        with queues_lock:
+            for q in video_status_queues[:]:
+                try:
+                    q.put_nowait(status)
+                except queue.Full:
+                    pass  # Skip if queue is full
     except Exception as e:
         logger.error(f"Error broadcasting video status: {e}")
 
-# Initialize playback controllers with stats manager and status broadcast callbacks
-# Only pass callbacks if SocketIO is available
+# Initialize playback controllers with stats manager and SSE broadcast callbacks
 playback_controller = PlaybackController(
     crossfade_config=crossfade_config, 
     stats_manager=stats_manager,
-    status_callback=broadcast_audio_status if SOCKETIO_AVAILABLE else None
+    status_callback=broadcast_audio_status
 )
 
 # Initialize video playback controller with video settings
@@ -237,7 +221,7 @@ video_playback_controller = VideoPlaybackController(
     video_config=video_config, 
     stats_manager=stats_manager, 
     db_manager=db,
-    status_callback=broadcast_video_status if SOCKETIO_AVAILABLE else None
+    status_callback=broadcast_video_status
 )
 
 
@@ -1152,6 +1136,45 @@ def get_status():
     """Get current playback status"""
     status = playback_controller.get_status()
     return jsonify(status)
+
+@app.route('/api/audio/playback/events')
+def audio_status_stream():
+    """SSE endpoint for real-time audio playback status updates"""
+    def generate():
+        # Create queue for this client
+        client_queue = queue.Queue(maxsize=10)
+        with queues_lock:
+            audio_status_queues.append(client_queue)
+        
+        try:
+            # Send initial status immediately
+            status = playback_controller.get_status()
+            yield f"data: {json.dumps(status)}\n\n"
+            
+            # Stream updates as they arrive
+            while True:
+                try:
+                    # Wait up to 30 seconds for status update
+                    status = client_queue.get(timeout=30)
+                    yield f"data: {json.dumps(status)}\n\n"
+                except queue.Empty:
+                    # Send keepalive comment to prevent timeout
+                    yield ": keepalive\n\n"
+        finally:
+            # Cleanup when client disconnects
+            with queues_lock:
+                if client_queue in audio_status_queues:
+                    audio_status_queues.remove(client_queue)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering if behind proxy
+            'Connection': 'keep-alive',
+        }
+    )
 
 @app.route('/api/audio/playback/tracks', methods=['GET'])
 def get_tracks():
@@ -2251,6 +2274,45 @@ def video_status():
     """Get video playback status"""
     return jsonify(video_playback_controller.get_status())
 
+@app.route('/api/video/playback/events')
+def video_status_stream():
+    """SSE endpoint for real-time video playback status updates"""
+    def generate():
+        # Create queue for this client
+        client_queue = queue.Queue(maxsize=10)
+        with queues_lock:
+            video_status_queues.append(client_queue)
+        
+        try:
+            # Send initial status immediately
+            status = video_playback_controller.get_status()
+            yield f"data: {json.dumps(status)}\n\n"
+            
+            # Stream updates as they arrive
+            while True:
+                try:
+                    # Wait up to 30 seconds for status update
+                    status = client_queue.get(timeout=30)
+                    yield f"data: {json.dumps(status)}\n\n"
+                except queue.Empty:
+                    # Send keepalive comment to prevent timeout
+                    yield ": keepalive\n\n"
+        finally:
+            # Cleanup when client disconnects
+            with queues_lock:
+                if client_queue in video_status_queues:
+                    video_status_queues.remove(client_queue)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering if behind proxy
+            'Connection': 'keep-alive',
+        }
+    )
+
 @app.route('/api/video/playback/tracks', methods=['GET'])
 def video_tracks():
     """Get current video playlist"""
@@ -2487,11 +2549,12 @@ def browse_path():
 # Health check endpoint
 @app.route('/api/health')
 def health_check():
-    """Health check endpoint to verify server is running and WebSocket status"""
+    """Health check endpoint to verify server is running and SSE status"""
     return jsonify({
         'status': 'ok',
-        'websocket_available': SOCKETIO_AVAILABLE,
-        'socketio_initialized': socketio is not None
+        'sse_available': True,
+        'audio_clients': len(audio_status_queues),
+        'video_clients': len(video_status_queues)
     })
 
 # Serve React frontend
@@ -2533,12 +2596,11 @@ def handle_404(e):
 
 @app.errorhandler(400)
 def handle_400(e):
-    """Handle 400 Bad Request errors - often caused by non-HTTP traffic or protocol mismatches"""
-    # Log the error for debugging
-    logger.warning(f"HTTP 400 Bad Request: {e}. This often occurs when non-HTTP traffic (like TLS handshake) is sent to an HTTP server.")
+    """Handle 400 Bad Request errors"""
+    logger.warning(f"HTTP 400 Bad Request: {e}")
     return jsonify({
         'error': 'Bad Request',
-        'message': 'Invalid request. If using WebSocket, ensure the client is connecting to the correct protocol (http:// not https://)'
+        'message': 'Invalid request'
     }), 400
 
 if __name__ == '__main__':
@@ -2550,9 +2612,7 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    # Use socketio.run if available, otherwise fall back to app.run
-    if socketio and SOCKETIO_AVAILABLE:
-        socketio.run(app, host=host, port=port, debug=debug_mode, allow_unsafe_werkzeug=True)
-    else:
-        print("Warning: Running without WebSocket support (flask-socketio not available)")
-        app.run(host=host, port=port, debug=debug_mode)
+    logger.info(f"Starting Media Player server with SSE support on {host}:{port}")
+    logger.info(f"Audio SSE endpoint: /api/audio/playback/events")
+    logger.info(f"Video SSE endpoint: /api/video/playback/events")
+    app.run(host=host, port=port, debug=debug_mode, threaded=True)
