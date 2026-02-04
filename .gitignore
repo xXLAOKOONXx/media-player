@@ -54,6 +54,7 @@ build/
 
 # Project specific
 *.db
+!examples/media_player.db
 *.sqlite
 media_storage/
 config.json

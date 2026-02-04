@@ -22,6 +22,9 @@ from pathlib import Path
 
 def get_app_data_dir():
     """Get platform-specific application data directory"""
+    if app_dir := os.environ.get('MEDIA_PLAYER_APP_DATA_DIR'):
+        if os.path.isdir(app_dir):
+            return app_dir
     if sys.platform == 'win32':
         # Windows: AppData/Local/media-player
         base_dir = os.environ.get('LOCALAPPDATA')
@@ -355,6 +358,9 @@ class DatabaseManager:
         
         conn.commit()
         conn.close()
+        
+        # Initialize default users if they don't exist
+        self._init_default_users()
 
     def get_video_series_season_ids_by_media_id(self, media_id: str) -> tuple[int | None, int | None]:
         """Return (series_id, season_id) for a video media_id, if known."""
@@ -494,9 +500,6 @@ class DatabaseManager:
             return int(row[0])
         except Exception:
             return None
-        
-        # Initialize default users if they don't exist
-        self._init_default_users()
 
     def get_prefered_subtitle_with_presence(
         self, *, user_id: int, scope_type: str, scope_key: str

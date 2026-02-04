@@ -766,6 +766,10 @@ def find_poster_file(video_path: str) -> Optional[str]:
     if os.path.exists(poster_path):
         return poster_path
     
+    thumb_path = base_path + '-thumb.jpg'
+    if os.path.exists(thumb_path):
+        return thumb_path
+    
     return None
 
 

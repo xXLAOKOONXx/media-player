@@ -15,3 +15,14 @@ The Markdown files in `docs/requirements/` describe the **current implemented UI
 ## UI Guidance
 
 When adding or modifying UI components, follow the guidelines in `docs/ui-guidance/` to maintain consistency.
+
+## PR Description
+
+When submitting a PR that changes user-visible behavior, include a summary of the changes made to the UI and enhance it with screenshots or screen recordings in the PR description. This helps reviewers understand the impact of the changes.
+
+For screenshots you can use `./scripts/generate_screenshots.py` using the uv environment of `backend/`.
+
+## Start App
+
+1. To use the example files of this repository set environment variable `MEDIA_PLAYER_APP_DATA_DIR` to the path of `./examples/`
+2. Run the script `start-dev.sh`

@@ -1,9 +1,0 @@
-#EXTM3U
-#EXTINF:180,Example Artist - Example Song 1
-/mnt/media_1/music/song1.mp3
-#EXTINF:240,Example Artist - Example Song 2
-/mnt/media_1/music/song2.mp3
-#EXTINF:200,Another Artist - Another Song
-/mnt/media_1/music/artist2/track1.mp3
-#EXTINF:220,Third Artist - Great Track
-/mnt/media_1/music/artist3/album1/track.mp3

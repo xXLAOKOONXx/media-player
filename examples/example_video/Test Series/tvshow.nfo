@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<tvshow>
+    <title>The Great Example</title>
+    <userrating>0</userrating>
+    <year>2026</year>
+    <premiered>2026-01-01</premiered>
+    <genre>Nature</genre>
+    <genre>Beauty</genre>
+    <actor>
+        <name>Dragonfly</name>
+    </actor>
+</tvshow>
