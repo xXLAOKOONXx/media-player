@@ -5,6 +5,8 @@ Handles user authentication and authorization
 
 import bcrypt
 import secrets
+import asyncio
+import inspect
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -118,11 +120,11 @@ def require_auth(user_manager):
     """Decorator to require authentication"""
     def decorator(f):
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        async def decorated_function(*args, **kwargs):
             # Get session from cookie
             session_id = request.cookies.get('session_id')
             
-            user = user_manager.get_user_from_session(session_id)
+            user = await asyncio.to_thread(user_manager.get_user_from_session, session_id)
             
             if not user:
                 return jsonify({'error': 'Authentication required'}), 401
@@ -130,7 +132,7 @@ def require_auth(user_manager):
             # Add user to request context
             request.current_user = user
             
-            return f(*args, **kwargs)
+            return await f(*args, **kwargs)
         
         return decorated_function
     return decorator
@@ -140,11 +142,11 @@ def require_admin(user_manager):
     """Decorator to require admin role"""
     def decorator(f):
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        async def decorated_function(*args, **kwargs):
             # Get session from cookie
             session_id = request.cookies.get('session_id')
             
-            user = user_manager.get_user_from_session(session_id)
+            user = await asyncio.to_thread(user_manager.get_user_from_session, session_id)
             
             if not user:
                 return jsonify({'error': 'Authentication required'}), 401
@@ -155,7 +157,7 @@ def require_admin(user_manager):
             # Add user to request context
             request.current_user = user
             
-            return f(*args, **kwargs)
+            return await f(*args, **kwargs)
         
         return decorated_function
     return decorator
