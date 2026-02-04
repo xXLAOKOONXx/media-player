@@ -215,14 +215,7 @@ const VideoPlaylistManager = ({ currentUser }: VideoPlaylistManagerProps) => {
                     .map((item, idx) => (
                       <li
                         key={idx}
-                        onClick={() => {
-                          if (item.is_directory) {
-                            browsePath_fn(item.path);
-                          } else {
-                            setNewFolder({ ...newFolder, path: item.path });
-                            setBrowseItems([]);
-                          }
-                        }}
+                        onClick={() => browsePath_fn(item.path)}
                       >
                         <span className="material-icons">folder</span>
                         {item.name}
