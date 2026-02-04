@@ -12,6 +12,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asgiref"
+version = "3.11.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/40/f03da1264ae8f7cfdbf9146542e5e7e8100a4c66ab48e791df9a03d3f6c0/asgiref-3.11.1.tar.gz", hash = "sha256:5f184dc43b7e763efe848065441eac62229c9f7b0475f41f80e207a114eda4ce", size = 38550, upload-time = "2026-02-03T13:30:14.33Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/0a/a72d10ed65068e115044937873362e6e32fab1b7dce0046aeb224682c989/asgiref-3.11.1-py3-none-any.whl", hash = "sha256:e8667a091e69529631969fd45dc268fa79b99c92c5fcdda727757e52146ec133", size = 24345, upload-time = "2026-02-03T13:30:13.039Z" },
+]
+
+[[package]]
 name = "bcrypt"
 version = "4.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -201,6 +210,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/36/42/015c23096649b908c809c69388a805a571a3bea44362fe87e33fc3afa01f/flask-3.0.0-py3-none-any.whl", hash = "sha256:21128f47e4e3b9d597a3e8521a329bf56909b690fcc3fa3e477725aa81367638", size = 99724, upload-time = "2023-09-30T14:36:10.961Z" },
 ]
 
+[package.optional-dependencies]
+async = [
+    { name = "asgiref" },
+]
+
 [[package]]
 name = "flask-socketio"
 version = "5.3.6"
@@ -335,7 +349,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bcrypt" },
-    { name = "flask" },
+    { name = "flask", extra = ["async"] },
     { name = "flask-socketio" },
     { name = "mutagen" },
     { name = "pygame" },
@@ -364,7 +378,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "==4.1.2" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "flask", specifier = "==3.0.0" },
+    { name = "flask", extras = ["async"], specifier = "==3.0.0" },
     { name = "flask-socketio", specifier = "==5.3.6" },
     { name = "mutagen", specifier = "==1.47.0" },
     { name = "playwright", marker = "extra == 'screenshots'", specifier = ">=1.40.0" },
