@@ -2378,7 +2378,7 @@ async def play_single_video():
     Expects JSON: { "media_id": "<sha256>" }
     """
     data = request.get_json(silent=True) or {}
-    await asyncio.to_thread(_apply_video_playback_user_context_from_session)
+    _apply_video_playback_user_context_from_session()
     media_id, err = _require_media_id(data.get('media_id'))
     if err:
         return err
@@ -2405,7 +2405,7 @@ async def stream_video_by_id(media_id):
 
     directory = os.path.dirname(video_path)
     filename = os.path.basename(video_path)
-    return await asyncio.to_thread(send_from_directory, directory, filename)
+    return send_from_directory(directory, filename)
 
 
 @app.route('/api/video/stream/<path:video_path>')
@@ -2573,18 +2573,18 @@ async def health_check():
 @app.route('/')
 async def serve_index():
     """Serve index.html for root path"""
-    return await asyncio.to_thread(send_from_directory, static_folder, 'index.html')
+    return send_from_directory(static_folder, 'index.html')
 
 # Serve static assets (JS, CSS, images)
 @app.route('/assets/<path:filename>')
 async def serve_assets(filename):
     """Serve static assets"""
-    return await asyncio.to_thread(send_from_directory, os.path.join(static_folder, 'assets'), filename)
+    return send_from_directory(os.path.join(static_folder, 'assets'), filename)
 
 @app.route('/favicon.svg')
 async def serve_favicon():
     """Serve favicon"""
-    return await asyncio.to_thread(send_from_directory, static_folder, 'favicon.svg')
+    return send_from_directory(static_folder, 'favicon.svg')
 
 @app.errorhandler(404)
 def handle_404(e):
