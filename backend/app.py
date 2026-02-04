@@ -2122,7 +2122,7 @@ async def video_play():
     track_index = data.get('track_index', 0)
     
     if playlist_path:
-        success = video_playback_controller.load_playlist(playlist_path, track_index)
+        success = await asyncio.to_thread(video_playback_controller.load_playlist, playlist_path, track_index)
         if not success:
             return jsonify({'error': 'Failed to load playlist'}), 400
     
@@ -2138,19 +2138,19 @@ async def video_pause():
 @app.route('/api/video/playback/stop', methods=['POST'])
 async def video_stop():
     """Stop video playback"""
-    video_playback_controller.stop_and_clear_playlist()
+    await asyncio.to_thread(video_playback_controller.stop_and_clear_playlist)
     return jsonify({'status': 'stopped'})
 
 @app.route('/api/video/playback/next', methods=['POST'])
 async def video_next():
     """Skip to next video"""
-    video_playback_controller.next_track()
+    await asyncio.to_thread(video_playback_controller.next_track)
     return jsonify({'status': 'ok'})
 
 @app.route('/api/video/playback/previous', methods=['POST'])
 async def video_previous():
     """Skip to previous video"""
-    video_playback_controller.previous_track()
+    await asyncio.to_thread(video_playback_controller.previous_track)
     return jsonify({'status': 'ok'})
 
 @app.route('/api/video/playback/volume', methods=['POST'])
@@ -2328,7 +2328,7 @@ def video_status_stream():
 @app.route('/api/video/playback/tracks', methods=['GET'])
 async def video_tracks():
     """Get current video playlist"""
-    return jsonify(video_playback_controller.get_playlist())
+    return jsonify(await asyncio.to_thread(video_playback_controller.get_playlist))
 
 @app.route('/api/video/playback/tracks/<int:track_index>/times', methods=['PUT'])
 async def update_video_track_times(track_index):
@@ -2378,16 +2378,16 @@ async def play_single_video():
     Expects JSON: { "media_id": "<sha256>" }
     """
     data = request.get_json(silent=True) or {}
-    _apply_video_playback_user_context_from_session()
+    await asyncio.to_thread(_apply_video_playback_user_context_from_session)
     media_id, err = _require_media_id(data.get('media_id'))
     if err:
         return err
 
-    video_path = _resolve_video_path_from_media_id(media_id)
+    video_path = await asyncio.to_thread(_resolve_video_path_from_media_id, media_id)
     if not video_path:
         return jsonify({'error': 'media_id not found'}), 404
 
-    if not video_playback_controller.play_single_video(video_path):
+    if not await asyncio.to_thread(video_playback_controller.play_single_video, video_path):
         return jsonify({'error': 'Video not found or failed to start playback'}), 404
 
     return jsonify({'status': 'playing'})
@@ -2399,13 +2399,13 @@ async def stream_video_by_id(media_id):
     if err:
         return err
 
-    video_path = _resolve_video_path_from_media_id(media_id)
+    video_path = await asyncio.to_thread(_resolve_video_path_from_media_id, media_id)
     if not video_path or not await asyncio.to_thread(os.path.exists, video_path):
         return jsonify({'error': 'Video not found'}), 404
 
     directory = os.path.dirname(video_path)
     filename = os.path.basename(video_path)
-    return send_from_directory(directory, filename)
+    return await asyncio.to_thread(send_from_directory, directory, filename)
 
 
 @app.route('/api/video/stream/<path:video_path>')
@@ -2414,7 +2414,7 @@ async def stream_video(video_path):
     # Reject path-like values explicitly.
     if any(sep in video_path for sep in ('/', '\\', ':')):
         return jsonify({'error': 'This endpoint no longer accepts file paths. Use /api/video/stream/by-id/<media_id>.'}), 400
-    return stream_video_by_id(video_path)
+    return await stream_video_by_id(video_path)
 
 @app.route('/api/video/thumbnail/<path:video_path>')
 async def get_video_thumbnail(video_path):
@@ -2468,7 +2468,7 @@ async def get_video_thumbnail_from_body():
 @require_auth(user_manager)
 async def get_video_thumbnail_by_id(media_id: str):
     """Get thumbnail for a video file by its stable cache identifier."""
-    thumbnail_data, mime_type = db.get_video_thumbnail_by_media_id(media_id)
+    thumbnail_data, mime_type = await asyncio.to_thread(db.get_video_thumbnail_by_media_id, media_id)
 
     if thumbnail_data is None:
         return jsonify({'error': 'Thumbnail not found'}), 404
@@ -2484,7 +2484,7 @@ async def get_video_thumbnail_by_id(media_id: str):
 @require_auth(user_manager)
 async def get_video_artwork_thumbnail_by_id(art_id: str):
     """Get thumbnail for a Series/Season poster by its stable art_id."""
-    thumbnail_data, mime_type = db.get_video_artwork_thumbnail(art_id)
+    thumbnail_data, mime_type = await asyncio.to_thread(db.get_video_artwork_thumbnail, art_id)
 
     if thumbnail_data is None:
         return jsonify({'error': 'Thumbnail not found'}), 404
@@ -2573,18 +2573,18 @@ async def health_check():
 @app.route('/')
 async def serve_index():
     """Serve index.html for root path"""
-    return send_from_directory(static_folder, 'index.html')
+    return await asyncio.to_thread(send_from_directory, static_folder, 'index.html')
 
 # Serve static assets (JS, CSS, images)
 @app.route('/assets/<path:filename>')
 async def serve_assets(filename):
     """Serve static assets"""
-    return send_from_directory(os.path.join(static_folder, 'assets'), filename)
+    return await asyncio.to_thread(send_from_directory, os.path.join(static_folder, 'assets'), filename)
 
 @app.route('/favicon.svg')
 async def serve_favicon():
     """Serve favicon"""
-    return send_from_directory(static_folder, 'favicon.svg')
+    return await asyncio.to_thread(send_from_directory, static_folder, 'favicon.svg')
 
 @app.errorhandler(404)
 def handle_404(e):
