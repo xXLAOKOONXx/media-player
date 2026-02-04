@@ -204,24 +204,40 @@ const VideoPlaylistManager = ({ currentUser }: VideoPlaylistManagerProps) => {
             </div>
             {browseItems.length > 0 && (
               <div className="browse-results">
-                <p><strong>Current: {browsePath}</strong></p>
-                <div className="browse-items">
-                  {browseItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="browse-item"
-                      onClick={() => {
-                        if (item.is_directory) {
-                          browsePath_fn(item.path);
-                        } else {
-                          setNewFolder({ ...newFolder, path: item.path });
-                        }
-                      }}
-                    >
-                      {item.is_directory ? '📁' : item.is_playlist ? '🎵' : '📄'} {item.name}
-                    </div>
-                  ))}
-                </div>
+                <h4>Current Path: {browsePath}</h4>
+                <ul>
+                  <li onClick={() => browsePath_fn(browsePath + '/..')}>
+                    <span className="material-icons">folder</span>
+                    ..
+                  </li>
+                  {browseItems
+                    .filter(item => item.is_directory)
+                    .map((item, idx) => (
+                      <li
+                        key={idx}
+                        onClick={() => {
+                          if (item.is_directory) {
+                            browsePath_fn(item.path);
+                          } else {
+                            setNewFolder({ ...newFolder, path: item.path });
+                            setBrowseItems([]);
+                          }
+                        }}
+                      >
+                        <span className="material-icons">folder</span>
+                        {item.name}
+                      </li>
+                    ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewFolder({ ...newFolder, path: browsePath });
+                    setBrowseItems([]);
+                  }}
+                >
+                  Select Current Folder
+                </button>
               </div>
             )}
             <button type="submit" className="btn btn-primary">Add Video Playlist Folder</button>
