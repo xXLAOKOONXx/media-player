@@ -1,7 +1,7 @@
 [project]
 name = "media-player-backend"
 version = "0.1.0"
-description = "Media Player Backend for Raspberry Pi"
+description = "Media Player Backend containing frontend"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "flask[async]==3.0.0",
@@ -11,6 +11,7 @@ dependencies = [
     "mutagen==1.47.0",
     "python-mpv==1.0.7",
     "bcrypt==4.1.2",
+    "werkzeug>=3.1.5",
 ]
 
 [project.optional-dependencies]
