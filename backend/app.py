@@ -2126,13 +2126,13 @@ async def video_play():
         if not success:
             return jsonify({'error': 'Failed to load playlist'}), 400
     
-    await asyncio.to_thread(video_playback_controller.play())
+    await asyncio.to_thread(video_playback_controller.play)
     return jsonify({'status': 'playing'})
 
 @app.route('/api/video/playback/pause', methods=['POST'])
 async def video_pause():
     """Pause video playback"""
-    await asyncio.to_thread(video_playback_controller.pause())
+    await asyncio.to_thread(video_playback_controller.pause)
     return jsonify({'status': 'paused'})
 
 @app.route('/api/video/playback/stop', methods=['POST'])
@@ -2158,7 +2158,7 @@ async def video_volume():
     """Set video volume"""
     data = request.json
     volume = data.get('volume', 50)
-    await asyncio.to_thread(video_playback_controller.set_volume(volume))
+    await asyncio.to_thread(video_playback_controller.set_volume, volume)
     return jsonify({'volume': volume})
 
 @app.route('/api/video/playback/shuffle', methods=['POST'])
@@ -2166,7 +2166,7 @@ async def video_shuffle():
     """Toggle shuffle mode"""
     data = request.json
     enabled = data.get('enabled', False)
-    await asyncio.to_thread(video_playback_controller.set_shuffle(enabled))
+    await asyncio.to_thread(video_playback_controller.set_shuffle, enabled)
     return jsonify({'shuffle': enabled})
 
 @app.route('/api/video/playback/repeat', methods=['POST'])
@@ -2174,7 +2174,7 @@ async def video_repeat():
     """Set repeat mode"""
     data = request.json
     mode = data.get('mode', 'none')
-    await asyncio.to_thread(video_playback_controller.set_repeat_mode(mode))
+    await asyncio.to_thread(video_playback_controller.set_repeat_mode, mode)
     return jsonify({'repeat_mode': mode})
 
 
@@ -2186,7 +2186,7 @@ async def video_audio_track():
     if track_id is None:
         return jsonify({'error': 'track_id is required'}), 400
 
-    if not await asyncio.to_thread(video_playback_controller.set_audio_track(track_id)):
+    if not await asyncio.to_thread(video_playback_controller.set_audio_track, track_id):
         return jsonify({'error': 'Invalid track_id'}), 400
 
     return jsonify({'success': True, 'track_id': int(track_id)})
@@ -2200,7 +2200,7 @@ async def video_subtitle_track():
     if track_id is None:
         return jsonify({'error': 'track_id is required'}), 400
 
-    if not await asyncio.to_thread(video_playback_controller.set_subtitle_track(track_id)):
+    if not await asyncio.to_thread(video_playback_controller.set_subtitle_track, track_id):
         return jsonify({'error': 'Invalid track_id'}), 400
 
     return jsonify({'success': True, 'track_id': int(track_id)})
@@ -2221,7 +2221,7 @@ async def video_save_default_channels():
     if not isinstance(user_id, int):
         return jsonify({'error': 'Invalid user'}), 400
 
-    status = await asyncio.to_thread(video_playback_controller.get_status()) or {}
+    status = await asyncio.to_thread(video_playback_controller.get_status) or {}
     current_track = status.get('current_track') or {}
     media_id = current_track.get('media_id')
     if not isinstance(media_id, str) or not media_id.strip():
@@ -2278,7 +2278,7 @@ async def video_seek():
     """Seek to position in video"""
     data = request.json
     position = data.get('position', 0)
-    await asyncio.to_thread(video_playback_controller.seek(position))
+    await asyncio.to_thread(video_playback_controller.seek, position)
     return jsonify({'position': position})
 
 @app.route('/api/video/playback/status', methods=['GET'])
