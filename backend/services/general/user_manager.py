@@ -6,7 +6,6 @@ Handles user authentication and authorization
 import bcrypt
 import secrets
 import asyncio
-import inspect
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
