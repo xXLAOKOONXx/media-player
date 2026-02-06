@@ -26,6 +26,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Install system dependencies (mpv and ffmpeg) required for video processing
+      - name: Install mpv and ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mpv ffmpeg
+
       # Set up Python 3.13 as required by the project
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
