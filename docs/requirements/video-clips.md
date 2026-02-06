@@ -28,17 +28,23 @@ Shows:
 
 UI:
 - Shows the current clips folder path
-- **Edit** button to change the folder path
-- When editing:
-  - Text input for new folder path
+- **Edit** button to change the folder path (visible only to admin users)
+- When clicking Edit:
+  - Opens a modal dialog with folder browser
+  - Text input for folder path
+  - **Browse** button to open folder navigation
+  - Folder browser shows current path and list of directories
+  - **Select Current Folder** button to choose the displayed path
   - **Save** button to save the new path
-  - **Cancel** button to cancel editing
+  - **Cancel** button to close without saving
 
 Behavior:
 - GET `/api/video/clips/folder` to retrieve current folder path
-- PUT `/api/video/clips/folder` with `{ "folder": "<path>" }` to update folder path
+- PUT `/api/video/clips/folder` with `{ "folder": "<path>" }` to update folder path (requires admin authentication)
 - The backend creates the folder if it doesn't exist
 - Default folder is `<app_data_dir>/clips`
+- Only admin users can modify the clips folder path
+- Non-admin users can view the folder path but cannot edit it
 
 ## Clips List Card
 
@@ -160,7 +166,7 @@ Behavior:
 - **PUT** `/api/video/clips/folder`
 - Body: `{ "folder": "<path>" }`
 - Response: `{ "success": true, "folder": "<path>" }`
-- Authentication: Required
+- Authentication: Required (admin only)
 
 ## Database Schema
 
@@ -211,12 +217,12 @@ Features:
 ## Error Handling
 
 Backend errors are logged to console and displayed to user:
-- "No video currently playing" (400)
+- "No video currently playing" (400) - Occurs when Create Clip is clicked without an active video
 - "Source video file not found" (404)
 - "Failed to create clip" (500)
 - "ffmpeg is not available" (500)
 
-Frontend displays error messages inline for 5 seconds.
+Frontend displays error messages inline for 5 seconds with detailed error descriptions.
 
 ## Security
 
@@ -224,3 +230,5 @@ Frontend displays error messages inline for 5 seconds.
 - Clip files are served through authenticated endpoints only
 - User can only see their own clips (filter by user_id)
 - File paths are validated to prevent path traversal
+- **Clips folder configuration requires admin role**
+- Non-admin users can view but not modify the clips folder path
