@@ -336,3 +336,41 @@
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+.video-player-clip-btn {
+  font-size: 1.5rem;
+}
+
+.clip-message {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.clip-message.success {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  color: #a5d6a7;
+}
+
+.clip-message.error {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  color: #ef9a9a;
+}
+
+@media (max-width: 768px) {
+  .video-player-time-btn-label {
+    display: none;
+  }
+  
+  .video-player-title-actions {
+    gap: 0.25rem;
+  }
+  
+  .video-player-like-btn {
+    padding: 0.5rem;
+  }
+}

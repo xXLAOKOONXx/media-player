@@ -1,0 +1,249 @@
+.clips-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.clips-header {
+  padding: 1.5rem;
+}
+
+.clips-header h2 {
+  margin-bottom: 0.5rem;
+}
+
+.clips-description {
+  color: #9d9d9d;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.clips-folder-section {
+  background: rgba(157, 157, 157, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.clips-folder-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.clips-folder-info .material-icons {
+  color: #9d9d9d;
+}
+
+.clips-folder-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.clips-folder-path {
+  color: #9d9d9d;
+  font-family: monospace;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clips-folder-input {
+  flex: 1;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(157, 157, 157, 0.3);
+  border-radius: 4px;
+  color: #dfdfdf;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.clips-folder-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.clips-list {
+  padding: 1.5rem;
+}
+
+.clips-list h3 {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clips-loading,
+.clips-error,
+.clips-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #9d9d9d;
+}
+
+.clips-loading .material-icons,
+.clips-error .material-icons,
+.clips-empty .material-icons {
+  font-size: 3rem;
+  display: block;
+  margin: 0 auto 1rem;
+  opacity: 0.5;
+}
+
+.clips-error {
+  color: #ef9a9a;
+}
+
+.clips-error .material-icons {
+  color: #ef9a9a;
+}
+
+.clips-empty-hint {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .clips-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clip-card {
+  background: rgba(157, 157, 157, 0.1);
+  border: 1px solid rgba(157, 157, 157, 0.2);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.clip-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.clip-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.clip-icon {
+  color: #5a6c7d;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.clip-title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.clip-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: #dfdfdf;
+  word-break: break-word;
+}
+
+.clip-series {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #9d9d9d;
+  background: rgba(157, 157, 157, 0.15);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.clip-series .material-icons {
+  font-size: 0.9rem;
+}
+
+.clip-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #9d9d9d;
+}
+
+.clip-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clip-detail-row .material-icons {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.clip-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(157, 157, 157, 0.2);
+}
+
+.clip-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.clip-actions .btn .material-icons {
+  font-size: 1.1rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.btn-danger {
+  background-color: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  color: #ef9a9a;
+}
+
+.btn-danger:hover {
+  background-color: rgba(244, 67, 54, 0.3);
+  border-color: rgba(244, 67, 54, 0.7);
+}
