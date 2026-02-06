@@ -177,8 +177,9 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        setClipMessage(`Failed to create clip: ${error}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Failed to create clip';
+        setClipMessage(`Failed to create clip: ${errorMessage}`);
         setTimeout(() => setClipMessage(null), 5000);
         return;
       }
@@ -189,7 +190,7 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
       console.log('Clip created:', result);
     } catch (err) {
       console.error('Error creating clip:', err);
-      setClipMessage('Failed to create clip');
+      setClipMessage('Failed to create clip: Network error');
       setTimeout(() => setClipMessage(null), 5000);
     } finally {
       setIsCreatingClip(false);
