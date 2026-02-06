@@ -33,6 +33,7 @@ When a `current_track` exists:
 - Show a **pause** indicator icon when `status.is_paused` is true.
 - Show **Set music_start** and **Set music_end** buttons in the Now Playing title row.
 - Show a **Like/Rate** button (icon `thumb_up`) in the Now Playing title row.
+- Show a **Create Clip** button (icon `content_cut`) in the Now Playing title row.
 - Conditionally show:
   - Custom Range line if either `current_track.start_time` or `current_track.end_time` is not null.
 
@@ -69,6 +70,30 @@ Notes:
   - `----:LAO:music-start` (milliseconds) → `current_track.start_time` (seconds)
   - `----:LAO:music-end` (milliseconds) → `current_track.end_time` (seconds)
 - If `current_track.end_time` is set, the backend auto-advances to the next video when the playback position reaches that end time.
+
+### Create Clip
+
+UI:
+- A button is shown in the Now Playing title row with a scissors icon (`content_cut`).
+- Button shows hourglass icon (`hourglass_empty`) while creating clip.
+- Button is disabled when `current_track.media_id` is missing or clip is being created.
+- Button has adequate touch target size for mobile users.
+
+Behavior:
+- Clicking **Create Clip** sends:
+  - POST `/api/video/clips/create` with an empty body.
+- The backend creates a 60-second MP4 clip of the previous 60 seconds from the current playback position.
+- The clip uses the same audio and subtitle tracks as currently selected in the player.
+- The backend embeds a thumbnail in the MP4 file.
+- Metadata is added to the clip file including source video info and series name (if applicable).
+- A success message "Clip created successfully!" is shown for 5 seconds.
+- An error message is shown for 5 seconds if creation fails.
+- Clips are stored in a configurable folder (see Video Clips tab in `video-clips.md`).
+- Clip metadata is stored in the `video_clips` database table.
+
+Notes:
+- This feature requires ffmpeg to be installed and available in the system PATH.
+- The clip is created from (current_position - 60) to current_position, capped at video start (0 seconds).
 
 ### Progress + seeking
 

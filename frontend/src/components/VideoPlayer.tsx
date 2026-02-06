@@ -17,6 +17,8 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState<number>(0);
   const [detailsVideo, setDetailsVideo] = useState<any>(null);
+  const [isCreatingClip, setIsCreatingClip] = useState(false);
+  const [clipMessage, setClipMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isRatingModalOpen) return;
@@ -162,6 +164,38 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
       setIsSavingMusicPoint(null);
     }
   };
+
+  const createClip = async () => {
+    setIsCreatingClip(true);
+    setClipMessage(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/video/clips/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Failed to create clip';
+        setClipMessage(`Failed to create clip: ${errorMessage}`);
+        setTimeout(() => setClipMessage(null), 5000);
+        return;
+      }
+
+      const result = await response.json();
+      setClipMessage('Clip created successfully!');
+      setTimeout(() => setClipMessage(null), 5000);
+      console.log('Clip created:', result);
+    } catch (err) {
+      console.error('Error creating clip:', err);
+      setClipMessage('Failed to create clip: Network error');
+      setTimeout(() => setClipMessage(null), 5000);
+    } finally {
+      setIsCreatingClip(false);
+    }
+  };
   
   // Calculate progress percentage
   const progressPercent = effectiveDuration && currentPos ? 
@@ -223,8 +257,24 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
             >
               <span className="material-icons">thumb_up</span>
             </button>
+
+            <button
+              type="button"
+              className="video-player-like-btn video-player-clip-btn"
+              onClick={createClip}
+              disabled={!current_track?.media_id || isCreatingClip}
+              title={!current_track?.media_id ? 'Missing media_id' : 'Create 60s clip from last minute'}
+              aria-label="Create clip"
+            >
+              <span className="material-icons">{isCreatingClip ? 'hourglass_empty' : 'content_cut'}</span>
+            </button>
           </div>
         </div>
+        {clipMessage && (
+          <div className={`clip-message ${clipMessage.includes('success') ? 'success' : 'error'}`}>
+            {clipMessage}
+          </div>
+        )}
         <div className="track-details">
           {current_track.artist && (
             <p className="track-artist"><span className="material-icons">person</span> {current_track.artist}</p>

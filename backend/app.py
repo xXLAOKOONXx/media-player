@@ -45,6 +45,7 @@ from services.audio.audio_metadata import display_title, read_audio_metadata
 from services.video.video_playback_controller import VideoPlaybackController
 from services.video.video_manager import VideoManager
 from services.video.video_metadata import find_nfo_file
+from services.video.clip_manager import ClipManager
 from services.video.video_metadata import (
     update_nfo_user_rating_and_tags,
     update_mp4_user_rating_and_tags,
@@ -224,6 +225,9 @@ video_playback_controller = VideoPlaybackController(
     db_manager=db,
     status_callback=broadcast_video_status
 )
+
+# Initialize clip manager
+clip_manager = ClipManager(database_manager=db)
 
 
 _MEDIA_ID_RE = re.compile(r'^[0-9a-fA-F]{64}$')
@@ -2496,6 +2500,197 @@ async def get_video_artwork_thumbnail_by_id(art_id: str):
     )
 
 
+# Clip Management APIs
+@app.route('/api/video/clips/create', methods=['POST'])
+@require_auth(user_manager)
+async def create_clip():
+    """Create a 60-second clip from the current playback position"""
+    _apply_video_playback_user_context_from_session()
+    
+    data = request.json or {}
+    
+    # Get current playback status
+    status = video_playback_controller.get_status()
+    
+    # Add detailed logging for debugging
+    logger.info(f"Clip creation request - Status: {status is not None}")
+    if status:
+        logger.info(f"Status keys: {list(status.keys())}")
+        logger.info(f"Current track: {status.get('current_track')}")
+        logger.info(f"Is playing: {status.get('is_playing')}")
+    
+    if not status:
+        logger.error("Clip creation failed: status is None")
+        return jsonify({'error': 'Playback status unavailable'}), 400
+    
+    if not status.get('current_track'):
+        logger.error("Clip creation failed: current_track is None")
+        return jsonify({'error': 'No video currently playing'}), 400
+    
+    current_track = status['current_track']
+    current_position = status.get('current_position', 0)
+    
+    logger.info(f"Current track keys: {list(current_track.keys())}")
+    logger.info(f"Current position: {current_position}")
+    
+    # Get source video info
+    source_media_id = current_track.get('media_id')
+    source_file_path = current_track.get('path') or current_track.get('file_path')
+    
+    logger.info(f"Source media_id: {source_media_id}")
+    logger.info(f"Source file_path: {source_file_path}")
+    
+    if not source_file_path:
+        logger.error("Clip creation failed: source_file_path is None")
+        return jsonify({'error': 'Video file path not available'}), 400
+    
+    if not os.path.exists(source_file_path):
+        logger.error(f"Clip creation failed: file does not exist: {source_file_path}")
+        return jsonify({'error': 'Source video file not found on disk'}), 404
+    
+    # Get series name if part of series
+    source_series_name = None
+    if source_media_id:
+        video_info = await asyncio.to_thread(db.get_video_by_media_id, source_media_id)
+        series_id, season_id = await asyncio.to_thread(db.get_video_series_season_ids_by_media_id, source_media_id)
+        if series_id:
+            series_info = await asyncio.to_thread(db.get_series_by_id, series_id)
+            source_series_name = series_info.get('title')
+    
+    # Get current audio and subtitle track IDs
+    audio_track_id = status.get('current_audio_track_id')
+    audio_tracks = status.get('audio_tracks', [])
+    audio_track_index = None
+    for idx, track in enumerate(audio_tracks):
+        if track.get('id') == audio_track_id:
+            audio_track_index = idx
+            break
+
+    subtitle_track_id = status.get('current_subtitle_track_id')
+    subtitle_tracks = status.get('subtitle_tracks', [])
+    subtitle_track_index = None
+    for idx, track in enumerate(subtitle_tracks):
+        if track.get('id') == subtitle_track_id:
+            subtitle_track_index = idx
+            break
+
+    
+    # Get user ID
+    user_id = video_playback_controller.current_user_id
+    
+    logger.info(f"Creating clip from {source_file_path} at position {current_position}")
+    
+    # Create clip asynchronously
+    clip_info = await asyncio.to_thread(
+        clip_manager.create_clip,
+        source_file_path,
+        current_position,
+        60.0,  # 60 second duration
+        source_media_id,
+        source_series_name,
+        user_id,
+        audio_track_index,
+        subtitle_track_index
+    )
+    
+    if not clip_info:
+        logger.error("Clip creation failed: clip_manager.create_clip returned None")
+        return jsonify({'error': 'Failed to create clip'}), 500
+    
+    logger.info(f"Clip created successfully: {clip_info.get('clip_file_name')}")
+    return jsonify(clip_info), 201
+
+
+@app.route('/api/video/clips', methods=['GET'])
+@require_auth(user_manager)
+async def list_clips():
+    """List all clips"""
+    _apply_video_playback_user_context_from_session()
+    
+    # Get user_id from query param, or use current user
+    user_id_param = request.args.get('user_id')
+    
+    if user_id_param:
+        try:
+            user_id = int(user_id_param)
+        except ValueError:
+            return jsonify({'error': 'Invalid user_id'}), 400
+    else:
+        user_id = video_playback_controller.current_user_id
+    
+    clips = await asyncio.to_thread(clip_manager.list_clips, user_id)
+    
+    return jsonify({'clips': clips}), 200
+
+
+@app.route('/api/video/clips/<string:clip_media_id>', methods=['GET'])
+@require_auth(user_manager)
+async def get_clip(clip_media_id: str):
+    """Get clip metadata by media ID"""
+    clip = await asyncio.to_thread(clip_manager.get_clip, clip_media_id)
+    
+    if not clip:
+        return jsonify({'error': 'Clip not found'}), 404
+    
+    return jsonify(clip), 200
+
+
+@app.route('/api/video/clips/<string:clip_media_id>', methods=['DELETE'])
+@require_auth(user_manager)
+async def delete_clip(clip_media_id: str):
+    """Delete a clip"""
+    success = await asyncio.to_thread(clip_manager.delete_clip, clip_media_id)
+    
+    if not success:
+        return jsonify({'error': 'Failed to delete clip or clip not found'}), 404
+    
+    return jsonify({'success': True}), 200
+
+
+@app.route('/api/video/clips/folder', methods=['GET'])
+@require_auth(user_manager)
+async def get_clips_folder():
+    """Get clips folder path"""
+    folder = await asyncio.to_thread(clip_manager.get_clips_folder)
+    return jsonify({'folder': folder}), 200
+
+
+@app.route('/api/video/clips/folder', methods=['PUT'])
+@require_admin(user_manager)
+async def set_clips_folder():
+    """Set clips folder path"""
+    data = request.json
+    folder_path = data.get('folder')
+    
+    if not folder_path:
+        return jsonify({'error': 'folder path is required'}), 400
+    
+    success = await asyncio.to_thread(clip_manager.set_clips_folder, folder_path)
+    
+    if not success:
+        return jsonify({'error': 'Failed to set clips folder'}), 500
+    
+    return jsonify({'success': True, 'folder': folder_path}), 200
+
+
+@app.route('/api/video/clips/stream/<string:clip_media_id>')
+@require_auth(user_manager)
+async def stream_clip(clip_media_id: str):
+    """Stream a clip by media ID"""
+    clip = await asyncio.to_thread(clip_manager.get_clip, clip_media_id)
+    
+    if not clip:
+        return jsonify({'error': 'Clip not found'}), 404
+    
+    clip_path = clip.get('clip_file_path')
+    
+    if not clip_path or not os.path.exists(clip_path):
+        return jsonify({'error': 'Clip file not found'}), 404
+    
+    # Stream the clip file
+    return send_file(clip_path, mimetype='video/mp4')
+
+
 def _normalize_media_path_from_url(video_path: str) -> str:
     """Normalize a media path coming from a Flask <path:...> URL segment.
 
@@ -2587,7 +2782,7 @@ async def serve_favicon():
     return send_from_directory(static_folder, 'favicon.svg')
 
 @app.errorhandler(404)
-def handle_404(e):
+async def handle_404(e):
     """Handle 404 errors by serving React app or returning JSON for API routes"""
     # Get the request path
     path = request.path
@@ -2607,7 +2802,7 @@ def handle_404(e):
         }), 404
 
 @app.errorhandler(400)
-def handle_400(e):
+async def handle_400(e):
     """Handle 400 Bad Request errors"""
     logger.warning(f"HTTP 400 Bad Request: {e}")
     return jsonify({

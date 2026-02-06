@@ -9,6 +9,7 @@ import VideoPlaybackControls from '../components/VideoPlaybackControls';
 import SettingsManager from '../components/SettingsManager';
 import VideoExplorer from '../components/VideoExplorer';
 import VideoSeries from '../components/VideoSeries';
+import ClipsManager from '../components/ClipsManager';
 import PageMenu from '../components/PageMenu';
 import { useSSEStatus } from '../hooks/useSSEStatus';
 import { useInterpolatedPosition } from '../hooks/useInterpolatedPosition';
@@ -32,11 +33,12 @@ function VideoPage({ currentUser }: VideoPageProps) {
     if (path.includes('/player')) return 'player';
     if (path.includes('/playlists')) return 'playlists';
     if (path.includes('/library')) return 'library';
+    if (path.includes('/clips')) return 'clips';
     if (path.includes('/settings')) return 'settings';
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer' | 'series'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer' | 'series' | 'clips'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -77,6 +79,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
       <PageMenu
         items={[
           { key: 'player', label: 'Player' },
+          { key: 'clips', label: 'Clips' },
           { key: 'series', label: 'Series' },
           { key: 'explorer', label: 'Explorer' },
           { key: 'playlists', label: 'Playlists' },
@@ -95,6 +98,10 @@ function VideoPage({ currentUser }: VideoPageProps) {
             <VideoPlayer status={interpolatedStatus} />
             <VideoPlaybackControls status={interpolatedStatus} onUpdate={() => {}} />
           </div>
+        )}
+
+        {activeTab === 'clips' && (
+          <ClipsManager currentUser={currentUser} />
         )}
 
         {activeTab === 'explorer' && (
