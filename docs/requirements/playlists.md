@@ -39,10 +39,14 @@ Buttons:
     - Reload playlist folders.
 
 Browse results behavior:
-- Displays “Current: {browsePath}”.
-- Each browse item is clickable:
-  - If `item.is_directory` is true: browse into that directory.
-  - Else: set the Path field to `item.path`.
+- Displays "Current Path: {browsePath}" as a heading.
+- Shows a list of folders with Material Icons:
+  - First item is ".." (parent directory) to navigate up.
+  - Subsequent items are subdirectories only (non-directories are filtered out).
+- Each folder item is clickable: navigates into that directory.
+- **Select Current Folder** button:
+  - Sets the Path field to the current `browsePath`.
+  - Closes the browse results.
 
 ### Folder list
 

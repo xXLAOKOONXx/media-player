@@ -27,29 +27,56 @@
 }
 
 .browse-results {
-  margin: 1rem 0;
-  padding: 1rem;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #707070;
+  border-radius: 4px;
   max-height: 300px;
   overflow-y: auto;
+  border: 1px solid #808080;
 }
 
-.browse-items {
-  margin-top: 0.5rem;
+.browse-results h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #dfdfdf;
 }
 
-.browse-item {
-  padding: 0.5rem;
-  margin: 0.25rem 0;
-  background-color: rgba(255, 255, 255, 0.05);
+.browse-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px 0;
+}
+
+.browse-results li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #dfdfdf;
+}
+
+.browse-results li:hover {
+  background-color: #606060;
+}
+
+.browse-results .material-icons {
+  color: #9d9d9d;
+}
+
+.browse-results button {
+  padding: 8px 16px;
+  background-color: #4a5568;
+  color: #dfdfdf;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
-.browse-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.browse-results button:hover {
+  background-color: #5a6c7d;
 }
 
 .folders-list {
