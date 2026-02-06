@@ -173,7 +173,7 @@ const VideoPlayer = ({ status }: VideoPlayerProps) => {
       const response = await fetch(`${API_BASE_URL}/api/video/clips/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {

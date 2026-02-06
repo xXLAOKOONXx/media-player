@@ -2552,14 +2552,28 @@ async def create_clip():
     source_series_name = None
     if source_media_id:
         video_info = await asyncio.to_thread(db.get_video_by_media_id, source_media_id)
-        if video_info and video_info.get('series_id'):
-            series_info = await asyncio.to_thread(db.get_video_series, video_info['series_id'])
-            if series_info:
-                source_series_name = series_info.get('title')
+        series_id, season_id = await asyncio.to_thread(db.get_video_series_season_ids_by_media_id, source_media_id)
+        if series_id:
+            series_info = await asyncio.to_thread(db.get_series_by_id, series_id)
+            source_series_name = series_info.get('title')
     
     # Get current audio and subtitle track IDs
     audio_track_id = status.get('current_audio_track_id')
+    audio_tracks = status.get('audio_tracks', [])
+    audio_track_index = None
+    for idx, track in enumerate(audio_tracks):
+        if track.get('id') == audio_track_id:
+            audio_track_index = idx
+            break
+
     subtitle_track_id = status.get('current_subtitle_track_id')
+    subtitle_tracks = status.get('subtitle_tracks', [])
+    subtitle_track_index = None
+    for idx, track in enumerate(subtitle_tracks):
+        if track.get('id') == subtitle_track_id:
+            subtitle_track_index = idx
+            break
+
     
     # Get user ID
     user_id = video_playback_controller.current_user_id
@@ -2575,8 +2589,8 @@ async def create_clip():
         source_media_id,
         source_series_name,
         user_id,
-        audio_track_id,
-        subtitle_track_id
+        audio_track_index,
+        subtitle_track_index
     )
     
     if not clip_info:
@@ -2635,9 +2649,9 @@ async def delete_clip(clip_media_id: str):
 
 @app.route('/api/video/clips/folder', methods=['GET'])
 @require_auth(user_manager)
-def get_clips_folder():
+async def get_clips_folder():
     """Get clips folder path"""
-    folder = clip_manager.get_clips_folder()
+    folder = await asyncio.to_thread(clip_manager.get_clips_folder)
     return jsonify({'folder': folder}), 200
 
 
@@ -2768,7 +2782,7 @@ async def serve_favicon():
     return send_from_directory(static_folder, 'favicon.svg')
 
 @app.errorhandler(404)
-def handle_404(e):
+async def handle_404(e):
     """Handle 404 errors by serving React app or returning JSON for API routes"""
     # Get the request path
     path = request.path
@@ -2788,7 +2802,7 @@ def handle_404(e):
         }), 404
 
 @app.errorhandler(400)
-def handle_400(e):
+async def handle_400(e):
     """Handle 400 Bad Request errors"""
     logger.warning(f"HTTP 400 Bad Request: {e}")
     return jsonify({

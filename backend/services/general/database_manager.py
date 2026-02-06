@@ -252,8 +252,8 @@ class DatabaseManager:
                 source_position REAL,
                 created_at REAL NOT NULL,
                 user_id INTEGER,
-                audio_track_id INTEGER,
-                subtitle_track_id INTEGER,
+                audio_track_index INTEGER,
+                subtitle_track_index INTEGER,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
             )
         ''')
@@ -381,6 +381,33 @@ class DatabaseManager:
         
         # Initialize default users if they don't exist
         self._init_default_users()
+
+    def get_series_by_id(self, series_id: int) -> dict | None:
+        """Fetch series info by series_id."""
+        if not isinstance(series_id, int):
+            return None
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('SELECT id, folder_id, full_path, title, user_rating, tags, artists, cover FROM video_series WHERE id = ?', (series_id,))
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            return None
+
+        return {
+            'id': row[0],
+            'folder_id': row[1],
+            'full_path': row[2],
+            'title': row[3],
+            'user_rating': row[4],
+            'tags': json.loads(row[5]) if row[5] else [],
+            'artists': json.loads(row[6]) if row[6] else [],
+            'cover': row[7],
+        }
 
     def get_video_series_season_ids_by_media_id(self, media_id: str) -> tuple[int | None, int | None]:
         """Return (series_id, season_id) for a video media_id, if known."""
@@ -2340,6 +2367,57 @@ class DatabaseManager:
             return cursor.rowcount > 0
         finally:
             conn.close()
+
+    def get_video_by_media_id(self, media_id):
+        """
+        Fetch full cached video info for a single media_id. Throws if media_id is invalid or not found.
+        
+        :param self: DatabaseManager instance
+        :param media_id: id of the media to fetch
+        :return: dict with keys media_id, path, name, title, duration, start_time_in_ms, end_time_in_ms, tags, artist, has_thumbnail, thumbnail_url, description, premiere_date, user_rating
+        """
+        if not isinstance(media_id, str) or not media_id:
+            raise ValueError("Invalid media_id")
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                'SELECT media_id, file_path, file_name, title, duration, start_time_in_ms, end_time_in_ms, tags, artist, thumbnail IS NOT NULL AS has_thumbnail_blob, thumbnail_file, thumbnail_url, description, premiere_date, user_rating FROM videos WHERE media_id = ?',
+                (media_id,),
+            )
+            row = cursor.fetchone()
+        except sqlite3.OperationalError:
+            cursor.execute(
+                'SELECT media_id, file_path, file_name, title, duration, start_time_in_ms, end_time_in_ms, tags, artist FROM videos WHERE media_id = ?',
+                (media_id,),
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            raise ValueError("Media ID not found")
+
+        thumbnail_blob = row[9] if len(row) > 9 else None
+        has_thumbnail = bool(thumbnail_blob) or (row[10] is not None)
+
+        return {
+            'media_id': row[0],
+            'path': os.path.normpath(row[1]) if row[1] else None,
+            'name': row[2],
+            'title': row[3],
+            'duration': row[4],
+            'start_time_in_ms': row[5],
+            'end_time_in_ms': row[6],
+            'tags': json.loads(row[7]) if row[7] else [],
+            'artist': row[8],
+            'has_thumbnail': has_thumbnail,
+            'thumbnail_url': row[11] if len(row) > 11 else None,
+            'description': row[12] if len(row) > 12 else None,
+            'premiere_date': row[13] if len(row) > 13 else None,
+            'user_rating': row[14] if len(row) > 14 else None,
+        }
 
     def get_videos_by_media_ids(self, media_ids):
         """Fetch minimal video info for a set of media_ids.

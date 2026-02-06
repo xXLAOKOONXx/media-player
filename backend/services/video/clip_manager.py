@@ -84,8 +84,8 @@ class ClipManager:
         source_media_id: Optional[str] = None,
         source_series_name: Optional[str] = None,
         user_id: Optional[int] = None,
-        audio_track_id: Optional[int] = None,
-        subtitle_track_id: Optional[int] = None
+        audio_track_index: Optional[int] = None,
+        subtitle_track_index: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Create a video clip using ffmpeg
@@ -97,8 +97,8 @@ class ClipManager:
             source_media_id: Media ID of source video
             source_series_name: Series name if source is part of a series
             user_id: ID of user creating the clip
-            audio_track_id: Audio track ID to use (0-indexed, None for default)
-            subtitle_track_id: Subtitle track ID to use (0-indexed, None for none)
+            audio_track_index: Audio track ID to use (0-indexed, None for default)
+            subtitle_track_index: Subtitle track ID to use (0-indexed, None for none)
             
         Returns:
             Dictionary with clip metadata or None if failed
@@ -136,17 +136,17 @@ class ClipManager:
                 '-c:a', 'aac',  # Audio codec
                 '-b:a', '128k',  # Audio bitrate
             ]
+            cmd.extend(['-map', '0:v:0'])  # Video track
             
             # Add audio track selection if specified
-            if audio_track_id is not None and audio_track_id >= 0:
-                cmd.extend(['-map', '0:v:0'])  # Video track
-                cmd.extend(['-map', f'0:a:{audio_track_id}'])  # Specific audio track
+            if audio_track_index is not None and audio_track_index is not False:
+                cmd.extend(['-map', f'0:a:{audio_track_index}'])  # Specific audio track
             
             # Add subtitle track selection if specified (burn into video)
-            if subtitle_track_id is not None and subtitle_track_id >= 0:
+            if subtitle_track_index is not None and subtitle_track_index is not False:
                 # Note: Burning subtitles requires more complex filter
                 # For now, we'll copy subtitle stream if available
-                cmd.extend(['-map', f'0:s:{subtitle_track_id}?'])  # Optional subtitle
+                cmd.extend(['-map', f'0:s:{subtitle_track_index}?'])  # Optional subtitle
             
             # Add metadata
             metadata = []
@@ -189,13 +189,13 @@ class ClipManager:
                     clip_media_id, source_media_id, source_file_path,
                     source_series_name, clip_file_path, clip_file_name,
                     clip_duration, source_position, created_at,
-                    user_id, audio_track_id, subtitle_track_id
+                    user_id, audio_track_index, subtitle_track_index
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 clip_media_id, source_media_id, source_video_path,
                 source_series_name, clip_path, clip_filename,
                 clip_duration, start_position, time.time(),
-                user_id, audio_track_id, subtitle_track_id
+                user_id, audio_track_index, subtitle_track_index
             ))
             
             conn.commit()
