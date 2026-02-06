@@ -2646,8 +2646,8 @@ async def stream_clip(clip_media_id: str):
     if not clip_path or not os.path.exists(clip_path):
         return jsonify({'error': 'Clip file not found'}), 404
     
-    # Use same streaming logic as regular videos
-    return await send_file(clip_path, mimetype='video/mp4')
+    # Stream the clip file
+    return send_file(clip_path, mimetype='video/mp4')
 
 
 def _normalize_media_path_from_url(video_path: str) -> str:

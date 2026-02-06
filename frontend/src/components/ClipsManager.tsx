@@ -119,17 +119,14 @@ const ClipsManager = () => {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatPosition = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const formatDuration = formatTime;
+  const formatPosition = formatTime;
 
   return (
     <div className="clips-manager">
