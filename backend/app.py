@@ -2512,18 +2512,41 @@ async def create_clip():
     # Get current playback status
     status = video_playback_controller.get_status()
     
-    if not status or not status.get('current_track'):
+    # Add detailed logging for debugging
+    logger.info(f"Clip creation request - Status: {status is not None}")
+    if status:
+        logger.info(f"Status keys: {list(status.keys())}")
+        logger.info(f"Current track: {status.get('current_track')}")
+        logger.info(f"Is playing: {status.get('is_playing')}")
+    
+    if not status:
+        logger.error("Clip creation failed: status is None")
+        return jsonify({'error': 'Playback status unavailable'}), 400
+    
+    if not status.get('current_track'):
+        logger.error("Clip creation failed: current_track is None")
         return jsonify({'error': 'No video currently playing'}), 400
     
     current_track = status['current_track']
     current_position = status.get('current_position', 0)
     
+    logger.info(f"Current track keys: {list(current_track.keys())}")
+    logger.info(f"Current position: {current_position}")
+    
     # Get source video info
     source_media_id = current_track.get('media_id')
     source_file_path = current_track.get('path') or current_track.get('file_path')
     
-    if not source_file_path or not os.path.exists(source_file_path):
-        return jsonify({'error': 'Source video file not found'}), 404
+    logger.info(f"Source media_id: {source_media_id}")
+    logger.info(f"Source file_path: {source_file_path}")
+    
+    if not source_file_path:
+        logger.error("Clip creation failed: source_file_path is None")
+        return jsonify({'error': 'Video file path not available'}), 400
+    
+    if not os.path.exists(source_file_path):
+        logger.error(f"Clip creation failed: file does not exist: {source_file_path}")
+        return jsonify({'error': 'Source video file not found on disk'}), 404
     
     # Get series name if part of series
     source_series_name = None
@@ -2541,6 +2564,8 @@ async def create_clip():
     # Get user ID
     user_id = video_playback_controller.current_user_id
     
+    logger.info(f"Creating clip from {source_file_path} at position {current_position}")
+    
     # Create clip asynchronously
     clip_info = await asyncio.to_thread(
         clip_manager.create_clip,
@@ -2555,8 +2580,10 @@ async def create_clip():
     )
     
     if not clip_info:
+        logger.error("Clip creation failed: clip_manager.create_clip returned None")
         return jsonify({'error': 'Failed to create clip'}), 500
     
+    logger.info(f"Clip created successfully: {clip_info.get('clip_file_name')}")
     return jsonify(clip_info), 201
 
 
