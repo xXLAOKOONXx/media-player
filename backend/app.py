@@ -2520,7 +2520,7 @@ async def create_clip():
     
     # Get source video info
     source_media_id = current_track.get('media_id')
-    source_file_path = current_track.get('file_path')
+    source_file_path = current_track.get('path') or current_track.get('file_path')
     
     if not source_file_path or not os.path.exists(source_file_path):
         return jsonify({'error': 'Source video file not found'}), 404
