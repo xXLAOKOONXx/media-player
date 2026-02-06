@@ -45,6 +45,7 @@ from services.audio.audio_metadata import display_title, read_audio_metadata
 from services.video.video_playback_controller import VideoPlaybackController
 from services.video.video_manager import VideoManager
 from services.video.video_metadata import find_nfo_file
+from services.video.clip_manager import ClipManager
 from services.video.video_metadata import (
     update_nfo_user_rating_and_tags,
     update_mp4_user_rating_and_tags,
@@ -224,6 +225,9 @@ video_playback_controller = VideoPlaybackController(
     db_manager=db,
     status_callback=broadcast_video_status
 )
+
+# Initialize clip manager
+clip_manager = ClipManager(database_manager=db)
 
 
 _MEDIA_ID_RE = re.compile(r'^[0-9a-fA-F]{64}$')
@@ -2494,6 +2498,156 @@ async def get_video_artwork_thumbnail_by_id(art_id: str):
         mimetype=mime_type or 'image/jpeg',
         as_attachment=False
     )
+
+
+# Clip Management APIs
+@app.route('/api/video/clips/create', methods=['POST'])
+@require_auth(user_manager)
+async def create_clip():
+    """Create a 60-second clip from the current playback position"""
+    _apply_video_playback_user_context_from_session()
+    
+    data = request.json or {}
+    
+    # Get current playback status
+    status = video_playback_controller.get_status()
+    
+    if not status or not status.get('current_track'):
+        return jsonify({'error': 'No video currently playing'}), 400
+    
+    current_track = status['current_track']
+    current_position = status.get('current_position', 0)
+    
+    # Get source video info
+    source_media_id = current_track.get('media_id')
+    source_file_path = current_track.get('file_path')
+    
+    if not source_file_path or not os.path.exists(source_file_path):
+        return jsonify({'error': 'Source video file not found'}), 404
+    
+    # Get series name if part of series
+    source_series_name = None
+    if source_media_id:
+        video_info = await asyncio.to_thread(db.get_video_by_media_id, source_media_id)
+        if video_info and video_info.get('series_id'):
+            series_info = await asyncio.to_thread(db.get_video_series, video_info['series_id'])
+            if series_info:
+                source_series_name = series_info.get('title')
+    
+    # Get current audio and subtitle track IDs
+    audio_track_id = status.get('current_audio_track_id')
+    subtitle_track_id = status.get('current_subtitle_track_id')
+    
+    # Get user ID
+    user_id = video_playback_controller.current_user_id
+    
+    # Create clip asynchronously
+    clip_info = await asyncio.to_thread(
+        clip_manager.create_clip,
+        source_file_path,
+        current_position,
+        60.0,  # 60 second duration
+        source_media_id,
+        source_series_name,
+        user_id,
+        audio_track_id,
+        subtitle_track_id
+    )
+    
+    if not clip_info:
+        return jsonify({'error': 'Failed to create clip'}), 500
+    
+    return jsonify(clip_info), 201
+
+
+@app.route('/api/video/clips', methods=['GET'])
+@require_auth(user_manager)
+async def list_clips():
+    """List all clips"""
+    _apply_video_playback_user_context_from_session()
+    
+    # Get user_id from query param, or use current user
+    user_id_param = request.args.get('user_id')
+    
+    if user_id_param:
+        try:
+            user_id = int(user_id_param)
+        except ValueError:
+            return jsonify({'error': 'Invalid user_id'}), 400
+    else:
+        user_id = video_playback_controller.current_user_id
+    
+    clips = await asyncio.to_thread(clip_manager.list_clips, user_id)
+    
+    return jsonify({'clips': clips}), 200
+
+
+@app.route('/api/video/clips/<string:clip_media_id>', methods=['GET'])
+@require_auth(user_manager)
+async def get_clip(clip_media_id: str):
+    """Get clip metadata by media ID"""
+    clip = await asyncio.to_thread(clip_manager.get_clip, clip_media_id)
+    
+    if not clip:
+        return jsonify({'error': 'Clip not found'}), 404
+    
+    return jsonify(clip), 200
+
+
+@app.route('/api/video/clips/<string:clip_media_id>', methods=['DELETE'])
+@require_auth(user_manager)
+async def delete_clip(clip_media_id: str):
+    """Delete a clip"""
+    success = await asyncio.to_thread(clip_manager.delete_clip, clip_media_id)
+    
+    if not success:
+        return jsonify({'error': 'Failed to delete clip or clip not found'}), 404
+    
+    return jsonify({'success': True}), 200
+
+
+@app.route('/api/video/clips/folder', methods=['GET'])
+@require_auth(user_manager)
+def get_clips_folder():
+    """Get clips folder path"""
+    folder = clip_manager.get_clips_folder()
+    return jsonify({'folder': folder}), 200
+
+
+@app.route('/api/video/clips/folder', methods=['PUT'])
+@require_auth(user_manager)
+async def set_clips_folder():
+    """Set clips folder path"""
+    data = request.json
+    folder_path = data.get('folder')
+    
+    if not folder_path:
+        return jsonify({'error': 'folder path is required'}), 400
+    
+    success = await asyncio.to_thread(clip_manager.set_clips_folder, folder_path)
+    
+    if not success:
+        return jsonify({'error': 'Failed to set clips folder'}), 500
+    
+    return jsonify({'success': True, 'folder': folder_path}), 200
+
+
+@app.route('/api/video/clips/stream/<string:clip_media_id>')
+@require_auth(user_manager)
+async def stream_clip(clip_media_id: str):
+    """Stream a clip by media ID"""
+    clip = await asyncio.to_thread(clip_manager.get_clip, clip_media_id)
+    
+    if not clip:
+        return jsonify({'error': 'Clip not found'}), 404
+    
+    clip_path = clip.get('clip_file_path')
+    
+    if not clip_path or not os.path.exists(clip_path):
+        return jsonify({'error': 'Clip file not found'}), 404
+    
+    # Use same streaming logic as regular videos
+    return await send_file(clip_path, mimetype='video/mp4')
 
 
 def _normalize_media_path_from_url(video_path: str) -> str:

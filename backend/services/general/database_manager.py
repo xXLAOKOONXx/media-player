@@ -237,6 +237,26 @@ class DatabaseManager:
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
         ''')
+
+        # Video clips table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_clips (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                clip_media_id TEXT NOT NULL UNIQUE,
+                source_media_id TEXT,
+                source_file_path TEXT,
+                source_series_name TEXT,
+                clip_file_path TEXT NOT NULL UNIQUE,
+                clip_file_name TEXT NOT NULL,
+                clip_duration REAL,
+                source_position REAL,
+                created_at REAL NOT NULL,
+                user_id INTEGER,
+                audio_track_id INTEGER,
+                subtitle_track_id INTEGER,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+            )
+        ''')
         
         # Migrate existing videos table to add new columns if they don't exist
         cursor.execute("PRAGMA table_info(videos)")
