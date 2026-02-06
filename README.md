@@ -39,6 +39,13 @@ A comprehensive media player system designed for Raspberry Pi with network stora
   - Seek to any position
   - Volume control
   - Playlist navigation
+- **Video Clip Creation**: Create 60-second clips from currently playing videos
+  - One-click clip creation from Player tab
+  - Automatically captures the previous 60 seconds
+  - Preserves audio and subtitle tracks
+  - Embedded thumbnails in clip files
+  - Dedicated Clips tab for managing created clips
+  - Requires ffmpeg to be installed
 - **Client-Side Video Rendering**: Videos play directly in the browser using HTML5 video elements
 
 ### General Features
@@ -116,6 +123,7 @@ graph LR
 - Python 3.8 or higher
 - Node.js 14 or higher
 - npm or yarn
+- ffmpeg (optional, required for video clip creation feature)
 
 ### For Raspberry Pi Deployment
 
@@ -123,6 +131,7 @@ graph LR
 - Raspberry Pi OS (formerly Raspbian)
 - HDMI cable connected to audio receiver
 - Network connection (WiFi or Ethernet)
+- ffmpeg (optional, for video clip creation)
 
 ## 🚀 Installation
 
