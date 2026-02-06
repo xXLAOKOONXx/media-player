@@ -101,7 +101,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
         )}
 
         {activeTab === 'clips' && (
-          <ClipsManager />
+          <ClipsManager currentUser={currentUser} />
         )}
 
         {activeTab === 'explorer' && (

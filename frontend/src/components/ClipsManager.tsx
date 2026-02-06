@@ -1,5 +1,6 @@
 import './ClipsManager.css';
 import { useState, useEffect } from 'react';
+import type { User } from '../types';
 
 const API_BASE_URL = '';
 
@@ -19,13 +20,28 @@ interface Clip {
   subtitle_track_id: number;
 }
 
-const ClipsManager = () => {
+interface BrowseItem {
+  name: string;
+  path: string;
+  is_directory: boolean;
+}
+
+interface ClipsManagerProps {
+  currentUser: User;
+}
+
+const ClipsManager = ({ currentUser }: ClipsManagerProps) => {
   const [clips, setClips] = useState<Clip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clipsFolder, setClipsFolder] = useState('');
-  const [isEditingFolder, setIsEditingFolder] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
   const [newFolderPath, setNewFolderPath] = useState('');
+  const [browsePath, setBrowsePath] = useState('/');
+  const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
+  const [isBrowsing, setIsBrowsing] = useState(false);
+
+  const isAdmin = currentUser?.role === 'admin';
 
   useEffect(() => {
     loadClips();
@@ -71,6 +87,25 @@ const ClipsManager = () => {
     }
   };
 
+  const browsePath_fn = async (path: string) => {
+    try {
+      setIsBrowsing(true);
+      const response = await fetch(`${API_BASE_URL}/api/browse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ path })
+      });
+      const data = await response.json();
+      setBrowseItems(data.items || []);
+      setBrowsePath(data.current_path || path);
+    } catch (err) {
+      console.error('Error browsing path:', err);
+    } finally {
+      setIsBrowsing(false);
+    }
+  };
+
   const deleteClip = async (clipMediaId: string) => {
     if (!confirm('Are you sure you want to delete this clip?')) {
       return;
@@ -94,6 +129,18 @@ const ClipsManager = () => {
     }
   };
 
+  const handleOpenFolderModal = () => {
+    setNewFolderPath(clipsFolder);
+    setBrowseItems([]);
+    setShowFolderModal(true);
+  };
+
+  const handleCloseFolderModal = () => {
+    setShowFolderModal(false);
+    setBrowseItems([]);
+    setNewFolderPath(clipsFolder);
+  };
+
   const saveClipsFolder = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/video/clips/folder`, {
@@ -108,7 +155,8 @@ const ClipsManager = () => {
       }
 
       setClipsFolder(newFolderPath);
-      setIsEditingFolder(false);
+      setShowFolderModal(false);
+      setBrowseItems([]);
     } catch (err) {
       console.error('Error updating clips folder:', err);
       alert('Failed to update clips folder');
@@ -140,47 +188,19 @@ const ClipsManager = () => {
           <div className="clips-folder-info">
             <span className="material-icons">folder</span>
             <span className="clips-folder-label">Clips Folder:</span>
-            {isEditingFolder ? (
-              <input
-                type="text"
-                value={newFolderPath}
-                onChange={(e) => setNewFolderPath(e.target.value)}
-                className="clips-folder-input"
-                placeholder="Enter folder path"
-              />
-            ) : (
-              <span className="clips-folder-path">{clipsFolder || 'Not set'}</span>
-            )}
+            <span className="clips-folder-path">{clipsFolder || 'Not set'}</span>
           </div>
-          <div className="clips-folder-actions">
-            {isEditingFolder ? (
-              <>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={saveClipsFolder}
-                >
-                  Save
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setNewFolderPath(clipsFolder);
-                    setIsEditingFolder(false);
-                  }}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
+          {isAdmin && (
+            <div className="clips-folder-actions">
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => setIsEditingFolder(true)}
+                onClick={handleOpenFolderModal}
               >
                 <span className="material-icons">edit</span>
                 Edit
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -268,6 +288,78 @@ const ClipsManager = () => {
           </div>
         )}
       </div>
+
+      {showFolderModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Configure Clips Folder</h3>
+            <form onSubmit={(e) => { e.preventDefault(); saveClipsFolder(); }}>
+              <div className="form-group">
+                <label>Clips Folder Path:</label>
+                <div className="path-input-group">
+                  <input
+                    type="text"
+                    value={newFolderPath}
+                    onChange={(e) => setNewFolderPath(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => browsePath_fn(newFolderPath || '/')}
+                  >
+                    Browse
+                  </button>
+                </div>
+              </div>
+
+              {browseItems.length > 0 && (
+                <div className="browse-results">
+                  <h4>Current Path: {browsePath}</h4>
+                  {isBrowsing ? (
+                    <div className="loading">Loading...</div>
+                  ) : (
+                    <>
+                      <ul>
+                        <li onClick={() => browsePath_fn(browsePath + '/..')}>
+                          <span className="material-icons">folder</span>
+                          ..
+                        </li>
+                        {browseItems
+                          .filter(item => item.is_directory)
+                          .map((item, idx) => (
+                            <li
+                              key={idx}
+                              onClick={() => browsePath_fn(item.path)}
+                            >
+                              <span className="material-icons">folder</span>
+                              {item.name}
+                            </li>
+                          ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewFolderPath(browsePath);
+                          setBrowseItems([]);
+                        }}
+                      >
+                        Select Current Folder
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button type="submit">Save</button>
+                <button type="button" onClick={handleCloseFolderModal}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

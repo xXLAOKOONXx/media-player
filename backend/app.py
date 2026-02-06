@@ -2615,7 +2615,7 @@ def get_clips_folder():
 
 
 @app.route('/api/video/clips/folder', methods=['PUT'])
-@require_auth(user_manager)
+@require_admin(user_manager)
 async def set_clips_folder():
     """Set clips folder path"""
     data = request.json
