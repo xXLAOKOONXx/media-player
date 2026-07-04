@@ -436,33 +436,32 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
     // Bulk mode: add selected tracks to the playlist
     if (!trackToAdd && selectedTracks.size > 0) {
       const mediaIds = Array.from(selectedTracks);
-      let addedCount = 0;
-      let failedCount = 0;
 
-      for (const mediaId of mediaIds) {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/api/audio/music/playlists/${selectedPlaylist}/add-track`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ media_id: mediaId })
-            }
-          );
-          if (response.ok) {
-            addedCount++;
-          } else {
-            failedCount++;
+      const results = await Promise.all(
+        mediaIds.map(async (mediaId) => {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}/api/audio/music/playlists/${selectedPlaylist}/add-track`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ media_id: mediaId })
+              }
+            );
+            return response.ok;
+          } catch {
+            return false;
           }
-        } catch {
-          failedCount++;
-        }
-      }
+        })
+      );
+
+      const addedCount = results.filter(Boolean).length;
+      const failedCount = results.length - addedCount;
 
       if (failedCount === 0) {
-        alert(`Added ${addedCount} track(s) to playlist successfully!`);
+        alert(`Added ${addedCount} track(s) to "${selectedPlaylist}" successfully!`);
       } else {
-        alert(`Added ${addedCount} track(s), ${failedCount} failed (may already exist in playlist).`);
+        alert(`Added ${addedCount} track(s) to "${selectedPlaylist}", ${failedCount} failed (may already exist in playlist).`);
       }
       setShowAddToPlaylistForm(false);
       setSelectedPlaylist('');
