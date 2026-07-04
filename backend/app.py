@@ -480,7 +480,7 @@ async def get_playlists():
     return jsonify(config.get('playlists', config.get('libraries', [])))
 
 @app.route('/api/audio/playlists', methods=['POST'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 async def add_playlist():
     """Add a new playlist folder"""
     data = request.json
@@ -506,7 +506,7 @@ async def add_playlist():
     return jsonify(playlist_folder), 201
 
 @app.route('/api/audio/playlists/<int:playlist_id>', methods=['PUT'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 async def rename_playlist(playlist_id):
     """Rename a playlist folder"""
     data = request.json
@@ -525,7 +525,7 @@ async def rename_playlist(playlist_id):
     return jsonify({'error': 'Playlist folder not found'}), 404
 
 @app.route('/api/audio/playlists/<int:playlist_id>', methods=['DELETE'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 async def delete_playlist(playlist_id):
     """Delete a playlist folder"""
     config = await asyncio.to_thread(load_config)
@@ -843,7 +843,7 @@ async def set_playlists_folder():
     return jsonify({'path': path})
 
 @app.route('/api/audio/music/playlists/create', methods=['POST'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 async def create_music_playlist():
     """Create a new M3U playlist from selected tracks"""
     data = request.json
@@ -912,7 +912,7 @@ async def create_music_playlist():
         return jsonify({'error': 'Failed to create playlist'}), 500
 
 @app.route('/api/audio/music/playlists/<path:playlist_name>/add-track', methods=['POST'])
-@require_admin(user_manager)
+@require_auth(user_manager)
 async def add_track_to_music_playlist(playlist_name):
     """Add a track to an existing playlist"""
     data = request.json

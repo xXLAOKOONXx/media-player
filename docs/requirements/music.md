@@ -31,7 +31,10 @@ Conditional buttons (only when at least one track is selected):
 4) **Create Playlist (N)**
 - Opens the “Create New Playlist” modal.
 
-5) **Add to Current Playlist (N)**
+5) **Add to Existing Playlist (N)**
+- Opens the "Add Track to Playlist" modal in bulk mode, allowing the user to select an existing playlist and add all selected tracks to it.
+
+6) **Add to Current Playlist (N)**
 - Sends selected tracks to the currently loaded playback playlist.
 
 ## Playlist Folder indicator
@@ -143,7 +146,10 @@ Buttons:
 
 ## Add Track to Playlist modal
 
-Opens via per-track “Add to playlist” action (see Track table).
+Opens via per-track "Add to playlist" action (see Track table) or via the bulk "Add to Existing Playlist" button.
+
+When opened for a single track, the modal title shows "Add Track to Playlist".
+When opened for bulk selected tracks, the modal title shows "Add N Track(s) to Playlist".
 
 Controls:
 - Playlist select dropdown (required):
@@ -233,6 +239,13 @@ Filtering behavior:
 
 When `selectedTracks.size > 0`, show:
 - **Create Playlist (N)** (opens modal)
+- **Add to Existing Playlist (N)**
+  - Opens the "Add Track to Playlist" modal in bulk mode.
+  - The modal title shows "Add N Track(s) to Playlist".
+  - The user selects an existing playlist from the dropdown.
+  - On submit, each selected track is added to the playlist via POST `/api/audio/music/playlists/{selectedPlaylist}/add-track`.
+  - On success: `alert('Added X track(s) to playlist successfully!')` and clears selection.
+  - On partial failure: `alert('Added X track(s), Y failed (may already exist in playlist).')`.
 - **Add to Current Playlist (N)**
   - POST `/api/audio/playback/add-tracks` with `{ media_ids: <selected track media_ids> }`.
   - On success: `alert('Added X track(s) to current playlist...')` and clears selection.
