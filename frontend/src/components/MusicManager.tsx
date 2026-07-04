@@ -429,7 +429,48 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
   const handleAddToPlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedPlaylist || !trackToAdd) {
+    if (!selectedPlaylist) {
+      return;
+    }
+
+    // Bulk mode: add selected tracks to the playlist
+    if (!trackToAdd && selectedTracks.size > 0) {
+      const mediaIds = Array.from(selectedTracks);
+
+      const results = await Promise.all(
+        mediaIds.map(async (mediaId) => {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}/api/audio/music/playlists/${selectedPlaylist}/add-track`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ media_id: mediaId })
+              }
+            );
+            return response.ok;
+          } catch {
+            return false;
+          }
+        })
+      );
+
+      const addedCount = results.filter(Boolean).length;
+      const failedCount = results.length - addedCount;
+
+      if (failedCount === 0) {
+        alert(`Added ${addedCount} track(s) to "${selectedPlaylist}" successfully!`);
+      } else {
+        alert(`Added ${addedCount} track(s) to "${selectedPlaylist}", ${failedCount} failed (may already exist in playlist).`);
+      }
+      setShowAddToPlaylistForm(false);
+      setSelectedPlaylist('');
+      setSelectedTracks(new Set());
+      return;
+    }
+
+    // Single track mode
+    if (!trackToAdd) {
       return;
     }
 
@@ -493,12 +534,17 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
           </button>
           {selectedTracks.size > 0 && (
             <>
-              {currentUser?.role === 'admin' && (
-                <button onClick={() => setShowCreatePlaylistForm(true)}>
-                  <span className="material-icons">playlist_add</span>
-                  Create Playlist ({selectedTracks.size})
-                </button>
-              )}
+              <button onClick={() => setShowCreatePlaylistForm(true)}>
+                <span className="material-icons">playlist_add</span>
+                Create Playlist ({selectedTracks.size})
+              </button>
+              <button onClick={() => {
+                setTrackToAdd(null);
+                setShowAddToPlaylistForm(true);
+              }}>
+                <span className="material-icons">library_add</span>
+                Add to Existing Playlist ({selectedTracks.size})
+              </button>
               <button onClick={handleAddToCurrentPlaylist} className="add-to-current-button">
                 <span className="material-icons">queue_music</span>
                 Add to Current Playlist ({selectedTracks.size})
@@ -750,7 +796,7 @@ const MusicManager = ({ currentUser }: MusicManagerProps) => {
       {showAddToPlaylistForm && (
         <div className="modal">
           <div className="modal-content">
-            <h3>Add Track to Playlist</h3>
+            <h3>{trackToAdd ? 'Add Track to Playlist' : `Add ${selectedTracks.size} Track(s) to Playlist`}</h3>
             <form onSubmit={handleAddToPlaylist}>
               <div className="form-group">
                 <label>Select Playlist:</label>
