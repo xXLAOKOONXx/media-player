@@ -5,7 +5,7 @@ on:
     types: [published]
 
 jobs:
-  build-and-upload:
+  build-and-upload-windows:
     runs-on: windows-latest
     permissions:
       contents: write  # Required to upload release assets
@@ -103,3 +103,97 @@ jobs:
             exit 1
           }
         shell: pwsh
+
+  build-and-upload-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to upload release assets
+      actions: read    # Required for actions/checkout
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          working-directory: backend
+          python-version: '3.13'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install Python dependencies
+        working-directory: backend
+        run: |
+          uv sync --frozen --extra build
+
+      - name: Build Linux executable (build script)
+        run: bash build.sh
+      
+      - name: Verify executable creation
+        run: |
+          if [ -f backend/dist/media-player ]; then
+            echo "✓ Executable created successfully"
+            ls -la backend/dist/media-player
+            echo "EXE_PATH=backend/dist/media-player" >> "$GITHUB_ENV"
+          elif [ -d backend/dist/media-player ] && [ -f backend/dist/media-player/media-player ]; then
+            echo "✓ Executable created successfully (one-dir layout)"
+            ls -la backend/dist/media-player/
+            # Create a tar.gz for the one-dir layout
+            tar -czf backend/dist/media-player.tar.gz -C backend/dist media-player
+            echo "EXE_PATH=backend/dist/media-player.tar.gz" >> "$GITHUB_ENV"
+          else
+            echo "::error::Executable not found"
+            exit 1
+          fi
+      
+      - name: Get release info
+        id: release-info
+        run: |
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          # Sanitize tag name for use in filename - only allow safe characters
+          SAFE_TAG_NAME=$(echo "$TAG_NAME" | sed 's/[^a-zA-Z0-9._-]/_/g')
+          
+          # Determine file extension based on EXE_PATH
+          if [[ "${{ env.EXE_PATH }}" == *.tar.gz ]]; then
+            ASSET_NAME="media-player-linux-${SAFE_TAG_NAME}.tar.gz"
+          else
+            ASSET_NAME="media-player-linux-${SAFE_TAG_NAME}"
+          fi
+          
+          echo "asset-name=$ASSET_NAME" >> "$GITHUB_OUTPUT"
+          echo "Asset name: $ASSET_NAME"
+      
+      - name: Rename asset for upload
+        run: |
+          ASSET_NAME="${{ steps.release-info.outputs.asset-name }}"
+          SOURCE_PATH="${{ env.EXE_PATH }}"
+          DEST_PATH="backend/dist/$ASSET_NAME"
+          
+          echo "Renaming $SOURCE_PATH to $DEST_PATH"
+          cp "$SOURCE_PATH" "$DEST_PATH"
+          echo "UPLOAD_PATH=$DEST_PATH" >> "$GITHUB_ENV"
+      
+      - name: Upload Release Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPLOAD_PATH="${{ env.UPLOAD_PATH }}"
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          
+          echo "Uploading $UPLOAD_PATH to release $TAG_NAME"
+          echo "Note: If an asset with the same name exists, it will be overwritten"
+          gh release upload "$TAG_NAME" "$UPLOAD_PATH" --clobber --repo "${{ github.repository }}"
+          
+          echo "✓ Asset uploaded successfully"
