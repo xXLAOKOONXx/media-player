@@ -22,6 +22,7 @@ The Video page uses a consistent (shared) navigation menu component, matching th
 Menu items:
 - **Player** - Video player with playback controls
 - **Series** - Series/Season browser
+- **Search** - Search all series and films
 - **Explorer** - Browse tagged videos with carousels
 - **Playlists** - Video playlist management
 - **Library** - Video library and collection management
@@ -70,6 +71,15 @@ See [video-series.md](video-series.md) for detailed requirements.
 Features:
 - Browse videos by inferred Series/Season structure (recursive libraries)
 - Select a series, optionally select a season, and start episodes/videos
+
+### Search Tab (URL: `/video/search`)
+
+See [video-search.md](video-search.md) for detailed requirements.
+
+Features:
+- Search across all configured libraries for series and films
+- Results are shown as cards (series first, then films)
+- Series cards open the series popup; film cards open the video details modal
 
 ## Video Playback Implementation
 
