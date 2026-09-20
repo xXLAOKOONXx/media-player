@@ -60,7 +60,8 @@ Backend caching behavior:
 
 - `GET /api/video/libraries/{libraryId}/videos` returns the cached video list from the app database when available.
 - The backend does not rescan the filesystem on normal loads.
-- Filesystem changes (new/deleted files, updated `.nfo` metadata) become visible after the user triggers **Refresh** for that library.
+- Filesystem changes become visible after the user triggers **Refresh** for that library.
+  - **Refresh** performs a *soft refresh*: it keeps the existing cached entries as-is and only adds newly-discovered files. Files already registered in the cache are not re-scraped, and entries for files that were removed from disk are left in place. This keeps refreshing an already-scanned library fast.
 
 During loading:
 
@@ -259,6 +260,7 @@ Per library, when not editing:
 
 - **Refresh** (icon `refresh`, tooltip "Refresh library")
   - POST `/api/video/libraries/{libraryId}/refresh`
+  - Performs a soft refresh: keeps the current cache as-is and only adds files that are not yet registered in the cache (does not re-scrape existing entries or remove missing ones).
   - Reloads videos for the selected library or all libraries if in global search.
 - **Edit** (icon `edit`)
   - Enters inline edit mode and pre-fills name.

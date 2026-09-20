@@ -752,7 +752,11 @@ async def get_music_tracks(folder_id):
 
 @app.route('/api/audio/music/<int:folder_id>/refresh', methods=['POST'])
 async def refresh_music_folder(folder_id):
-    """Refresh/rescan a music folder and update cache"""
+    """Refresh a music folder and update cache.
+
+    Performs a soft refresh: existing cached tracks are kept as-is and only
+    newly-discovered files are added, avoiding a full re-scan.
+    """
     config = await asyncio.to_thread(load_config)
     music_folders = config.get('music_folders', [])
     folder = next((f for f in music_folders if f['id'] == folder_id), None)
@@ -760,14 +764,13 @@ async def refresh_music_folder(folder_id):
     if not folder:
         return jsonify({'error': 'Music folder not found'}), 404
     
-    # Force refresh - invalidate cache and rescan
-    await asyncio.to_thread(music_manager.invalidate_cache, folder_id)
+    # Soft refresh - keep existing cache and only add newly-found files.
     tracks = await asyncio.to_thread(
         music_manager.get_audio_files,
         folder['path'],
         folder.get('recursive', False),
         folder_id=folder_id,
-        force_refresh=True,
+        soft_refresh=True,
         include_duration=False
     )
     
@@ -1446,7 +1449,9 @@ async def delete_video_library(library_id):
 async def refresh_video_library(library_id):
     """Refresh/rescan a video library and update cache.
 
-    This endpoint exists primarily for the Video Library UI "Refresh" action.
+    This endpoint backs the Video Library UI "Refresh" action. It performs a
+    soft refresh: existing cache entries are kept as-is and only newly-discovered
+    files are added, which avoids re-scraping the whole library.
     """
     t0 = time.perf_counter()
     config = await asyncio.to_thread(load_config)
@@ -1456,15 +1461,14 @@ async def refresh_video_library(library_id):
     if not library:
         return jsonify({'error': 'Video library not found'}), 404
 
-    # Force refresh - invalidate cache and rescan
-    await asyncio.to_thread(video_manager.invalidate_cache, library_id)
+    # Soft refresh - keep existing cache and only add newly-found files.
     t_scan0 = time.perf_counter()
     videos = await asyncio.to_thread(
         video_manager.get_video_files,
         library['path'],
         library.get('recursive', False),
         folder_id=library_id,
-        force_refresh=True,
+        soft_refresh=True,
     )
 
     logger.info(
