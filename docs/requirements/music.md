@@ -185,6 +185,7 @@ Buttons:
 Per folder, when not editing:
 - **Refresh** (icon `refresh`, tooltip “Refresh folder”)
   - POST `/api/audio/music/{folderId}/refresh`
+  - Performs a soft refresh: keeps the current cache as-is and only adds files that are not yet registered in the cache (existing tracks are not re-read).
   - Then reload tracks (selected folder or global search).
 - **Edit** (icon `edit`)
   - Enters inline edit mode and pre-fills name.

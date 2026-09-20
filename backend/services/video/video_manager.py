@@ -36,6 +36,7 @@ class VideoManager:
         recursive=False,
         folder_id=None,
         force_refresh=False,
+        soft_refresh=False,
     ):
         """Get all video files in a directory
         
@@ -43,7 +44,10 @@ class VideoManager:
             path: Directory path to scan
             recursive: If True, scan subdirectories as well
             folder_id: Optional folder ID for caching
-            force_refresh: If True, bypass cache and rescan
+            force_refresh: If True, bypass cache and rescan every file
+            soft_refresh: If True, keep existing cache entries as-is and only
+                add newly-discovered files. Files already registered in the
+                cache are not re-processed and missing files are not removed.
             
         Returns:
             List of dicts with file information
@@ -51,7 +55,7 @@ class VideoManager:
 
         t0 = time.perf_counter()
 
-        logger.info("VideoManager.get_video_files called folder_id=%s path=%s recursive=%s force_refresh=%s", folder_id, path, bool(recursive), bool(force_refresh))
+        logger.info("VideoManager.get_video_files called folder_id=%s path=%s recursive=%s force_refresh=%s soft_refresh=%s", folder_id, path, bool(recursive), bool(force_refresh), bool(soft_refresh))
         logger.info("Cache context: %s", "enabled" if self.cache else "disabled")
 
         # If no cache context, fall back to the original behavior.
@@ -87,7 +91,7 @@ class VideoManager:
         )
         if not all(hasattr(self.cache, m) for m in required_methods):
             logger.info("Cache context is a stub; performing full scan and caching results folder_id=%s", folder_id)
-            if not force_refresh:
+            if not force_refresh and not soft_refresh:
                 cached_videos = self.cache.get_cached_videos(folder_id)
                 if cached_videos is not None:
                     return cached_videos
@@ -145,7 +149,7 @@ class VideoManager:
         #
         # This matches the Video Library UX expectation that filesystem changes
         # (new/deleted files, updated NFOs) are only reflected after a refresh.
-        if not force_refresh:
+        if not force_refresh and not soft_refresh:
             try:
                 logger.info("Attempting to load cached video list for folder_id=%s", folder_id)
                 t_cache_list0 = time.perf_counter()
@@ -205,10 +209,17 @@ class VideoManager:
                     timings['cache_freshness'] += time.perf_counter() - t_fresh0
                     cached_at = freshness.get('cached_at') if isinstance(freshness, dict) else None
                     if isinstance(cached_at, (int, float)):
-                        t_mtime0 = time.perf_counter()
-                        latest_change = _latest_source_mtime(normalized_path)
-                        timings['source_mtime'] += time.perf_counter() - t_mtime0
-                        if float(cached_at) >= float(latest_change):
+                        if soft_refresh:
+                            # Soft refresh: keep every already-registered file as-is
+                            # and only add brand-new files. Do not re-read source
+                            # metadata even if the file changed on disk.
+                            should_skip = True
+                        else:
+                            t_mtime0 = time.perf_counter()
+                            latest_change = _latest_source_mtime(normalized_path)
+                            timings['source_mtime'] += time.perf_counter() - t_mtime0
+                            should_skip = float(cached_at) >= float(latest_change)
+                        if should_skip:
                             t_get0 = time.perf_counter()
                             cached_video = self.cache.get_cached_video_by_path(normalized_path)
                             timings['cache_get_video'] += time.perf_counter() - t_get0
@@ -304,14 +315,16 @@ class VideoManager:
             print(f"Error scanning video directory {path}: {e}")
 
         # Remove files that no longer exist.
-        try:
-            logger.info("Deleting missing videos from cache for folder_id=%s", folder_id)
-            t_del0 = time.perf_counter()
-            self.cache.delete_videos_not_in_paths(folder_id, seen_paths)
-            timings['cache_delete_missing'] += time.perf_counter() - t_del0
-        except Exception:
-            counts['cache_delete_errors'] += 1
-            pass
+        # Soft refresh keeps the current cache as-is, so we never prune entries.
+        if not soft_refresh:
+            try:
+                logger.info("Deleting missing videos from cache for folder_id=%s", folder_id)
+                t_del0 = time.perf_counter()
+                self.cache.delete_videos_not_in_paths(folder_id, seen_paths)
+                timings['cache_delete_missing'] += time.perf_counter() - t_del0
+            except Exception:
+                counts['cache_delete_errors'] += 1
+                pass
 
         # Rebuild cached series/seasons + refresh per-video links.
         if recursive:
@@ -379,10 +392,11 @@ class VideoManager:
         out = [v if isinstance(v, dict) and 'has_thumbnail' in v else self._sanitize_video_for_api(v) for v in processed_videos]
 
         logger.info(
-            "VideoManager.get_video_files timing mode=cache-aware folder_id=%s recursive=%s force_refresh=%s videos=%s supported=%s skipped_cache=%s processed=%s total=%.3fs phase=%s",
+            "VideoManager.get_video_files timing mode=cache-aware folder_id=%s recursive=%s force_refresh=%s soft_refresh=%s videos=%s supported=%s skipped_cache=%s processed=%s total=%.3fs phase=%s",
             folder_id,
             bool(recursive),
             bool(force_refresh),
+            bool(soft_refresh),
             len(out),
             counts.get('files_supported', 0),
             counts.get('files_skipped_cache', 0),

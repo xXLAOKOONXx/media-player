@@ -38,6 +38,7 @@ class MusicManager:
         folder_id=None,
         force_refresh=False,
         include_duration=False,
+        soft_refresh=False,
     ):
         """Get all audio files in a directory
         
@@ -45,11 +46,42 @@ class MusicManager:
             path: Directory path to scan
             recursive: If True, scan subdirectories as well
             folder_id: Optional folder ID for caching
-            force_refresh: If True, bypass cache and rescan
+            force_refresh: If True, bypass cache and rescan every file
+            soft_refresh: If True, keep existing cached tracks as-is and only
+                add newly-discovered files (avoids re-reading unchanged files)
             
         Returns:
             List of dicts with file information and metadata
         """
+        # Soft refresh: keep existing cache entries and only add new files.
+        if self.cache and folder_id is not None and soft_refresh and not force_refresh:
+            self.cache.register_folder(folder_id, path, recursive)
+            cached_tracks = self.cache.get_cached_tracks(folder_id) or []
+            cached_paths = {
+                os.path.normpath(t['path'])
+                for t in cached_tracks
+                if isinstance(t, dict) and t.get('path')
+            }
+
+            # Only unknown files need metadata extraction.
+            new_tracks = self._scan_audio_files(
+                path,
+                recursive,
+                include_duration=True,
+                skip_paths=cached_paths,
+            )
+
+            if not new_tracks:
+                return cached_tracks
+
+            merged = cached_tracks + new_tracks
+            merged.sort(key=lambda x: (
+                (x.get('artist') or '').lower(),
+                (x.get('title') or x.get('name') or '').lower(),
+            ))
+            self.cache.cache_tracks(folder_id, merged)
+            return merged
+
         # Try to use cache if available
         if self.cache and folder_id is not None and not force_refresh:
             # Register folder in cache
@@ -72,17 +104,20 @@ class MusicManager:
         
         return audio_files
     
-    def _scan_audio_files(self, path, recursive=False, include_duration=False):
+    def _scan_audio_files(self, path, recursive=False, include_duration=False, skip_paths=None):
         """Scan filesystem for audio files
         
         Args:
             path: Directory path to scan
             recursive: If True, scan subdirectories as well
+            skip_paths: Optional set of normalized paths to ignore (used by
+                soft refresh to avoid re-reading already-cached files)
             
         Returns:
             List of dicts with file information and metadata
         """
         audio_files = []
+        skip_paths = skip_paths or set()
         
         try:
             # Prefer os.scandir/os.walk over pathlib rglob on Windows/UNC shares.
@@ -94,12 +129,15 @@ class MusicManager:
                 if ext not in self.AUDIO_EXTENSIONS:
                     return
 
+                normalized_path = os.path.normpath(full_path)
+                if normalized_path in skip_paths:
+                    return
+
                 try:
                     stat = os.stat(full_path)
                 except OSError:
                     return
 
-                normalized_path = os.path.normpath(full_path)
                 media_id = hashlib.sha256(normalized_path.encode('utf-8', errors='replace')).hexdigest()
 
                 file_info = {
