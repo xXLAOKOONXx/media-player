@@ -9,6 +9,7 @@ import VideoPlaybackControls from '../components/VideoPlaybackControls';
 import SettingsManager from '../components/SettingsManager';
 import VideoExplorer from '../components/VideoExplorer';
 import VideoSeries from '../components/VideoSeries';
+import VideoSearch from '../components/VideoSearch';
 import ClipsManager from '../components/ClipsManager';
 import PageMenu from '../components/PageMenu';
 import { useSSEStatus } from '../hooks/useSSEStatus';
@@ -29,6 +30,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
   const getActiveTabFromPath = () => {
     const path = location.pathname;
     if (path.includes('/series')) return 'series';
+    if (path.includes('/search')) return 'search';
     if (path.includes('/explorer')) return 'explorer';
     if (path.includes('/player')) return 'player';
     if (path.includes('/playlists')) return 'playlists';
@@ -38,7 +40,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
     return 'player'; // default
   };
 
-  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer' | 'series' | 'clips'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'player' | 'settings' | 'explorer' | 'series' | 'search' | 'clips'>(getActiveTabFromPath());
   const [playbackStatus, setPlaybackStatus] = useState<any>(null);
 
   // Sync activeTab with URL changes
@@ -81,6 +83,7 @@ function VideoPage({ currentUser }: VideoPageProps) {
           { key: 'player', label: 'Player' },
           { key: 'clips', label: 'Clips' },
           { key: 'series', label: 'Series' },
+          { key: 'search', label: 'Search' },
           { key: 'explorer', label: 'Explorer' },
           { key: 'playlists', label: 'Playlists' },
           { key: 'library', label: 'Library' },
@@ -110,6 +113,10 @@ function VideoPage({ currentUser }: VideoPageProps) {
 
         {activeTab === 'series' && (
           <VideoSeries />
+        )}
+
+        {activeTab === 'search' && (
+          <VideoSearch />
         )}
         
         {activeTab === 'playlists' && (
