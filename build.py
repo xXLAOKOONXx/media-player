@@ -222,14 +222,10 @@ def build_frontend(frontend_dir):
 
 
 def bundle_with_pyinstaller(backend_dir):
-    """Bundle the application using PyInstaller (Windows only)"""
+    """Bundle the application using PyInstaller"""
     print_step("Creating executable bundle with PyInstaller...")
     
     is_windows = platform.system() == 'Windows'
-    
-    if not is_windows:
-        print_warning("PyInstaller bundling is designed for Windows. Skipping on Unix systems.")
-        return True
 
     # Ensure backend runtime deps and build tooling are available in a venv.
     # PyInstaller bundles what it can import/resolve from the interpreter that runs it.
@@ -303,10 +299,11 @@ def bundle_with_pyinstaller(backend_dir):
         return False
     
     # Check if the executable was created
-    # One-file build: dist/media-player.exe
-    # One-dir build (legacy): dist/media-player/media-player.exe
-    onefile_exe_path = dist_dir / 'media-player.exe'
-    onedir_exe_path = dist_dir / 'media-player' / 'media-player.exe'
+    # On Windows: dist/media-player.exe or dist/media-player/media-player.exe
+    # On Linux/macOS: dist/media-player or dist/media-player/media-player
+    exe_ext = '.exe' if is_windows else ''
+    onefile_exe_path = dist_dir / f'media-player{exe_ext}'
+    onedir_exe_path = dist_dir / 'media-player' / f'media-player{exe_ext}'
 
     if onefile_exe_path.exists():
         print_success(f"Executable created at {onefile_exe_path}")
@@ -463,14 +460,9 @@ def main():
     if not args.skip_bundle:
         is_windows = platform.system() == 'Windows'
         
-        if is_windows:
-            if not bundle_with_pyinstaller(backend_dir):
-                print_error("\nBuild failed during PyInstaller bundling step")
-                sys.exit(1)
-        else:
-            if not create_unix_distribution(project_root, backend_dir):
-                print_error("\nBuild failed during Unix distribution creation")
-                sys.exit(1)
+        if not bundle_with_pyinstaller(backend_dir):
+            print_error("\nBuild failed during PyInstaller bundling step")
+            sys.exit(1)
     else:
         print_warning("Skipping bundle creation (--skip-bundle specified)")
     
