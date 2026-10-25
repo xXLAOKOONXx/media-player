@@ -19,22 +19,49 @@ import asyncio
 
 
 def _configure_logging() -> None:
-    """Configure root logging once for console output.
+    """Configure root logging once for console and rotating file output.
 
     Without this, Python may default to a WARNING-level "last resort" handler,
     causing INFO logs from module loggers to never show up in the console.
+
+    In addition to the console, logs are written to ``logs.txt`` inside the
+    application data directory. A size-based rotating handler keeps the file
+    from growing unbounded (automatic cleanup of old log data).
     """
+    from logging.handlers import RotatingFileHandler
+
     root_logger = logging.getLogger()
     if root_logger.handlers:
         return
 
     level_name = os.getenv('LOG_LEVEL', 'INFO').upper()
     level = getattr(logging, level_name, logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+
+    try:
+        from services.general.database_manager import get_app_data_dir
+
+        log_path = os.path.join(get_app_data_dir(), 'logs.txt')
+        # Max size per file and number of rotated backups are configurable via
+        # environment variables; defaults keep total log data to ~5 MB.
+        max_bytes = int(os.getenv('LOG_MAX_BYTES', str(1 * 1024 * 1024)))
+        backup_count = int(os.getenv('LOG_BACKUP_COUNT', '5'))
+        file_handler = RotatingFileHandler(
+            log_path,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding='utf-8',
+        )
+        handlers.append(file_handler)
+    except Exception as exc:  # pragma: no cover - logging must never break startup
+        print(f'Failed to configure file logging: {exc}', file=sys.stderr)
+
+    for handler in handlers:
+        handler.setFormatter(formatter)
+
+    logging.basicConfig(level=level, handlers=handlers)
 
 # Import modules
 from services.general.library_manager import LibraryManager
